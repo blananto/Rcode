@@ -13,7 +13,7 @@ library(scoringRules) #crps
 library(evd) #fpot
 
 # Calcule et trace les CRPSS pour analogie indicateurs pour les differents couples d'indicateurs et differents rayons 
-compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="",standardize=TRUE,CV=TRUE,rean,twolev=FALSE){
+compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="",standardize=TRUE,CV=TRUE,rean){
   descr<-list(
     c("sing","sing"),
     c("cel","sing"),
@@ -99,9 +99,9 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
           
           for (i in 1:length(descriptors)){ # Import et recuperation des scores selon les differents couples d'indicateurs pour une distribution
             print(descriptors[[i]])
-            print(paste0(get.dirstr(k,rean),ifelse(twolev,"compute_crps_TL","compute_crps"),get.CVstr(CV),"/",paste0(descriptors[[i]],collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".Rdata"))
+            print(paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors[[i]],collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".Rdata"))
             if (substr(descriptors[[i]][1],1,1)=="A") load(file=paste0(get.dirstr(k,rean),"compute_crps-CV.A/02_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
-            else load(file=paste0(get.dirstr(k,rean),ifelse(twolev,"compute_crps_TL","compute_crps"),get.CVstr(CV),"/",paste0(descriptors[[i]],collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".Rdata"))
+            else load(file=paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors[[i]],collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".Rdata"))
             crps.mat<-cbind(crps.mat,crps[,nam])
             coln<-c(coln,paste0(descr[[i]],collapse="-"))
           }
@@ -152,7 +152,7 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
     if (seasonal) seastr<-"seasonal"
     else seastr<-"overall"
     
-    filename<-paste0(dirstr.save,ifelse(twolev,"compare.crps.TL/","compare.crps/"),which,match(nam,colnam),"_",diststr.save,"_member",member,kstr.save,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),radstr.save,".png")
+    filename<-paste0(dirstr.save,"compare.crps/",which,match(nam,colnam),"_",diststr.save,"_member",member,kstr.save,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),radstr.save,".png")
     if (substr(nam,1,3)=="pos"){ # si "pos", trois fenetres graphiques
       png(file=filename,width=18,height=8,units="in",res=72)
       par(mar=c(9,4,4,2),mfrow=c(1,4))
@@ -472,7 +472,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
 }
 
 # Calcul des CRPS apres analogie au sens des indicateurs
-compute_crps<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=TRUE,rean,twolev=FALSE){
+compute_crps<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=TRUE,rean){
   
   print(paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
   
@@ -500,7 +500,7 @@ compute_crps<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-
   #  fit.egp<-fit
   #}
   
-  load(file=paste0(get.dirstr(k,rean),ifelse(twolev,"fit.empir.two.levels","fit.empir"),get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata")) # on importe la loi empirique
+  load(file=paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata")) # on importe la loi empirique
   
   crps<-matrix(NA,ncol=5,nrow=N)
   colnames(crps)<-c("all ecdf","pos ecdf","p0 binom","pos gamma","pos egp") # memes colonnes que pour score climato
@@ -522,7 +522,48 @@ compute_crps<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-
       }
     }
   }
-  save(crps,file=paste0(get.dirstr(k,rean),ifelse(twolev,"compute_crps_TL","compute_crps"),get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
+  save(crps,file=paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
+}
+
+# Calcul des CRPS apres analogie au sens de l'analogie classique ET des indicateurs
+compute_crps_TL<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=TRUE,rean){
+  
+  print(paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
+  
+  precip<-get.precip(nbdays,start,end)
+  
+  descr <- matrix(NA,length(precip),length(descriptors))
+  for (i in 1:length(descriptors)) descr[,i]<-get.descriptor(descriptors[i],k,dist,nbdays,start,end,standardize,rean) # on importe les descripteurs
+  
+  if (nrow(descr) !=length(precip)) stop("Probleme taille des donnees")
+  
+  N<-length(precip)
+  
+ 
+  
+  load(file=paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata")) # on importe la loi empirique
+  
+  crps<-matrix(NA,ncol=5,nrow=N)
+  colnames(crps)<-c("all ecdf","pos ecdf","p0 binom","pos gamma","pos egp") # memes colonnes que pour score climato
+  for (i in 1:N){
+    if (i %%50==0) print(i)
+    if (!is.na(descr[i,1]) & !is.na(descr[i,2])){ # si les indicateurs du jour ne sont pas nuls
+      tmp<-get.closest(i,descr,precip,CV,nbdays,radtype) # on prend les voisins selon un certain rayon
+      pi<-precip[tmp$idx]
+      crps[i,"all ecdf"]<-crps_sample(precip[i],pi) # crps all ecdf
+      crps[i,"p0 binom"]<-crps_binom(precip[i]==0,1,param[i,"p0"]) # crps p0 binom
+      if (precip[i]>0) {
+        crps[i,"pos ecdf"]<-crps_sample(precip[i],pi[pi>0]) # crps pos ecdf
+        #if (file.exists(filegamma)) crps[i,"pos gamma"]<-crps_gamma(precip[i],shape=fit.gamma$param[i,"shape"],scale=fit.gamma$param[i,"scale"]) # crps pos gamma
+        #if (file.exists(fileegp)) {
+        #  simu<-regp2(1000,kappa=fit.egp$param[i,"kappa"],sigma=fit.egp$param[i,"sigma"],xi=fit.egp$param[i,"xi"])
+        #  crps[i,"pos egp"]<-crps_sample(precip[i],simu) # crps pos egp
+        #  gc()
+        #}
+      }
+    }
+  }
+  save(crps,file=paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
 }
 
 # Calcul des CRPS apres analogie au sens de l'analogie classique
@@ -778,16 +819,16 @@ fit.empir.A<-function(rad,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",re
 }
 
 # fit une cdf empirique avec deux niveaux d'analogie: analogie classique pus indicateurs
-fit.empir.two.levels <- function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,rad ="10",radtype="nrn50",CV=TRUE,rean){
+fit.empir.TL <- function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radAna ="10",radInd="05",CV=TRUE,rean){
   
-  print(paste0(get.dirstr(k,rean),"fit.empir.two.levels",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
+  print(paste0(get.dirstr(k,rean),"fit.empir.TL",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radAna,"_",radInd,".Rdata"))
   
   # Import des pluies
   precip<-get.precip(nbdays,start,end)
   
   # Import des voisins analogie classique
   load(file=paste0(get.dirstr(k,rean),"save.nei.A/nei_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
-  nei<-nei[[rad]]
+  nei<-nei[[radAna]]
   
   # Import des indicateurs
   descr<-NULL
@@ -796,7 +837,10 @@ fit.empir.two.levels <- function(descriptors,k,dist,nbdays=3,start="1950-01-01",
   if (nrow(descr) !=length(precip)) stop("Probleme taille des donnees")
   if (nrow(descr) !=length(nei)) stop("Probleme taille des donnees")
   
-  N<-length(precip)
+  N <- length(precip)
+  rad1 <- str2prop(radAna)
+  rad2 <- str2prop(radInd)
+  radtype <- paste0("nrn",rad2/rad1*100)
   
   param<-matrix(NA,ncol=7,nrow=N)
   for (i in 1:N){
@@ -815,7 +859,7 @@ fit.empir.two.levels <- function(descriptors,k,dist,nbdays=3,start="1950-01-01",
   }
   colnames(param)<-c("nbnei","p0","mean","sd","skewness","kurtosis","radius")
   
-  save(param,file=paste0(get.dirstr(k,rean),"fit.empir.two.levels",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
+  save(param,file=paste0(get.dirstr(k,rean),"fit.empir.TL",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radAna,"_",radInd,".Rdata"))
 }
 
 # Ajustement d'une loi en p0, a partir de p0 calculee dans fit.empir
@@ -910,12 +954,12 @@ getinfo_window=function(k,rean){
   c_lat<-44 # centre de la fenetre latitude
   
   if(k==1) {# 500hPA
-    d_lon<-32 # on prend 32° en longitude pour 500hPa
-    d_lat<-16 # on prend 16° en latitude pour 500hPa
+    d_lon<-32 # on prend 32 en longitude pour 500hPa
+    d_lat<-16 # on prend 16 en latitude pour 500hPa
   }
   if (k==2){ # 1000 hPA
-    d_lon<-16 # on prend 16°en longitude pour 1000hPa
-    d_lat<-8  # on prend 8°en latitude pour 1000hPa
+    d_lon<-16 # on prend 16 en longitude pour 1000hPa
+    d_lat<-8  # on prend 8 en latitude pour 1000hPa
   }
   
   deb_lon <- which.min(abs(lon - (c_lon-d_lon/2)))
@@ -1260,7 +1304,7 @@ run<-function(k,dist,nbdays,str,radtype,start,end,rean){
 }
 
 # Lance les fonctions souhaitees
-run.two.levels<-function(k,dist,nbdays,str,rad,radtype,start,end,rean){
+run.TL<-function(k,dist,nbdays,str,rad,radtype,start,end,rean){
   
   descr<-list(
     c("cel","sing"),
@@ -1280,11 +1324,11 @@ run.two.levels<-function(k,dist,nbdays,str,rad,radtype,start,end,rean){
   
   
   for (i in 1:length(descr)){
-    fit.empir.two.levels(descriptors = descr[[i]], k = k, dist = dist, nbdays = nbdays, rad = rad, radtype = radtype, start = start, end = end, rean = rean)
+    fit.empir.TL(descriptors = descr[[i]], k = k, dist = dist, nbdays = nbdays, rad = rad, radtype = radtype, start = start, end = end, rean = rean)
     #fit.loglik.gamma(descriptors = descr[[i]], k = k, dist = dist, nbdays = nbdays, radtype = radtype, start = start, end = end, rean = rean)
     #fit.loglik.egp(descriptors = descr[[i]], k = k, dist = dist, nbdays = nbdays, radtype = radtype, start = start, end = end, rean = rean)
     #fit.loglik.p0(descriptors = descr[[i]], k = k, dist = dist, nbdays = nbdays, radtype = radtype, start = start, end = end, rean = rean)
-    compute_crps(descriptors = descr[[i]], k = k, dist = dist, nbdays = nbdays, radtype = radtype, start = start, end = end, rean = rean, twolev = TRUE)
+    compute_crps_TL(descriptors = descr[[i]], k = k, dist = dist, nbdays = nbdays, radtype = radtype, start = start, end = end, rean = rean, twolev = TRUE)
   }
   
 }
@@ -1376,13 +1420,10 @@ selind_season<-function(i,len,dates){
 
 # Renvoie un numerique a partir d'une chaine de caracteres (0.005, 0.01)
 str2prop<-function(str){
-  if (str=="01") prop<-0.001
-  if (str=="02") prop<-0.002
-  if (str=="05") prop<-0.005
-  if (str=="1") prop<-0.01
-  if (str=="2") prop<-0.02
-  if (str=="5") prop<-0.05
-  if (str=="10") prop<-0.1
-  if (str=="50") prop<-0.5
+  
+  if(substr(str,1,1) == "0") {
+    prop <- as.numeric(str)*0.001
+  } else { prop <- as.numeric(str)*0.01}
+ 
   prop
 }

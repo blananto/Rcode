@@ -1,6 +1,4 @@
-#########################
-# Script classique
-#########################
+setwd("C:/Users/blanca/Documents")
 
 # Parametres ----
 rean     <- "ERA20C"
@@ -42,10 +40,10 @@ plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start 
 
 # Analogie en deux etapes: selection analogie classique puis sous selection indicateurs ----
 descr <- c("sing05","rsing05")
-fit.empir.two.levels(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end,
-                     rad = "10", radtype = "nrn50", rean = rean)
+fit.empir.TL(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end,
+                     radAna = "10", radInd = "05", rean = rean)
 
 # Ensuite, faire tourner avec run
-run.two.levels(k = k, dist = dist, nbdays = nbdays, str = Q, rad = "10", radtype = "nrn05", start = start, end = end, rean = rean)
+run.TL(k = k, dist = dist, nbdays = nbdays, str = Q, rad = "10", radtype = "nrn05", start = start, end = end, rean = rean)
 compare.crps(which = "", k = k, dist = dist, nbdays = nbdays,radtype = "nrn05", start = start, end = end, rean = rean, twolev = TRUE)
 
