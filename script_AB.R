@@ -1,7 +1,7 @@
 setwd("C:/Users/blanca/Documents")
 
 # Parametres ----
-rean     <- "ERA20C"
+rean     <- "20CR"
 member   <- 1
 seasonal <- FALSE
 k        <- 1
@@ -11,7 +11,7 @@ N        <- "02" # %age de voisins selectionnes pour l'analogie classique
 Q        <- "05" # %age de voisins selectionnes pour construire les indicateurs 
 M        <- "nrn05" # %age de voisins selectionnes pour l'analogie indicateurs
 start    <- "1950-01-01"
-end      <- "2010-12-31"
+end      <- "2011-12-31"
 
 # Import des sorties de la reanalyse et calcul des distances ----
 load.nc(rean = rean)
@@ -40,10 +40,14 @@ plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start 
 
 # Analogie en deux etapes: selection analogie classique puis sous selection indicateurs ----
 descr <- c("sing05","rsing05")
-fit.empir.TL(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end,
-                     radAna = "10", radInd = "05", rean = rean)
 
-# Ensuite, faire tourner avec run
-run.TL(k = k, dist = dist, nbdays = nbdays, str = Q, rad = "10", radtype = "nrn05", start = start, end = end, rean = rean)
-compare.crps(which = "", k = k, dist = dist, nbdays = nbdays,radtype = "nrn05", start = start, end = end, rean = rean, twolev = TRUE)
+fit.empir.TL(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end,
+             radAna = "10", radInd = "05", rean = rean)
+compute_crps_TL(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end,
+                radAna = "10", radInd = "05", rean = rean)
+compare.crps.TL(k = k, dist = dist, nbdays = nbdays, start = start, end = end,
+                radAna = "10", radInd = "05", rean = rean)
+
+# Ensuite, les trois fonctions d'un coup avec differents rayons
+run.TL(k = k, dist = dist, nbdays = nbdays, str = Q, radAna = "05", radInd = "02", start = start, end = end, rean = rean)
 
