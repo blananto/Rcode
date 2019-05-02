@@ -1,7 +1,7 @@
 setwd("C:/Users/blanca/Documents")
 
 # Parametres ----
-rean     <- "20CR"
+rean     <- "ERA20C"
 member   <- 1
 seasonal <- FALSE
 k        <- 1
@@ -11,7 +11,7 @@ N        <- "02" # %age de voisins selectionnes pour l'analogie classique
 Q        <- "05" # %age de voisins selectionnes pour construire les indicateurs 
 M        <- "nrn05" # %age de voisins selectionnes pour l'analogie indicateurs
 start    <- "1950-01-01"
-end      <- "2011-12-31"
+end      <- "2010-12-31"
 
 # Import des sorties de la reanalyse et calcul des distances ----
 load.nc(rean = rean)
@@ -51,3 +51,11 @@ compare.crps.TL(k = k, dist = dist, nbdays = nbdays, start = start, end = end,
 # Ensuite, les trois fonctions d'un coup avec differents rayons
 run.TL(k = k, dist = dist, nbdays = nbdays, str = Q, radAna = "05", radInd = "02", start = start, end = end, rean = rean)
 
+
+# Analogie double combinee ----
+save.score.A(k = k, dist = dist, nbdays = nbdays, start = start, end = end, rean = rean)
+fit.empir.comb(descriptors = c("cel","sing05"), k = k, dist = dist, nbdays = nbdays, start = start,
+               end = end, p = 1, rean = rean)
+
+run.comb(k = k, dist = dist, nbdays = nbdays, str = Q, start = start, end = end, p = 0, rad = "05", rean = rean)
+compare.crps.comb(k = k, dist = dist, nbdays = nbdays, start = start, end = end, p = 0, rad = "05", rean = rean)
