@@ -1,7 +1,7 @@
 setwd("C:/Users/blanca/Documents")
 
 # Parametres ----
-rean     <- "ERA20C"
+rean     <- "ERA20C_18"
 member   <- 1
 seasonal <- FALSE
 k        <- 1

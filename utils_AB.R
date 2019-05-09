@@ -1270,7 +1270,7 @@ getdates<-function(start="1950-01-01",end="2011-12-31"){
 # Date associee a chaque pas de temps dans le fichier NetCDF
 getdays<-function(nc,rean){
   if(rean == "20CR") orig <- "1800"
-  if(rean == "ERA20C") orig <- "1900"
+  if(rean == "ERA20C" | rean =="ERA20C_18") orig <- "1900"
   substr(as.POSIXct(nc$dim$time$vals*3600,origin=paste0(orig,'-01-01 00:00'),tz="GMT"),1,10) #format "YYYY-MM-DD"
 }
 
@@ -1469,6 +1469,10 @@ load.nc<-function(rean = "20CR"){
   if(rean == "ERA20C"){
     nc500<-nc_open("2_Travail/ERA20C/Data/ERA20C_HGT500_1900_2010_daily.nc")
     nc1000<-nc_open("2_Travail/ERA20C/Data/ERA20C_HGT1000_1900_2010_daily.nc")
+  }
+  if(rean == "ERA20C_18"){
+    nc500<-nc_open("2_Travail/ERA20C_18/Data/ERA20C_HGT500_1900_2010_18h.nc")
+    nc1000<-nc_open("2_Travail/ERA20C_18/Data/ERA20C_HGT1000_1900_2010_18h.nc")
   }
   
   nc<<-list(nc500=nc500,nc1000=nc1000)
@@ -1791,7 +1795,7 @@ save.score.A <- function(k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean)
   N<-length(dates)
   gc()
   
-  U<-c(0,(N-1):1);
+  U<-c(0,(N-1):1)
   sU<-sapply(1:(N-1),function(x) sum(U[1:x]))
   gc()
   
