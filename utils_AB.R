@@ -14,16 +14,26 @@ library(evd) #fpot
 
 # Calcule et trace les CRPSS pour analogie indicateurs pour les differents couples d'indicateurs et differents rayons 
 compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="",standardize=TRUE,CV=TRUE,rean){
+  #descr<-list(
+  #  c("sing","sing"),
+  #  c("cel","sing"),
+  #  c("snei","sing"),
+  #  c("rsing","rsing"),
+  #  c("cel","rsing"),
+  #  c("snei","rsing"),
+  #  c("sing","rsing"),
+  #  c("cel","sing","rsing"),
+  #  c("snei","sing","rsing"),
+  #  c("A","A"))
+  
   descr<-list(
-    c("sing","sing"),
     c("cel","sing"),
-    c("snei","sing"),
-    c("rsing","rsing"),
+    c("celAv","sing"),
+    c("celAvNorm","sing"),
     c("cel","rsing"),
-    c("snei","rsing"),
+    c("celAv","rsing"),
+    c("celAvNorm","rsing"),
     c("sing","rsing"),
-    c("cel","sing","rsing"),
-    c("snei","sing","rsing"),
     c("A","A"))
   
   ndesc<-length(descr)
@@ -625,7 +635,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
   
   if (!update) coln.new<-c("cel","mind","sing05","sing1","sing2","sing5","lsing05","lsing1","lsing2","lsing5","pers05","pers1","pers2","pers5","q05","q1","q2","q5","pcel","pnei05","pnei1","pnei2","pnei5","snei05","snei1","snei2","snei5")
   if (update) {
-    coln.new<-c("sing10","lsing10","pers10","q10","pnei10","snei10")
+    coln.new<-c("celN")
   }
   
   criteria.new<-matrix(NA,ncol=length(coln.new),nrow=N)
@@ -652,6 +662,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
     
     gc()
     
+    if(i!=1) idi05v <- idi05
     idi05<-soso$ix[2:(0.005*n)] # recupere la position des 0.5% les plus proches
     idi1<-soso$ix[2:(0.01*n)]   # des 1% les plus proches
     idi2<-soso$ix[2:(0.02*n)]   # des 2% les plus proches
@@ -670,62 +681,72 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
     for (cc in coln.new){
       
       # Celerite
-      if (cc=="cel") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i-1])} # score de la journee avec la veille
+      #if (cc=="cel") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i-1])} # score de la journee avec la veille
+      #if (cc=="cel+1") {if (i==N) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i+1])} # score de la journee avec le lendemain
+      
+      if(cc=="celAv"){if(1 %in% idi05) idi05 <- idi05[idi05!=1]; tmp <- c(tmp,mean(di[idi05-1]))} # score entre jour J et veille des voisins
+      if(cc=="celAvNorm"){if(1 %in% idi05) idi05 <- idi05[idi05!=1]; tmp <- c(tmp,mean(di[idi05-1])/mean(di[idi05]))}
+      
+      if (cc=="celAp") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v+1]))} # score entre jour J et lendemains des voisins de J-1
+      if (cc=="celApNorm") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v+1])/mean(di[idi05]))}
+      
+      if (cc=="celV") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v]))} # score entre jour J et voisins de J-1
+      if (cc=="celVNorm") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v])/mean(di[idi05]))}
       
       # Minimum distance
-      if (cc=="mind") tmp<-c(tmp,di[soso$ix[2]]) # score minimum obtenu avec la meilleure journee analogue
-      
-      # Singularite
-      if (cc=="sing05") tmp<-c(tmp,mean(di[idi05])) # moyenne des distances (scores) des 0.5% les plus proches
-      if (cc=="sing1") tmp<-c(tmp,mean(di[idi1]))   # des 1% les plus proches
-      if (cc=="sing2") tmp<-c(tmp,mean(di[idi2]))   # des 2% les plus proches
-      if (cc=="sing5") tmp<-c(tmp,mean(di[idi5]))   # des 5% les plus proches
-      if (cc=="sing10") tmp<-c(tmp,mean(di[idi10])) # des 10% les plus proches
-      
-      # Log Singularite
-      if (cc=="lsing05") tmp<-c(tmp,mean(log(di[idi05]))) # moyenne du logarithme des distances des 0.5% les plus proches
-      if (cc=="lsing1") tmp<-c(tmp,mean(log(di[idi1])))   # des 1% les plus proches
-      if (cc=="lsing2") tmp<-c(tmp,mean(log(di[idi2])))   # des 2% les plus proches
-      if (cc=="lsing5") tmp<-c(tmp,mean(log(di[idi5])))   # des 5% les plus proches
-      if (cc=="lsing10") tmp<-c(tmp,mean(log(di[idi10]))) # des 10% les plus proches
-      
-      # Persistence
-      if (cc=="pers05") tmp<-c(tmp,mean(ri05$lengths[ri05$values==1])) # moyenne du temps passe a l'interieur du quantile 0.5%
-      if (cc=="pers1") tmp<-c(tmp,mean(ri1$lengths[ri1$values==1]))    # du quantile 1%
-      if (cc=="pers2") tmp<-c(tmp,mean(ri2$lengths[ri2$values==1]))    # du quantile 2%
-      if (cc=="pers5") tmp<-c(tmp,mean(ri5$lengths[ri5$values==1]))    # du quantile 5%
-      if (cc=="pers10") tmp<-c(tmp,mean(ri10$lengths[ri10$values==1])) # du quantile 10%
-      
-      # Quantiles
-      if (cc=="q05") tmp<-c(tmp,qi05) # Quantile 0.5%
-      if (cc=="q1") tmp<-c(tmp,qi1)   # Quantile 1%
-      if (cc=="q2") tmp<-c(tmp,qi2)   # Quantile 2%
-      if (cc=="q5") tmp<-c(tmp,qi5)   # Quantile 5%
-      if (cc=="q10") tmp<-c(tmp,qi10) # Quantile 10%
-      
-      # Probabilite celerite: probabilite d'avoir un score en dessous de celui de la veille
-      if (cc=="pcel"){if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ecdf(dim1)(ddi[i-1]))} # calcul de la fonction de repartition empirique (F=i/n, fonction creneau) et probabilite au non depassement de la veille (donne une indication sur son rang dans les analogues)
-      
-      # Persistence neighbour: probabilite qu'un jour du voisinage soit dans le voisinage de la veille le jour precedent (qu'il suive la meme trajectoire)
-      if (cc=="pnei05") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi05-1) %in% idi05m1))} # moyenne de la condition: les veilles des journees analogues sont dans les 0.5% les plus proches de la veille de la journee cible
-      if (cc=="pnei1") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi1-1) %in% idi1m1))}    # dans les 1% les plus proches
-      if (cc=="pnei2") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi2-1) %in% idi2m1))}    # dans les 2% les plus proches
-      if (cc=="pnei5") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi5-1) %in% idi5m1))}    # dans les 5% les plus proches
-      if (cc=="pnei10") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi10-1) %in% idi10m1))} # dans les 10% les plus proches
-      
-      # Persistence neighbour: probabilite qu'un jour du voisinage soit deja dans le voisinage le jour precedent
-      if (cc=="snei05") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi05-1) %in% idi05))} # moyenne de la condition: les veilles des journees analogues sont deja dans les 0.5% les plus proches de la journee cible
-      if (cc=="snei1") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi1-1) %in% idi1))}    # dans les 1% les plus proches
-      if (cc=="snei2") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi2-1) %in% idi2))}    # dans les 2% les plus proches
-      if (cc=="snei5") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi5-1) %in% idi5))}    # dans les 5% les plus proches
-      if (cc=="snei10") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi10-1) %in% idi10))} # dans les 10% les plus proches
-      
-      # Celerite neighbour: on moyenne la celerite des plus proches voisins
-      if (cc=="celnei05") tmp<-c(tmp,mean(criteria[idi05,"cel"],na.rm=TRUE)) # moyenne des celerites des 0.5% les plus proches
-      if (cc=="celnei1") tmp<-c(tmp,mean(criteria[idi1,"cel"],na.rm=TRUE))   # des 1% les plus proches
-      if (cc=="celnei2") tmp<-c(tmp,mean(criteria[idi2,"cel"],na.rm=TRUE))   # des 2% les plus proches
-      if (cc=="celnei5") tmp<-c(tmp,mean(criteria[idi5,"cel"],na.rm=TRUE))   # des 5% les plus proches
-      if (cc=="celnei10") tmp<-c(tmp,mean(criteria[idi10,"cel"],na.rm=TRUE)) # des 10% les plus proches
+      #if (cc=="mind") tmp<-c(tmp,di[soso$ix[2]]) # score minimum obtenu avec la meilleure journee analogue
+      #
+      ## Singularite
+      #if (cc=="sing05") tmp<-c(tmp,mean(di[idi05])) # moyenne des distances (scores) des 0.5% les plus proches
+      #if (cc=="sing1") tmp<-c(tmp,mean(di[idi1]))   # des 1% les plus proches
+      #if (cc=="sing2") tmp<-c(tmp,mean(di[idi2]))   # des 2% les plus proches
+      #if (cc=="sing5") tmp<-c(tmp,mean(di[idi5]))   # des 5% les plus proches
+      #if (cc=="sing10") tmp<-c(tmp,mean(di[idi10])) # des 10% les plus proches
+      #
+      ## Log Singularite
+      #if (cc=="lsing05") tmp<-c(tmp,mean(log(di[idi05]))) # moyenne du logarithme des distances des 0.5% les plus proches
+      #if (cc=="lsing1") tmp<-c(tmp,mean(log(di[idi1])))   # des 1% les plus proches
+      #if (cc=="lsing2") tmp<-c(tmp,mean(log(di[idi2])))   # des 2% les plus proches
+      #if (cc=="lsing5") tmp<-c(tmp,mean(log(di[idi5])))   # des 5% les plus proches
+      #if (cc=="lsing10") tmp<-c(tmp,mean(log(di[idi10]))) # des 10% les plus proches
+      #
+      ## Persistence
+      #if (cc=="pers05") tmp<-c(tmp,mean(ri05$lengths[ri05$values==1])) # moyenne du temps passe a l'interieur du quantile 0.5%
+      #if (cc=="pers1") tmp<-c(tmp,mean(ri1$lengths[ri1$values==1]))    # du quantile 1%
+      #if (cc=="pers2") tmp<-c(tmp,mean(ri2$lengths[ri2$values==1]))    # du quantile 2%
+      #if (cc=="pers5") tmp<-c(tmp,mean(ri5$lengths[ri5$values==1]))    # du quantile 5%
+      #if (cc=="pers10") tmp<-c(tmp,mean(ri10$lengths[ri10$values==1])) # du quantile 10%
+      #
+      ## Quantiles
+      #if (cc=="q05") tmp<-c(tmp,qi05) # Quantile 0.5%
+      #if (cc=="q1") tmp<-c(tmp,qi1)   # Quantile 1%
+      #if (cc=="q2") tmp<-c(tmp,qi2)   # Quantile 2%
+      #if (cc=="q5") tmp<-c(tmp,qi5)   # Quantile 5%
+      #if (cc=="q10") tmp<-c(tmp,qi10) # Quantile 10%
+      #
+      ## Probabilite celerite: probabilite d'avoir un score en dessous de celui de la veille
+      #if (cc=="pcel"){if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ecdf(dim1)(ddi[i-1]))} # calcul de la fonction de repartition empirique (F=i/n, fonction creneau) et probabilite au non depassement de la veille (donne une indication sur son rang dans les analogues)
+      #
+      ## Persistence neighbour: probabilite qu'un jour du voisinage soit dans le voisinage de la veille le jour precedent (qu'il suive la meme trajectoire)
+      #if (cc=="pnei05") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi05-1) %in% idi05m1))} # moyenne de la condition: les veilles des journees analogues sont dans les 0.5% les plus proches de la veille de la journee cible
+      #if (cc=="pnei1") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi1-1) %in% idi1m1))}    # dans les 1% les plus proches
+      #if (cc=="pnei2") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi2-1) %in% idi2m1))}    # dans les 2% les plus proches
+      #if (cc=="pnei5") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi5-1) %in% idi5m1))}    # dans les 5% les plus proches
+      #if (cc=="pnei10") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi10-1) %in% idi10m1))} # dans les 10% les plus proches
+      #
+      ## Persistence neighbour: probabilite qu'un jour du voisinage soit deja dans le voisinage le jour precedent
+      #if (cc=="snei05") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi05-1) %in% idi05))} # moyenne de la condition: les veilles des journees analogues sont deja dans les 0.5% les plus proches de la journee cible
+      #if (cc=="snei1") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi1-1) %in% idi1))}    # dans les 1% les plus proches
+      #if (cc=="snei2") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi2-1) %in% idi2))}    # dans les 2% les plus proches
+      #if (cc=="snei5") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi5-1) %in% idi5))}    # dans les 5% les plus proches
+      #if (cc=="snei10") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi10-1) %in% idi10))} # dans les 10% les plus proches
+      #
+      ## Celerite neighbour: on moyenne la celerite des plus proches voisins
+      #if (cc=="celnei05") tmp<-c(tmp,mean(criteria[idi05,"cel"],na.rm=TRUE)) # moyenne des celerites des 0.5% les plus proches
+      #if (cc=="celnei1") tmp<-c(tmp,mean(criteria[idi1,"cel"],na.rm=TRUE))   # des 1% les plus proches
+      #if (cc=="celnei2") tmp<-c(tmp,mean(criteria[idi2,"cel"],na.rm=TRUE))   # des 2% les plus proches
+      #if (cc=="celnei5") tmp<-c(tmp,mean(criteria[idi5,"cel"],na.rm=TRUE))   # des 5% les plus proches
+      #if (cc=="celnei10") tmp<-c(tmp,mean(criteria[idi10,"cel"],na.rm=TRUE)) # des 10% les plus proches
       
       # La singularite relative rsing (ou local dimension) est calculee dans la fonction get.descriptor
       
@@ -1486,6 +1507,12 @@ makegrad<-function(mat,l){
   return(gradmat)
 }
 
+# Ajout d'une chaine de caractere a l'indicateur (05,1,2,5,10 a tous les indicateurs sauf cel)
+paste.descr<-function(descr,str){
+  descr[substr(descr,1,3)!="cel"]<- paste0(descr[substr(descr,1,3)!="cel"],str)
+  descr
+}
+
 # Trace la repartition des parametres empiriques dans le plan des indicateurs (un couple d'indicateur par png)
 plot.empir<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,rean){
   
@@ -1589,10 +1616,93 @@ plot.empir.mean<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="20
   dev.off()
 }
 
-# Ajout d'une chaine de caractere a l'indicateur (05,1,2,5,10 a tous les indicateurs sauf cel)
-paste.descr<-function(descr,str){
-  descr[descr!="cel"]<- paste0(descr[descr!="cel"],str)
-  descr
+# Trace les boxplot des interquantiles des scores pour les sequences seches et les sequences des pluies fortes
+plot.interquantile <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Importation des scores et des precip
+  load(file=paste0(get.dirstr(k,rean),"save.score.A/score_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  precip <- get.precip(nbdays,start,end)
+  
+  # Calcul des quantiles des scores
+  quant <- c(0.001,0.002,0.005,0.01,0.02,0.05,0.1)
+  
+  qua <- lapply(score,function(v) quantile(v/nbdays,probs = quant)) # on divise par nbdays pour ramener le score entre 0 et 1
+  #inter.qua <- lapply(qua, function(v) c(v[-1]-v[-length(v)]))
+  
+  #quant.norm <- 1/c(quant[-1]-quant[-length(quant)]) # on ramene l'espace interquantile a une valeur normalisee sur 100% des donnees
+  #inter.qua.norm <- lapply(inter.qua, function(v) v*quant.norm)
+  
+  # Pluies qui nous interessent
+  soso <- sort(precip,index.return=TRUE,decreasing=TRUE)
+  ind <- vector("list",3)
+  names(ind) <- c("Toutes sequences","Sequences seches","62 sequences pluie forte")
+  ind[[1]] <- 1:length(precip)
+  ind[[2]] <- which(precip == 0)
+  ind[[3]] <- soso$ix[1:62]
+  
+  # Boxplot
+  tab <- do.call(rbind,qua)
+  #colnames(tab) <- paste0(colnames(tab)," - ",names(qua[[1]])[1:ncol(tab)])
+  ylim <- c(0,0.6)
+  
+  for(i in 1:length(ind)){
+    tab.plot <- tab[ind[[i]],]
+    
+    filename <- paste0(get.dirstr(k,rean),"plot.interquantile/",i,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png")
+    png(file=filename,width=18,height=8,units="in",res=72)
+    boxplot(tab.plot, ylim = ylim, main = paste0("Interquantiles ",dist," normalises - ",names(ind)[[i]]))
+    abline(v=1:ncol(tab),lty=2,col=gray(0.5))
+    
+    graphics.off()
+  }
+  
+}
+
+# Trace la fonction de repartition des scores
+plot.score <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Importation des scores et des precip
+  load(file=paste0(get.dirstr(k,rean),"save.score.A/score_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  precip <- get.precip(nbdays,start,end)
+  
+  # Pluies qui nous interessent
+  soso <- sort(precip,index.return=TRUE,decreasing=TRUE)
+  ind <- vector("list",3)
+  names(ind) <- c("Toutes sequences","Sequences seches","Sequences pluie forte")
+  ind[[1]] <- 1:(length(precip)-1)
+  ind[[2]] <- which(precip == 0)
+  ind[[3]] <- soso$ix[1:62]
+  
+  # Mise en forme et calculs
+  score <- lapply(score,sort)
+  score <- do.call(rbind,score)[,-1]
+  score <- score/nbdays
+  
+  moy <- med <- matrix(NA,3,ncol(score))
+  
+  for(i in 1:length(ind)){
+    score.ind <- score[ind[[i]],]
+    moy[i,] <- colMeans(score.ind)
+    med[i,] <- apply(score.ind,2,median)
+  }
+  
+  # Graphique complet
+  png(file=paste0(get.dirstr(k,rean),"plot.score/member",member,"_k",k,"_",dist,"_",nbdays,"day_Repartition_TWS.png"),width=18,height=8,units="in",res=72)
+  plot(moy[1,],xlab="Days",ylab="TWS",type="l",ylim = c(0,0.8),main="Repartition des TWS journaliers moyennes entre séquences")
+  lines(moy[2,],col = "red")
+  lines(moy[3,],col = "royalblue")
+  comp.leg <- c("(22277)","(1849)","(62)")
+  legend("topleft",inset=.02,paste0(names(ind)," ",comp.leg),col=c("black","red","royalblue"),lty=1,bty="n")
+  graphics.off()
+  
+  # Graphique faibles quantiles
+  png(file=paste0(get.dirstr(k,rean),"plot.score/member",member,"_k",k,"_",dist,"_",nbdays,"day_Repartition_TWS_0.01.png"),width=18,height=8,units="in",res=72)
+  plot(moy[1,1:(ncol(moy)*0.01)],xlab="Days",ylab="TWS",type="l",ylim = c(0.15,0.31),main="Repartition des TWS journaliers moyennes entre séquences - 1%")
+  lines(moy[2,1:(ncol(moy)*0.01)],col = "red")
+  lines(moy[3,1:(ncol(moy)*0.01)],col = "royalblue")
+  abline(v = c(0.01,0.005,0.002,0.001)*ncol(moy))
+  graphics.off()
+  
 }
 
 # Concatenation et aggregation de netcdf sous R
@@ -1634,18 +1744,32 @@ reshape.netcdf <- function(z = "1000"){
 # Lance les fonctions souhaitees
 run<-function(k,dist,nbdays,str,radtype,start,end,rean){
   
-  descr<-list(
-    c("cel","sing"),
-    c("snei","sing"),
-    c("cel","rsing"),
-    c("snei","rsing"),
-    c("sing","rsing"),
-    c("sing","sing"),
-    c("rsing","rsing"),
-    c("cel","sing","rsing"),
-    c("snei","sing","rsing")
-  )
+  #descr<-list(
+  #  c("cel","sing"),
+  #  c("snei","sing"),
+  #  c("cel","rsing"),
+  #  c("snei","rsing"),
+  #  c("sing","rsing"),
+  #  c("sing","sing"),
+  #  c("rsing","rsing"),
+  #  c("cel","sing","rsing")
+  #  c("snei","sing","rsing")
+  #)
   
+  descr<-list(
+    c("celAv","sing"),
+    c("celAp","sing"),
+    c("celV","sing"),
+    c("celAv","rsing"),
+    c("celAp","rsing"),
+    c("celV","rsing"),
+    c("celAvNorm","sing"),
+    c("celApNorm","sing"),
+    c("celVNorm","sing"),
+    c("celAvNorm","rsing"),
+    c("celApNorm","rsing"),
+    c("celVNorm","rsing")
+  )
   
   descr<-lapply(descr,paste.descr,str)
   print(descr)

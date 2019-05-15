@@ -1,7 +1,7 @@
 setwd("C:/Users/blanca/Documents")
 
 # Parametres ----
-rean     <- "ERA20C_18"
+rean     <- "ERA20C"
 member   <- 1
 seasonal <- FALSE
 k        <- 1
@@ -28,9 +28,9 @@ compute_crps.A(rad = N, k = k, dist = dist, nbdays = nbdays, start = start, end 
 compare.crps.A(k = k, dist = dist, nbdays = nbdays, start = start, end = end, rean = rean)
 
 # Analogie indicateurs ----
-compute_criteria(k = k, dist = dist, start = start, end = end, rean = rean)
+compute_criteria(k = k, dist = dist, start = start, end = end, rean = rean, update = TRUE)
 run(k = k, dist = dist, nbdays = nbdays, str = Q, radtype = M, start = start, end = end, rean = rean) # possibilite d'ajuster plusieurs lois, de modifier les couples d'indicateurs
-compare.crps(which = "k_dist", dist = "TWS_RMSE", nbdays = nbdays,radtype = M, start = start, end = end, rean = rean)
+compare.crps(which = "", k = k, dist = dist, nbdays = nbdays,radtype = M, start = start, end = end, rean = rean)
 
 
 # Visualisation dans le plan des indicateurs ----
