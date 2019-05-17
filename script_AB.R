@@ -1,7 +1,7 @@
 setwd("C:/Users/blanca/Documents")
 
 # Parametres ----
-rean     <- "ERA20C"
+rean     <- "20CR"
 member   <- 1
 seasonal <- FALSE
 k        <- 1
@@ -11,7 +11,7 @@ N        <- "02" # %age de voisins selectionnes pour l'analogie classique
 Q        <- "05" # %age de voisins selectionnes pour construire les indicateurs 
 M        <- "nrn05" # %age de voisins selectionnes pour l'analogie indicateurs
 start    <- "1950-01-01"
-end      <- "2010-12-31"
+end      <- "2011-12-31"
 
 # Import des sorties de la reanalyse et calcul des distances ----
 load.nc(rean = rean)
@@ -30,11 +30,12 @@ compare.crps.A(k = k, dist = dist, nbdays = nbdays, start = start, end = end, re
 # Analogie indicateurs ----
 compute_criteria(k = k, dist = dist, start = start, end = end, rean = rean, update = TRUE)
 run(k = k, dist = dist, nbdays = nbdays, str = Q, radtype = M, start = start, end = end, rean = rean) # possibilite d'ajuster plusieurs lois, de modifier les couples d'indicateurs
-compare.crps(which = "", k = k, dist = dist, nbdays = nbdays,radtype = M, start = start, end = end, rean = rean)
+compare.crps(which = "k_dist", dist = "TWS_RMSE", nbdays = nbdays,radtype = M, start = start, end = end, rean = rean)
 
 
 # Visualisation dans le plan des indicateurs ----
-descr <- c("sing05","rsing05")
+descr <- c("cel+1","sing05")
+plot.empir(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
 plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end,
                 radtype = M, rean = rean, ref="1900-01-01")
 
@@ -46,7 +47,7 @@ fit.empir.TL(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = s
 compute_crps_TL(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end,
                 radAna = "10", radInd = "05", rean = rean)
 compare.crps.TL(k = k, dist = dist, nbdays = nbdays, start = start, end = end,
-                radAna = "10", radInd = "05", rean = rean)
+                radAna = "1", radInd = "05", rean = rean)
 
 # Ensuite, les trois fonctions d'un coup avec differents rayons
 run.TL(k = k, dist = dist, nbdays = nbdays, str = Q, radAna = "05", radInd = "02", start = start, end = end, rean = rean)

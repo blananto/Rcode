@@ -14,56 +14,6 @@ library(scoringRules) #crps
 library(evd) #fpot
 
 
-addcircle<-function(radius){
-  usr<-par("usr")
-  insetx <- 0.1 * (usr[2L] - usr[1L])
-  insety <- 0.1 * (usr[4L] - usr[3L])
-  draw.circle(x=usr[2L] - insetx, y=usr[3L] + insety, radius=radius, lty=2)
-}
-
-addscale<-function(vec,r=2,legend="",centered=FALSE,rev=FALSE){
-  
-  usr<-par("usr")
-  insetx <- 0.05 * (usr[2L] - usr[1L])
-  insety <- 0.1 * (usr[4L] - usr[3L])
-  xmin<-usr[1L] + insetx
-  ymin<-usr[4L] - insety
-  width <- 0.4 * (usr[2L] - usr[1L])
-  heigh <- 0.05 * (usr[4L] - usr[3L])
-  shift <- 0.05 * (usr[4L] - usr[3L])
-  seg <- 0.02 * (usr[4L] - usr[3L])
-  
-  col=colpalette(rev)
-  
-  if (centered) {
-    m<-max(abs(vec),na.rm=TRUE)
-    minv<- -m
-    maxv<- m
-  }
-  else{
-    minv<-min(vec,na.rm=TRUE)
-    maxv<-max(vec,na.rm=TRUE)
-  }
-  
-  rect(xmin+seq(0,(0.99*width),length=100),rep(ymin,100),xmin+width/100+seq(0,(0.99*width),length=100),rep(ymin+heigh,100),col=col,border=col)
-  text(xmin,ymin-shift,round(minv,r),cex=1)
-  text(xmin+width,ymin-shift,round(maxv,r),cex=1)
-  text(xmin+width/2,ymin-shift,round((minv+maxv)/2,r),cex=1)
-  rect(xmin,ymin,xmin+width,ymin+heigh)
-  segments(xmin,ymin,xmin,ymin-seg)
-  segments(xmin+width/2,ymin,xmin+width/2,ymin-seg)
-  segments(xmin+width,ymin,xmin+width,ymin-seg)
-  text(xmin+width/2,ymin+heigh,labels=legend,pos=3)
-}
-
-# Definition d'une palette de couleurs
-colpalette<-function(rev=FALSE){
-  col<-timPalette(113)[10:110]
-  if (rev) col<-rev(col)
-  col
-}
-
-
 compare.loglik.gamma.nei<-function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05"){
   descr<-rbind(
     c("sing","sing"),
@@ -262,7 +212,7 @@ compare.empir<-function(case,dist,nbdays=3,start="1950-01-01",end="2011-12-31",s
     kvec<-1
     kstr.save<-kvec
   }
-  if (case==1){ # k = 1 à 3 et enregistrement en amont dans l'arborescence
+  if (case==1){ # k = 1 ? 3 et enregistrement en amont dans l'arborescence
     descr<-rbind(
       c("cel","sing"),
       c("snei","sing"),
@@ -563,34 +513,6 @@ fit.loglik.gamma.A<-function(rad,k,dist,nbdays=3,start="1950-01-01",end="2011-12
   fit<-list(param=param,opt=opt,loglik.i=loglik.i)
   
   save(fit,file=paste0(get.dirstr(k,rean),"fit.loglik.gamma-CV.A/",rad,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
-}
-
-# Attribue une couleur a chaque valeur d'un vecteur a partir de colpalette
-getcol<-function(vec=NULL,range=NULL,transparent=FALSE,centered=FALSE,rev=FALSE) {
-  if (centered) {
-    m<-max(abs(vec),na.rm=TRUE)
-    minv<- -m
-    maxv<- m
-  }
-  else{
-    minv<-min(vec,na.rm=TRUE)
-    maxv<-max(vec,na.rm=TRUE)
-  }
-  colvec<-colpalette(rev)
-  if (is.null(vec)) col<-colvec
-  else if (is.null(range)) col<-colvec[99*(vec-minv)/(maxv-minv)+1] # Attribution d'un ratio entre 0 et 100 pour attribution d'une couleur a chaque valeur du vecteur
-  else {
-    vec[vec>range[2]]<-range[2]
-    vec[vec<range[1]]<-range[1]
-    col<-colvec[99*(vec-min(range,na.rm=TRUE))/(max(range,na.rm=TRUE)-min(range,na.rm=TRUE))+1]
-    #heat.colors(100)[99*(vec-min(vec))/(max(vec)-min(vec))+1]
-  }
-  
-  if (transparent) {
-    col<-apply(col2rgb(col),2,function(v) rgb(v[1],v[2],v[3],alpha=127, maxColorValue=255))
-  }
-  col[is.na(col)]<-gray(0.5)
-  col
 }
 
 # Si rayon fixe, calcule le rayon du cercle voisin en moyennant les ecart-types des deux descripteurs
