@@ -30,11 +30,11 @@ compare.crps.A(k = k, dist = dist, nbdays = nbdays, start = start, end = end, re
 # Analogie indicateurs ----
 compute_criteria(k = k, dist = dist, start = start, end = end, rean = rean, update = TRUE)
 run(k = k, dist = dist, nbdays = nbdays, str = Q, radtype = M, start = start, end = end, rean = rean) # possibilite d'ajuster plusieurs lois, de modifier les couples d'indicateurs
-compare.crps(which = "k_dist", dist = "TWS_RMSE", nbdays = nbdays,radtype = M, start = start, end = end, rean = rean)
+compare.crps(which = "", k = k, dist = dist, nbdays = nbdays,radtype = M, start = start, end = end, rean = rean)
 
 
 # Visualisation dans le plan des indicateurs ----
-descr <- c("cel+1","sing05")
+descr <- c("sing05","rsing05")
 plot.empir(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
 plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end,
                 radtype = M, rean = rean, ref="1900-01-01")

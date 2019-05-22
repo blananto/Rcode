@@ -87,33 +87,25 @@ getcol<-function(vec=NULL,range=NULL,transparent=FALSE,centered=FALSE,rev=FALSE)
 
 # Calcule et trace les CRPSS pour analogie indicateurs pour les differents couples d'indicateurs et differents rayons 
 compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="",standardize=TRUE,CV=TRUE,rean){
-  #descr<-list(
-  #  c("sing","sing"),
-  #  c("cel","sing"),
-  #  c("snei","sing"),
-  #  c("rsing","rsing"),
-  #  c("cel","rsing"),
-  #  c("snei","rsing"),
-  #  c("sing","rsing"),
-  #  c("cel","sing","rsing"),
-  #  c("snei","sing","rsing"),
-  #  c("A","A"))
-  
-  descr<-list( # puis pareil avec les Norm et avec les R pour reperer les meilleurs couples, et enfin les ind-indR
-   c("cel","sing"),
-   c("snei","sing"),
-   c("celAv","sing"),
-   c("celAv1","sing"),
-   c("celAp","sing"),
-   c("celV","sing"),
-   c("cel","rsing"),
-   c("snei","rsing"),
-   c("celAv","rsing"),
-   c("celAv1","rsing"),
-   c("celAp","rsing"),
-   c("celV","rsing"),
-   c("sing","rsing"),
-   c("A","A"))
+  descr<-list(
+    c("sing","sing"),
+    c("cel","sing"),
+    c("snei","sing"),
+    c("rsing","rsing"),
+    c("cel","rsing"),
+    c("snei","rsing"),
+    c("sing","rsing"),
+    c("cel","sing","rsing"),
+    c("snei","sing","rsing"),
+    c("A","A"))
+
+  #descr<-list( # puis pareil avec les Norm et avec les R pour reperer les meilleurs couples, et enfin les ind-indR
+  # c("cel","sing"),
+  # c("celnei","sing"),
+  # c("cel","rsing"),
+  # c("celnei","rsing"),
+  # c("sing","rsing"),
+  # c("A","A"))
   
   ndesc<-length(descr)
   
@@ -171,6 +163,8 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
     distance <-c("TWS","RMSE")
     diststr.save<-dist
     legs<-c("500hPa_TWS","1000hPa_TWS","500hPa_RMSE","1000hPa_RMSE")
+    style <- c(rep("blue",2),rep("red",2))
+    type  <- c(1,2,1,2)
     dirstr.save<-get.dirstr(rean = rean)
   }
   
@@ -249,21 +243,23 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
     }
     else{ # sinon, une seule fenetre graphique
       png(file=filename,width=7,height=8,units="in",res=72)
-      par(mar=c(7,4,3,2))
+      par(mar=c(8.5,4,3,2))
     }
     plot(c(1,ndesc),c(0,max(1-meancrps/normalize)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45)) # Definition des proprietes du graphique
     for (j in 1:length(legs)) { # pour chaque legs, on ajoute une courbe
-      points(1:ndesc,1-meancrps[(j-1)*ndesc+(1:ndesc)]/normalize,col=j,pch=19)
-      lines(1:ndesc,1-meancrps[(j-1)*ndesc+(1:ndesc)]/normalize,col=j)
+      points(1:ndesc,1-meancrps[(j-1)*ndesc+(1:ndesc)]/normalize,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1),pch=19)
+      lines(1:ndesc,1-meancrps[(j-1)*ndesc+(1:ndesc)]/normalize,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1))
     }
     #legend(legend=1:3,col=1:3)
     axis(2)
-    axis(1,labels=coln,at=1:length(meancrps),las=3)
+    axis(1,labels=coln,at=1:length(meancrps),las=3,cex.axis=ifelse(substr(nam,1,3)=="pos",1.8,1.3))
     box()
     
     title(paste0(nam," ",seastr))
     grid()
-    legend("topleft",legend=legs,col=1:length(legs),pch=19,lty = 1, bty ="n")
+    if(which=="k_dist"){
+      legend("topleft",legend=legs,col=style,pch=19,lty = type, bty ="n",cex=1.3)
+    }else {legend("topleft",legend=legs,col=1:length(legs),pch=19,lty = 1, bty ="n",cex=1.3)}
     abline(v=1:ndesc,lty=2,col=gray(0.5))
     
     if (substr(nam,1,3)=="pos"){ # si "pos" dans nam, on ajoute deux autres graphiques au png avec les 62*12 puis 12 plus fortes pluies
@@ -281,11 +277,11 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
       
       plot(c(1,ndesc),c(0,max(1-meancrps.1/normalize.1)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45)) # graphique 62*12
       for (j in 1:length(legs)) {
-        points(1:ndesc,1-meancrps.1[(j-1)*ndesc+(1:ndesc)]/normalize.1,col=j,pch=19)
-        lines(1:ndesc,1-meancrps.1[(j-1)*ndesc+(1:ndesc)]/normalize.1,col=j)
+        points(1:ndesc,1-meancrps.1[(j-1)*ndesc+(1:ndesc)]/normalize.1,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1),pch=19)
+        lines(1:ndesc,1-meancrps.1[(j-1)*ndesc+(1:ndesc)]/normalize.1,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1))
       }
       axis(2)
-      axis(1,labels=coln,at=1:length(meancrps.1),las=3)
+      axis(1,labels=coln,at=1:length(meancrps.1),las=3, cex.axis=1.8)
       box()
       title(paste0(nam," monthly max (62*12 largest)"))
       abline(v=1:ndesc,lty=2,col=gray(0.5))
@@ -293,11 +289,11 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
       
       plot(c(1,ndesc),c(0,max(1-meancrps.2/normalize.2)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45)) # graphique 62
       for (j in 1:length(legs)) {
-        points(1:ndesc,1-meancrps.2[(j-1)*ndesc+(1:ndesc)]/normalize.2,col=j,pch=19)
-        lines(1:ndesc,1-meancrps.2[(j-1)*ndesc+(1:ndesc)]/normalize.2,col=j)
+        points(1:ndesc,1-meancrps.2[(j-1)*ndesc+(1:ndesc)]/normalize.2,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1),pch=19)
+        lines(1:ndesc,1-meancrps.2[(j-1)*ndesc+(1:ndesc)]/normalize.2,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1))
       }
       axis(2)
-      axis(1,labels=coln,at=1:length(meancrps.2),las=3)
+      axis(1,labels=coln,at=1:length(meancrps.2),las=3, cex.axis=1.8)
       box()
       title(paste0(nam," yearly max (62 largest)"))
       abline(v=1:ndesc,lty=2,col=gray(0.5))
@@ -637,7 +633,7 @@ compare.crps.TL<-function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",ra
     }
     else{ # sinon, une seule fenetre graphique
       png(file=filename,width=7,height=8,units="in",res=72)
-      par(mar=c(7,4,4,2))
+      par(mar=c(8.5,4,4,2))
     }
     
     plot(c(1,ndescr),c(0,0.5),axes=FALSE,xlab="",ylab="",type="n") # Definition des proprietes du graphique
@@ -646,14 +642,14 @@ compare.crps.TL<-function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",ra
     abline(h = 1-meancrps.ana/normalize,lty = 2, lwd = 2)
     
     axis(2)
-    axis(1,labels=coln,at=1:ndescr,las=3)
+    axis(1,labels=coln,at=1:ndescr,las=3,cex.axis=1.3)
     box()
     
     title(paste0(nam," ",seastr))
     grid()
     abline(v=1:ndescr,lty=2,col=gray(0.5))
-    legend("topleft",legend = c("Ana","Ana + Ind", "Ind"), col = c("black","red","black"),
-           lty = c(2,1,1), pch = c(NA,19,19), bty = "n", y.intersp = 1)
+    legend("topleft",legend = c("Analog","Analog + Descriptors", "Descriptors"), col = c("black","red","black"),
+           lty = c(2,1,1), pch = c(NA,19,19), bty = "n", y.intersp = 1,cex=1.3)
     
     
     if (substr(nam,1,3)=="pos"){ # si "pos" dans nam, on ajoute deux autres graphiques au png avec les 62*12 puis 12 plus fortes pluies
@@ -664,7 +660,7 @@ compare.crps.TL<-function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",ra
       abline(h = 1-meancrps.ana.1/normalize.1,lty = 2, lwd = 2)
       
       axis(2)
-      axis(1,labels=coln,at=1:ndescr,las=3)
+      axis(1,labels=coln,at=1:ndescr,las=3,cex.axis=1.3)
       box()
       
       title(paste0(nam," monthly max (62*12 largest)"))
@@ -678,7 +674,7 @@ compare.crps.TL<-function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",ra
       abline(h = 1-meancrps.ana.2/normalize.2,lty = 2, lwd = 2)
       
       axis(2)
-      axis(1,labels=coln,at=1:ndescr,las=3)
+      axis(1,labels=coln,at=1:ndescr,las=3,cex.axis=1.3)
       box()
       
       title(paste0(nam," yearly max (62 largest)"))
@@ -716,7 +712,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
   
   if (!update) coln.new<-c("cel","mind","sing05","sing1","sing2","sing5","lsing05","lsing1","lsing2","lsing5","pers05","pers1","pers2","pers5","q05","q1","q2","q5","pcel","pnei05","pnei1","pnei2","pnei5","snei05","snei1","snei2","snei5")
   if (update) {
-    coln.new<-c("celAv","celAvNorm","celAvR","celAv1","celAv1Norm","celAv1R","celAp","celApNorm","celApR","celV","celVNorm","celVR")
+    coln.new<-c("accnei","accneiR")
   }
   
   criteria.new<-matrix(NA,ncol=length(coln.new),nrow=N)
@@ -765,22 +761,30 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="cel") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i-1])} # score de la journee avec la veille
       #if (cc=="cel+1") {if (i==N) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i+1])} # score de la journee avec le lendemain
       
-      if(cc=="celAv"){if(1 %in% idi05) idi05 <- idi05[idi05!=1]; tmp <- c(tmp,mean(di[idi05-1]))} # score entre jour J et veille des voisins
-      if(cc=="celAvNorm"){if(1 %in% idi05) idi05 <- idi05[idi05!=1]; tmp <- c(tmp,mean(di[idi05-1])/mean(di[idi05]))}
-      if(cc=="celAvR"){if(1 %in% idi05) idi05 <- idi05[idi05!=1]; tmp <- c(tmp,mean(di[idi05-1])/qi05)}
+      #if(cc=="celAv"){if(1 %in% idi05) idi05 <- idi05[idi05!=1]; tmp <- c(tmp,mean(di[idi05-1]))} # score entre jour J et veille des voisins
+      #if(cc=="celAvNorm"){if(1 %in% idi05) idi05 <- idi05[idi05!=1]; tmp <- c(tmp,mean(di[idi05-1])/mean(di[idi05]))}
+      #if(cc=="celAvR"){if(1 %in% idi05) idi05 <- idi05[idi05!=1]; tmp <- c(tmp,mean(di[idi05-1])/qi05)}
+      #
+      #if(cc=="celAv1"){if(N %in% idi05) idi05 <- idi05[idi05!=N]; tmp <- c(tmp,mean(di[idi05+1]))} # score entre jour J et le lendemain des voisins
+      #if(cc=="celAv1Norm"){if(N %in% idi05) idi05 <- idi05[idi05!=N]; tmp <- c(tmp,mean(di[idi05+1]/mean(di[idi05])))}
+      #if(cc=="celAv1R"){if(N %in% idi05) idi05 <- idi05[idi05!=N]; tmp <- c(tmp,mean(di[idi05+1]/qi05))}
+      #
+      #if (cc=="celAp") {if (i==1) tmp<-c(tmp,NA) else {if(N %in% idi05v) idi05v <- idi05v[idi05v!=N]; tmp<-c(tmp,mean(di[idi05v+1]))}} # score entre jour J et lendemains des voisins de J-1
+      #if (cc=="celApNorm") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v+1])/mean(di[idi05]))}
+      #if (cc=="celApR") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v+1])/qi05)}
+      #
+      #if (cc=="celV") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v]))} # score entre jour J et voisins de J-1
+      #if (cc=="celVNorm") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v])/mean(di[idi05]))}
+      #if (cc=="celVR") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v])/qi05)}
       
-      if(cc=="celAv1"){if(N %in% idi05) idi05 <- idi05[idi05!=N]; tmp <- c(tmp,mean(di[idi05+1]))} # score entre jour J et le lendemain des voisins
-      if(cc=="celAv1Norm"){if(N %in% idi05) idi05 <- idi05[idi05!=N]; tmp <- c(tmp,mean(di[idi05+1]/mean(di[idi05])))}
-      if(cc=="celAv1R"){if(N %in% idi05) idi05 <- idi05[idi05!=N]; tmp <- c(tmp,mean(di[idi05+1]/qi05))}
+      # Acceleration
+      #if (cc=="acc") {if (i==1) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/criteria[i-1,"cel"])}
+      #if (cc=="acc10") {if (i %in% 1:10) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/mean(criteria[(i-10):(i-1),"cel"],na.rm=TRUE))}
+      #if (cc=="accR") {if (i==1) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/criteria[i-1,"cel"]/qi05)}
+      #if (cc=="acc10R") {if (i %in% 1:10) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/mean(criteria[(i-10):(i-1),"cel"],na.rm=TRUE)/qi05)}
       
-      if (cc=="celAp") {if (i==1) tmp<-c(tmp,NA) else {if(N %in% idi05v) idi05v <- idi05v[idi05v!=N]; tmp<-c(tmp,mean(di[idi05v+1]))}} # score entre jour J et lendemains des voisins de J-1
-      if (cc=="celApNorm") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v+1])/mean(di[idi05]))}
-      if (cc=="celApR") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v+1])/qi05)}
-      
-      if (cc=="celV") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v]))} # score entre jour J et voisins de J-1
-      if (cc=="celVNorm") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v])/mean(di[idi05]))}
-      if (cc=="celVR") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v])/qi05)}
-      
+      if (cc=="accnei") tmp <- c(tmp,mean(criteria[idi05,"acc"],na.rm=TRUE))
+      if (cc=="accneiR") tmp <- c(tmp,mean(criteria[idi05,"acc"],na.rm=TRUE)/qi05)
       # Minimum distance
       #if (cc=="mind") tmp<-c(tmp,di[soso$ix[2]]) # score minimum obtenu avec la meilleure journee analogue
       #
@@ -830,7 +834,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="snei10") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi10-1) %in% idi10))} # dans les 10% les plus proches
       #
       ## Celerite neighbour: on moyenne la celerite des plus proches voisins
-      if (cc=="celnei") tmp<-c(tmp,mean(criteria[idi05,"cel"],na.rm=TRUE)) # moyenne des celerites des 0.5% les plus proches
+      #if (cc=="celnei") tmp<-c(tmp,mean(criteria[idi05,"cel"],na.rm=TRUE)) # moyenne des celerites des 0.5% les plus proches
       #if (cc=="celnei1") tmp<-c(tmp,mean(criteria[idi1,"cel"],na.rm=TRUE))   # des 1% les plus proches
       #if (cc=="celnei2") tmp<-c(tmp,mean(criteria[idi2,"cel"],na.rm=TRUE))   # des 2% les plus proches
       #if (cc=="celnei5") tmp<-c(tmp,mean(criteria[idi5,"cel"],na.rm=TRUE))   # des 5% les plus proches
@@ -1612,13 +1616,27 @@ nam2str<-function(nams){
     if (nam=="sing") strs<-c(strs,"sing")
     if (nam=="rsing") strs<-c(strs,"rsing")
     if (nam=="snei") strs<-c(strs,"pers")
+    if (nam=="celR-sing") strs<-c(strs,"rcel-sing")
+    if (nam=="celnei-sing") strs<-c(strs,"celnei-sing")
+    if (nam=="celneiR-sing") strs<-c(strs,"rcelnei-sing")
+    if (nam=="celR-rsing") strs<-c(strs,"rcel-rsing")
+    if (nam=="celnei-rsing") strs<-c(strs,"celnei-rsing")
+    if (nam=="celneiR-rsing") strs<-c(strs,"rcelnei-rsing")
+    if (nam=="acc-sing") strs<-c(strs,"acc-sing")
+    if (nam=="accR-sing") strs<-c(strs,"racc-sing")
+    if (nam=="accnei-sing") strs<-c(strs,"accnei-sing")
+    if (nam=="accneiR-sing") strs<-c(strs,"raccnei-sing")
+    if (nam=="acc-rsing") strs<-c(strs,"acc-rsing")
+    if (nam=="accR-rsing") strs<-c(strs,"racc-rsing")
+    if (nam=="accnei-rsing") strs<-c(strs,"accnei-rsing")
+    if (nam=="accneiR-rsing") strs<-c(strs,"raccnei-rsing")
   }
   strs
 }
 
 # Ajout d'une chaine de caractere a l'indicateur (05,1,2,5,10 a tous les indicateurs sauf cel)
 paste.descr<-function(descr,str){
-  descr[substr(descr,1,3)!="cel"]<- paste0(descr[substr(descr,1,3)!="cel"],str)
+  descr[substr(descr,1,3) != "cel" & substr(descr,1,3) != "acc"] <- paste0(descr[substr(descr,1,3) != "cel" & substr(descr,1,3) != "acc"],str)
   descr
 }
 
@@ -1785,32 +1803,47 @@ plot.score <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean)
   # Mise en forme et calculs
   score <- lapply(score,sort)
   score <- do.call(rbind,score)[,-1]
-  score <- score/nbdays
   
-  moy <- med <- matrix(NA,3,ncol(score))
+  moy <- med <- q5 <- q95 <- matrix(NA,3,ncol(score))
   
   for(i in 1:length(ind)){
     score.ind <- score[ind[[i]],]
     moy[i,] <- colMeans(score.ind)
     med[i,] <- apply(score.ind,2,median)
+    q5[i,]  <- apply(score.ind,2,quantile,probs=0.05)
+    q95[i,] <- apply(score.ind,2,quantile,probs=0.95)
   }
   
   # Graphique complet
   png(file=paste0(get.dirstr(k,rean),"plot.score/member",member,"_k",k,"_",dist,"_",nbdays,"day_Repartition_TWS.png"),width=18,height=8,units="in",res=72)
-  plot(moy[1,],xlab="Days",ylab="TWS",type="l",ylim = c(0,0.8),main="Repartition des TWS journaliers moyennes entre séquences")
-  lines(moy[2,],col = "red")
-  lines(moy[3,],col = "royalblue")
-  comp.leg <- c("(22277)","(1849)","(62)")
-  legend("topleft",inset=.02,paste0(names(ind)," ",comp.leg),col=c("black","red","royalblue"),lty=1,bty="n")
+  plot(med[1,],xlab="Days",ylab="TWS",ylim = c(min(q5),max(q95)),type="l",main="Repartition des TWS journaliers moyennes entre séquences",lwd=3)
+  lines(med[2,],col = "red",lwd=2)
+  lines(q5[2,],col = "red",lty=2)
+  lines(q95[2,],col = "red",lty=2)
+  lines(med[3,],col = "royalblue",lwd=2)
+  lines(q5[3,],col = "royalblue",lty=2)
+  lines(q95[3,],col = "royalblue",lty=2)
+  grid()
+  comp.leg <- c(ifelse(rean=="20CR","(22643)","(22278)"),"(1849)","(62)")
+  legend("topleft",inset=.02,c(paste0("Q50% ",names(ind)," ",comp.leg),"Q05%,Q95%"),col=c("black","red","royalblue","black"),cex=1.2,lty=c(1,1,1,2),lwd = c(3,2,2,1),bty="n")
+  graphics.off()
+  
+  # Chevelu
+  png(file=paste0(get.dirstr(k,rean),"plot.score/member",member,"_k",k,"_",dist,"_",nbdays,"day_Repartition_TWS_chevelu.png"),width=18,height=8,units="in",res=72)
+  plot(moy[1,],xlab="Days",ylab="TWS",ylim = c(min(q5),max(q95)),type="n",main="Repartition des TWS journaliers moyennes entre séquences",lwd=3)
+  for(i in 1:62) lines(score[ind[[3]][i],],col = "royalblue")
+  lines(moy[1,],lwd=3)
+  grid()
+  legend("topleft",inset=.02,c(paste0("Moy toutes séquences ",comp.leg[1]),"Séquences pluie forte (62)"),col=c("black","royalblue"),cex=1.2,lty=1,lwd = c(3,1),bty="n")
   graphics.off()
   
   # Graphique faibles quantiles
-  png(file=paste0(get.dirstr(k,rean),"plot.score/member",member,"_k",k,"_",dist,"_",nbdays,"day_Repartition_TWS_0.01.png"),width=18,height=8,units="in",res=72)
-  plot(moy[1,1:(ncol(moy)*0.01)],xlab="Days",ylab="TWS",type="l",ylim = c(0.15,0.31),main="Repartition des TWS journaliers moyennes entre séquences - 1%")
-  lines(moy[2,1:(ncol(moy)*0.01)],col = "red")
-  lines(moy[3,1:(ncol(moy)*0.01)],col = "royalblue")
-  abline(v = c(0.01,0.005,0.002,0.001)*ncol(moy))
-  graphics.off()
+  #png(file=paste0(get.dirstr(k,rean),"plot.score/member",member,"_k",k,"_",dist,"_",nbdays,"day_Repartition_TWS_0.01.png"),width=18,height=8,units="in",res=72)
+  #plot(moy[1,1:(ncol(moy)*0.01)],xlab="Days",ylab="TWS",type="l",ylim = c(0.15,0.31),main="Repartition des TWS journaliers moyennes entre séquences - 1%")
+  #lines(moy[2,1:(ncol(moy)*0.01)],col = "red")
+  #lines(moy[3,1:(ncol(moy)*0.01)],col = "royalblue")
+  #abline(v = c(0.01,0.005,0.002,0.001)*ncol(moy))
+  #graphics.off()
   
 }
 
@@ -1866,40 +1899,8 @@ run<-function(k,dist,nbdays,str,radtype,start,end,rean){
   #)
   
   descr<-list(
-    c("celAv","sing"),
-    c("celAv1","sing"),
-    c("celAp","sing"),
-    c("celV","sing"),
-    
-    c("celAv","rsing"),
-    c("celAv1","rsing"),
-    c("celAp","rsing"),
-    c("celV","rsing"),
-    
-    c("celAvNorm","sing"),
-    c("celAv1Norm","sing"),
-    c("celApNorm","sing"),
-    c("celVNorm","sing"),
-    
-    c("celAvNorm","rsing"),
-    c("celAv1Norm","rsing"),
-    c("celApNorm","rsing"),
-    c("celVNorm","rsing"),
-    
-    c("celAvR","sing"),
-    c("celAv1R","sing"),
-    c("celApR","sing"),
-    c("celVR","sing"),
-    
-    c("celAvR","rsing"),
-    c("celAv1R","rsing"),
-    c("celApR","rsing"),
-    c("celVR","rsing"),
-    
-    c("celAv","celAvR"),
-    c("celAv1","celAv1R"),
-    c("celAp","celApR"),
-    c("celV","celVR")
+    c("celneiR","sing"),
+    c("celneiR","rsing")
   )
   
   descr<-lapply(descr,paste.descr,str)
