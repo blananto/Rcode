@@ -35,7 +35,7 @@ compare.crps(which = "", k = k, dist = dist, nbdays = nbdays,radtype = M, start 
 
 # Visualisation dans le plan des indicateurs ----
 descr <- c("sing05","rsing05")
-plot.empir(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
+plot.empir(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean, empir=TRUE, obs=FALSE)
 plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end,
                 radtype = M, rean = rean, ref="1900-01-01")
 

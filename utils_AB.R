@@ -1641,10 +1641,12 @@ paste.descr<-function(descr,str){
 }
 
 # Trace la repartition des parametres empiriques dans le plan des indicateurs (un couple d'indicateur par png)
-plot.empir<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,rean){
+plot.empir<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,rean,empir=TRUE,obs=FALSE){
   
   descriptor1<-descriptors[1]
   descriptor2<-descriptors[2]
+  
+  if(!empir) precip <- get.precip(nbdays,start,end)
   
   print(paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype,".Rdata"))
   load(file=paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype,".Rdata")) # importation des parametres de la loi empirique
@@ -1653,22 +1655,39 @@ plot.empir<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12
   descr1<-get.descriptor(descriptor1,k,dist,nbdays,start,end,standardize=FALSE,rean)
   descr2<-get.descriptor(descriptor2,k,dist,nbdays,start,end,standardize=FALSE,rean)
   
-  print(paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"))
-  png(file=paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"),width=10,height=7,units="in",res=72)
-  par(mfrow=c(2,3))
-  for (i in 1:ncol(param)){
-    param.i<-param[,i]
-    #q1<-quantile(param.i,0.005,na.rm=TRUE)
-    #q2<-quantile(param.i,0.995,na.rm=TRUE)
-    #param.i[param.i<q1]<-q1
-    #param.i[param.i>q2]<-q2
-    plot(descr1,descr2,col=getcol(param.i),xlab=descriptor1,ylab=descriptor2)
-    addscale(param.i)
-    ind.extr <- get.ind.extr(nbre = 3,nbdays = 3)
-    ind.extr <- as.vector(ind.extr)
-    points(descr1[ind.extr],descr2[ind.extr],pch=19)
-    title(colnames(param)[i])
+  if(empir){
+    print(paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"))
+    png(file=paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"),width=10,height=7,units="in",res=72)
+    par(mfrow=c(2,3))
+    for (i in 1:ncol(param)){
+      param.i<-param[,i]
+      #q1<-quantile(param.i,0.005,na.rm=TRUE)
+      #q2<-quantile(param.i,0.995,na.rm=TRUE)
+      #param.i[param.i<q1]<-q1
+      #param.i[param.i>q2]<-q2
+      plot(descr1,descr2,col=getcol(param.i),xlab=descriptor1,ylab=descriptor2)
+      addscale(param.i)
+      ind.extr <- get.ind.extr(nbre = 62,nbdays = 3)
+      ind.extr <- as.vector(ind.extr)
+      points(descr1[ind.extr],descr2[ind.extr],pch=19)
+      title(colnames(param)[i])
+    }
   }
+  
+  if(obs){ 
+    print(paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_obs_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"))
+    png(file=paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_obs_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"),width=10,height=7,units="in",res=72)#,width=10,height=7,units="in",res=72)
+    layout(matrix(1:2,1,2))
+    
+    plot(descr1,descr2,col=getcol(precip*nbdays),xlab=descriptor1,ylab=descriptor2)#.,pch=19,cex=0.6)
+    addscale(precip*nbdays)
+    title("Observed precipitation")
+    
+    plot(descr1,descr2,col=as.numeric(precip==0)+1,xlab=descriptor1,ylab=descriptor2)#,pch=19,cex=0.6)
+    legend("topleft",c("Rain","No rain"),col=c(1,2),bty="n",pch=19)
+    title("Rain - No rain")
+  }
+  
   dev.off()
 }
 
@@ -1783,6 +1802,29 @@ plot.interquantile <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-3
     graphics.off()
   }
   
+}
+
+# Trace les hyétorgammes des 62 plus grosses séquences de pluie
+plot.rain <- function(nbdays=3,start="1950-01-01",end="2011-12-31"){
+  
+  precip <- get.precip(nbdays=1,start,end)
+  dates <- seq(as.Date(start),as.Date(end),by="day")
+  
+  ind <- get.ind.extr(nbre = 62, ref = start, nbdays, start, end)
+  pdf(file = paste0(get.dirstr(k,rean),"plot.rain/member",member,"_k",k,"_",dist,"_",nbdays,"day.pdf"))
+  layout(matrix(1:20,4,5,byrow=TRUE))
+  for(i in 1:length(ind)){
+    barplot(precip[ind[i]:(ind[i]+nbdays-1)],space=0,col = "royalblue",main = dates[ind[i]],names.arg = c("D1","D2","D3"),ylab="Precip (mm)",cex.names = 0.8)
+  }
+  graphics.off()
+  
+  # Frequence d'occurence des sequences de pluie fortes dans l'annee
+  #png(file = paste0(get.dirstr(k,rean),"plot.rain/member",member,"_k",k,"_",dist,"_",nbdays,"day_histogram.png"))
+  #tmp <- as.numeric(substr(dates[ind],6,7))
+  #hist(tmp,0:12,axes = FALSE,xlab="Month",col = "royalblue",main="Sequences de pluie forte 1950 -2011")
+  #axis(2)
+  #axis(1,at = 0.5:11.5,labels = 1:12,tick = FALSE,padj = -1)
+  #graphics.off()
 }
 
 # Trace la fonction de repartition des scores
