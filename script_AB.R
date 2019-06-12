@@ -39,6 +39,12 @@ plot.empir(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = sta
 plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end,
                 radtype = M, rean = rean, ref="1900-01-01")
 
+# Version generique
+fit.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("accR","accneiR"), dist = c("TWS","TWS"),
+          nbdays = 3, start = start, end = end, radtype = M)
+plot.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("accR","accneiR"), dist = c("TWS","TWS"),
+           nbdays = 3, start = start, end = end, radtype = M)
+
 # Analogie en deux etapes: selection analogie classique puis sous selection indicateurs ----
 descr <- c("sing05","rsing05")
 

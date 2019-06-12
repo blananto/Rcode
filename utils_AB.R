@@ -1173,14 +1173,65 @@ date_to_number<-function(nc,day,rean){
 }
 
 # Calcul des parametres de la loi empirique selon le voisinage au sens des indicateurs
-fit.empir<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=TRUE,rean){
+#fit.empir<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=TRUE,rean){
+#  
+#  print(paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
+#  
+#  precip<-get.precip(nbdays,start,end)
+#  
+#  descr<-NULL
+#  for (i in 1:length(descriptors)) descr<-cbind(descr,get.descriptor(descriptors[i],k,dist,nbdays,start,end,standardize,rean)) # recupere les indicateurs
+#  
+#  if (nrow(descr) !=length(precip)) stop("Probleme taille des donnees")
+#  
+#  N<-length(precip)
+#  
+#  param<-matrix(NA,ncol=7,nrow=N)
+#  for (i in 1:N){
+#    if (i %%50==0) print(i)
+#    if (!is.na(descr[i,1]) & !is.na(descr[i,2])){
+#      tmp<-get.closest(i,descr,precip,CV,nbdays,radtype)
+#      pi<-precip[tmp$idx]
+#      ni<-length(pi)
+#      ni1<-sum(pi>0)
+#      parami<-c(tmp$nb,1-ni1/ni,mean(pi[pi>0]),sd(pi[pi>0]),skewness(pi[pi>0]),kurtosis(pi[pi>0]),tmp$radius) # remplissage de la ligne: nbre de voisins, proba jour sec, moyenne et ecart-type des pluies non nulles, coefficient d'assymetrie et d'applatissement, rayon du cercle
+#    }
+#    else parami<-rep(NA,7) # si un des deux indicateurs est nul, ligne du tableau parametre vide
+#    param[i,]<-parami
+#  }
+#  colnames(param)<-c("nbnei","p0","mean","sd","skewness","kurtosis","radius")
+#  
+#  save(param,file=paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
+#}
+
+fit.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=TRUE){
   
-  print(paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
+  # Definition du repertoire de travail (lecture et ecriture)
+  if(rean[1] != rean[2]){ 
+    path1 <- paste0("2_Travail/Comparaison_reanalyses/")
+    path2 <- paste0(descriptors[1],"_",descriptors[2],"_",rean[1],"_",rean[2],"_",dist[1],"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype)
+  }
+  if(k[1] != k[2]){
+    path1 <- paste0("2_Travail/",rean[1],"/Rresults/overall/")
+    path2 <- paste0(descriptors[1],"_",descriptors[2],"_k",k[1],"_k",k[2],"_",dist[1],"_member",member,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype)
+  }                     
+  if(rean[1] == rean[2] & k[1] == k[2]){
+    path1 <- get.dirstr(k[1],rean[1])
+    path2 <- paste0(descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype)
+  }
   
+  # Import des precip et des indicateurs
   precip<-get.precip(nbdays,start,end)
   
-  descr<-NULL
-  for (i in 1:length(descriptors)) descr<-cbind(descr,get.descriptor(descriptors[i],k,dist,nbdays,start,end,standardize,rean)) # recupere les indicateurs
+  descr1<-get.descriptor(descriptors[1],k[1],dist[1],nbdays,start,end,standardize,rean[1])
+  descr2<-get.descriptor(descriptors[2],k[2],dist[2],nbdays,start,end,standardize,rean[2])
+  descr<- cbind(descr1,descr2)
+  
+  descr1<-get.descriptor(descriptors[1],k[1],dist[1],nbdays,start,end,standardize=FALSE,rean[1]) # pas de standardisation pour la densite de pts dans le plan
+  descr2<-get.descriptor(descriptors[2],k[2],dist[2],nbdays,start,end,standardize=FALSE,rean[2])
+  descrBis<- cbind(descr1,descr2)
+  rad <- mean(c(sd(descrBis[,1],na.rm=TRUE),sd(descrBis[,2],na.rm=TRUE)))/2
+  idef<-which(apply(descrBis,1,function(v) all(!is.na(v))))
   
   if (nrow(descr) !=length(precip)) stop("Probleme taille des donnees")
   
@@ -1194,14 +1245,16 @@ fit.empir<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-
       pi<-precip[tmp$idx]
       ni<-length(pi)
       ni1<-sum(pi>0)
-      parami<-c(ni,1-ni1/ni,mean(pi[pi>0]),sd(pi[pi>0]),skewness(pi[pi>0]),kurtosis(pi[pi>0]),tmp$radius) # remplissage de la ligne: nbre de voisins, proba jour sec, moyenne et ecart-type des pluies non nulles, coefficient d'assymetrie et d'applatissement, rayon du cercle
+      count <- nn2(data = descrBis[idef,],query = t(descrBis[i,]),searchtype = "radius",radius =  rad,k = length(idef)) # nombre de voisins dans le rayon 0.02
+      nb <- rowSums(count$nn.idx>0)-1
+      parami<-c(nb,1-ni1/ni,mean(pi[pi>0]),sd(pi[pi>0]),skewness(pi[pi>0]),kurtosis(pi[pi>0]),tmp$radius) # remplissage de la ligne: nbre de voisins, proba jour sec, moyenne et ecart-type des pluies non nulles, coefficient d'assymetrie et d'applatissement, rayon du cercle
     }
     else parami<-rep(NA,7) # si un des deux indicateurs est nul, ligne du tableau parametre vide
     param[i,]<-parami
   }
   colnames(param)<-c("nbnei","p0","mean","sd","skewness","kurtosis","radius")
   
-  save(param,file=paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
+  save(param,file=paste0(path1,"fit.empir",get.CVstr(CV),"/",path2,".Rdata"))
 }
 
 # Calcul des parametres de la loi empirique selon le voisinage au sens de l'analogie classique
@@ -1460,13 +1513,13 @@ get.closest<-function(i,descr,precip,CV=TRUE,nbdays=3,radtype){
     d<-apply((m0-descr)^2,1,sum)
     idx<-which(d<=radius^2) # idx = indice des jours dans le rayon du cercle
   }
+  
   if (substr(radtype,1,3)=="nrn"){ # si le rayon demande n'est pas fixe (un pourcentage de voisins)
-    idef<-which(apply(descr,1,function(v) all(!is.na(v))))
-    #print(str2prop(radstr)*length(precip))
     n<-nn2(descr[idef,],t(descr[i,]),str2prop(radstr)*length(precip)) # Nearest Neighbour Search
     radius<-max(n$nn.dists) # le rayon est la distance maximum selectionnee dans n
     idx<-sort(idef[n$nn.idx]) # idx = indice des jours dans le rayon du cercle
   }
+  
   if (CV) idx<-setdiff(idx,(i-nbdays+1):(i+nbdays-1)) # si Cross-Validation, on retire les indices des sequences de nbdays jours dans lesquelles le jour i intervient
   pi<-precip[idx]
   ni0<-sum(pi>0) # nombre de jours pluvieux dans le voisinage selectionne
@@ -1479,6 +1532,7 @@ get.closest<-function(i,descr,precip,CV=TRUE,nbdays=3,radtype){
     #idx<-which(d<=radius^2)
     idx<-sort(ipos[n$nn.idx]) # nouveau voisinage
   }
+  
   lclose<-list(idx=idx,radius=radius)
   return(lclose)
 }
@@ -1499,7 +1553,12 @@ get.delta <- function(ref = "1949-12-31", start = "1950-01-01"){
 # Import et mise en forme des indicateurs: calculs supplementaires, moyenne glissante sur trois jours
 get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,rean){
   
-  load(file=paste0(get.dirstr(k,rean),"compute_criteria/criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+  if(rean == "20CR" & end != "2011-12-31"){
+    load(file=paste0(get.dirstr(k,rean),"compute_criteria/criteria_",dist,"_member",member,"_k",k,"_",start,"_2011-12-31.Rdata"))
+    end_diff <- length(seq(as.Date(end),as.Date("2011-12-31"),"days"))
+    criteria <- criteria[1:(nrow(criteria) - end_diff + 1),]
+    
+  } else {load(file=paste0(get.dirstr(k,rean),"compute_criteria/criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))}
   
   if (descriptor=="celcelnei") descr<-criteria[,"cel"]/criteria[,"celnei"] # division de la celerite du jour par la celerite moyenne des voisins
   else if (substr(descriptor,1,5)=="rsing") {
@@ -1641,53 +1700,92 @@ paste.descr<-function(descr,str){
 }
 
 # Trace la repartition des parametres empiriques dans le plan des indicateurs (un couple d'indicateur par png)
-plot.empir<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,rean,empir=TRUE,obs=FALSE){
+#plot.empir<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,rean,empir=TRUE,obs=FALSE){
+#  
+#  descriptor1<-descriptors[1]
+#  descriptor2<-descriptors[2]
+#  
+#  if(!empir) precip <- get.precip(nbdays,start,end)
+#  
+#  print(paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype,".Rdata"))
+#  load(file=paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype,".Rdata")) # importation des parametres de la loi empirique
+#  param<-param[,colnames(param)!="kurtosis"]
+#  
+#  descr1<-get.descriptor(descriptor1,k,dist,nbdays,start,end,standardize=FALSE,rean)
+#  descr2<-get.descriptor(descriptor2,k,dist,nbdays,start,end,standardize=FALSE,rean)
+#  
+#  if(empir){
+#    print(paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"))
+#    png(file=paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"),width=10,height=7,units="in",res=72)
+#    par(mfrow=c(2,3))
+#    for (i in 1:ncol(param)){
+#      param.i<-param[,i]
+#      #q1<-quantile(param.i,0.005,na.rm=TRUE)
+#      #q2<-quantile(param.i,0.995,na.rm=TRUE)
+#      #param.i[param.i<q1]<-q1
+#      #param.i[param.i>q2]<-q2
+#      plot(descr1,descr2,col=getcol(param.i),xlab=descriptor1,ylab=descriptor2)
+#      addscale(param.i)
+#      ind.extr <- get.ind.extr(nbre = 62,nbdays = 3)
+#      ind.extr <- as.vector(ind.extr)
+#      points(descr1[ind.extr],descr2[ind.extr],pch=19)
+#      title(colnames(param)[i])
+#    }
+#  }
+#  
+#  if(obs){ 
+#    print(paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_obs_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"))
+#    png(file=paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_obs_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"),width=10,height=7,units="in",res=72)#,width=10,height=7,units="in",res=72)
+#    layout(matrix(1:2,1,2))
+#    
+#    plot(descr1,descr2,col=getcol(precip*nbdays),xlab=descriptor1,ylab=descriptor2)#.,pch=19,cex=0.6)
+#    addscale(precip*nbdays)
+#    title("Observed precipitation")
+#    
+#    plot(descr1,descr2,col=as.numeric(precip==0)+1,xlab=descriptor1,ylab=descriptor2)#,pch=19,cex=0.6)
+#    legend("topleft",c("Rain","No rain"),col=c(1,2),bty="n",pch=19)
+#    title("Rain - No rain")
+#  }
+#  
+#  dev.off()
+#}
+
+plot.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE){
   
-  descriptor1<-descriptors[1]
-  descriptor2<-descriptors[2]
+  # Definition du repertoire de travail (lecture et ecriture)
+  if(rean[1] != rean[2]){ 
+    path1 <- paste0("2_Travail/Comparaison_reanalyses/")
+    path2 <- paste0(descriptors[1],"_",descriptors[2],"_",rean[1],"_",rean[2],"_",dist[1],"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
+  }
+  if(k[1] != k[2]){
+    path1 <- paste0("2_Travail/",rean[1],"/Rresults/overall/")
+    path2 <- paste0(descriptors[1],"_",descriptors[2],"_k",k[1],"_k",k[2],"_",dist[1],"_member",member,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
+  } 
+  if(rean[1] == rean[2] & k[1] == k[2]){
+    path1 <- get.dirstr(k[1],rean[1])
+    path2 <- paste0(descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
+  }
   
-  if(!empir) precip <- get.precip(nbdays,start,end)
+  # Import des precip, du fit.empir, des indicateurs
+  precip <- get.precip(nbdays,start,end)
   
-  print(paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype,".Rdata"))
-  load(file=paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype,".Rdata")) # importation des parametres de la loi empirique
+  load(file=paste0(path1,"fit.empir",get.CVstr(CV),"/",path2,".Rdata"))
   param<-param[,colnames(param)!="kurtosis"]
   
-  descr1<-get.descriptor(descriptor1,k,dist,nbdays,start,end,standardize=FALSE,rean)
-  descr2<-get.descriptor(descriptor2,k,dist,nbdays,start,end,standardize=FALSE,rean)
+  descr1<-get.descriptor(descriptors[1],k[1],dist[1],nbdays,start,end,standardize=FALSE,rean[1])
+  descr2<-get.descriptor(descriptors[2],k[2],dist[2],nbdays,start,end,standardize=FALSE,rean[2])
   
-  if(empir){
-    print(paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"))
-    png(file=paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"),width=10,height=7,units="in",res=72)
-    par(mfrow=c(2,3))
-    for (i in 1:ncol(param)){
-      param.i<-param[,i]
-      #q1<-quantile(param.i,0.005,na.rm=TRUE)
-      #q2<-quantile(param.i,0.995,na.rm=TRUE)
-      #param.i[param.i<q1]<-q1
-      #param.i[param.i>q2]<-q2
-      plot(descr1,descr2,col=getcol(param.i),xlab=descriptor1,ylab=descriptor2)
-      addscale(param.i)
-      ind.extr <- get.ind.extr(nbre = 62,nbdays = 3)
-      ind.extr <- as.vector(ind.extr)
-      points(descr1[ind.extr],descr2[ind.extr],pch=19)
-      title(colnames(param)[i])
-    }
+  # Creation du plot
+  png(file=paste0(path1,"plot.empir",get.CVstr(CV),"/plot_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),".png"),width=10,height=7,units="in",res=72) # manip substr pour enlever le std
+  par(mfrow=c(2,3))
+  for (i in 1:ncol(param)){
+    param.i<-param[,i]
+    plot(descr1,descr2,col=getcol(param.i),xlab=descriptors[1],ylab=descriptors[2])
+    addscale(param.i)
+    ind.extr <- get.ind.extr(nbre = 3,nbdays = 3)
+    points(descr1[ind.extr],descr2[ind.extr],pch=19)
+    title(colnames(param)[i])
   }
-  
-  if(obs){ 
-    print(paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_obs_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"))
-    png(file=paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_obs_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"),width=10,height=7,units="in",res=72)#,width=10,height=7,units="in",res=72)
-    layout(matrix(1:2,1,2))
-    
-    plot(descr1,descr2,col=getcol(precip*nbdays),xlab=descriptor1,ylab=descriptor2)#.,pch=19,cex=0.6)
-    addscale(precip*nbdays)
-    title("Observed precipitation")
-    
-    plot(descr1,descr2,col=as.numeric(precip==0)+1,xlab=descriptor1,ylab=descriptor2)#,pch=19,cex=0.6)
-    legend("topleft",c("Rain","No rain"),col=c(1,2),bty="n",pch=19)
-    title("Rain - No rain")
-  }
-  
   dev.off()
 }
 
@@ -1760,48 +1858,6 @@ plot.empir.mean<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="20
   }
   
   dev.off()
-}
-
-# Trace les boxplot des interquantiles des scores pour les sequences seches et les sequences des pluies fortes
-plot.interquantile <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
-  
-  # Importation des scores et des precip
-  load(file=paste0(get.dirstr(k,rean),"save.score.A/score_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
-  precip <- get.precip(nbdays,start,end)
-  
-  # Calcul des quantiles des scores
-  quant <- c(0.001,0.002,0.005,0.01,0.02,0.05,0.1)
-  
-  qua <- lapply(score,function(v) quantile(v/nbdays,probs = quant)) # on divise par nbdays pour ramener le score entre 0 et 1
-  #inter.qua <- lapply(qua, function(v) c(v[-1]-v[-length(v)]))
-  
-  #quant.norm <- 1/c(quant[-1]-quant[-length(quant)]) # on ramene l'espace interquantile a une valeur normalisee sur 100% des donnees
-  #inter.qua.norm <- lapply(inter.qua, function(v) v*quant.norm)
-  
-  # Pluies qui nous interessent
-  soso <- sort(precip,index.return=TRUE,decreasing=TRUE)
-  ind <- vector("list",3)
-  names(ind) <- c("Toutes sequences","Sequences seches","62 sequences pluie forte")
-  ind[[1]] <- 1:length(precip)
-  ind[[2]] <- which(precip == 0)
-  ind[[3]] <- soso$ix[1:62]
-  
-  # Boxplot
-  tab <- do.call(rbind,qua)
-  #colnames(tab) <- paste0(colnames(tab)," - ",names(qua[[1]])[1:ncol(tab)])
-  ylim <- c(0,0.6)
-  
-  for(i in 1:length(ind)){
-    tab.plot <- tab[ind[[i]],]
-    
-    filename <- paste0(get.dirstr(k,rean),"plot.interquantile/",i,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png")
-    png(file=filename,width=18,height=8,units="in",res=72)
-    boxplot(tab.plot, ylim = ylim, main = paste0("Interquantiles ",dist," normalises - ",names(ind)[[i]]))
-    abline(v=1:ncol(tab),lty=2,col=gray(0.5))
-    
-    graphics.off()
-  }
-  
 }
 
 # Trace les hyétorgammes des 62 plus grosses séquences de pluie

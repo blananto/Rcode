@@ -555,6 +555,48 @@ make.precip1<-function(start="1950-01-01",end="2011-12-31") { #debut=19500101, n
   precip
 }
 
+# Trace les boxplot des interquantiles des scores pour les sequences seches et les sequences des pluies fortes
+plot.interquantile <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Importation des scores et des precip
+  load(file=paste0(get.dirstr(k,rean),"save.score.A/score_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  precip <- get.precip(nbdays,start,end)
+  
+  # Calcul des quantiles des scores
+  quant <- c(0.001,0.002,0.005,0.01,0.02,0.05,0.1)
+  
+  qua <- lapply(score,function(v) quantile(v/nbdays,probs = quant)) # on divise par nbdays pour ramener le score entre 0 et 1
+  #inter.qua <- lapply(qua, function(v) c(v[-1]-v[-length(v)]))
+  
+  #quant.norm <- 1/c(quant[-1]-quant[-length(quant)]) # on ramene l'espace interquantile a une valeur normalisee sur 100% des donnees
+  #inter.qua.norm <- lapply(inter.qua, function(v) v*quant.norm)
+  
+  # Pluies qui nous interessent
+  soso <- sort(precip,index.return=TRUE,decreasing=TRUE)
+  ind <- vector("list",3)
+  names(ind) <- c("Toutes sequences","Sequences seches","62 sequences pluie forte")
+  ind[[1]] <- 1:length(precip)
+  ind[[2]] <- which(precip == 0)
+  ind[[3]] <- soso$ix[1:62]
+  
+  # Boxplot
+  tab <- do.call(rbind,qua)
+  #colnames(tab) <- paste0(colnames(tab)," - ",names(qua[[1]])[1:ncol(tab)])
+  ylim <- c(0,0.6)
+  
+  for(i in 1:length(ind)){
+    tab.plot <- tab[ind[[i]],]
+    
+    filename <- paste0(get.dirstr(k,rean),"plot.interquantile/",i,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png")
+    png(file=filename,width=18,height=8,units="in",res=72)
+    boxplot(tab.plot, ylim = ylim, main = paste0("Interquantiles ",dist," normalises - ",names(ind)[[i]]))
+    abline(v=1:ncol(tab),lty=2,col=gray(0.5))
+    
+    graphics.off()
+  }
+  
+}
+
 # Trace la repartition des parametres de la loi de Pareto dans le plan des indicateurs
 plot.loglik.egp<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=FALSE){
   
