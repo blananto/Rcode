@@ -86,45 +86,24 @@ getcol<-function(vec=NULL,range=NULL,transparent=FALSE,centered=FALSE,rev=FALSE)
 }
 
 # Calcule et trace les CRPSS pour analogie indicateurs pour les differents couples d'indicateurs et differents rayons 
-compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="",standardize=TRUE,CV=TRUE,rean){
+compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="",standardize=TRUE,CV=TRUE,rean,quant=FALSE){
+  
+  # Indicateurs a comparer
   descr<-list(
-    c("sing","sing"),
-    c("cel","sing"),
-    c("snei","sing"),
-    c("rsing","rsing"),
-    c("cel","rsing"),
-    c("snei","rsing"),
     c("sing","rsing"),
-    c("cel","sing","rsing"),
-    c("snei","sing","rsing"),
+    c("sing05_2nei","rsingnei"),
+    c("sing05_2nei","rsingnei_best"),
     c("A","A"))
-
-  #descr<-list( # puis pareil avec les Norm et avec les R pour reperer les meilleurs couples, et enfin les ind-indR
-  # c("cel","sing"),
-  # c("celnei","sing"),
-  # c("cel","rsing"),
-  # c("celnei","rsing"),
-  # c("sing","rsing"),
-  # c("A","A"))
   
-  ndesc<-length(descr)
+  ndesc <- length(descr)
+  namdescr <- lapply(descr,nam2str)
   
+  # Pluies
   precip<-get.precip(nbdays,start,end)
   soso<-sort(precip,index.return=TRUE,decreasing=TRUE) # Classement des pluies de la plus forte a la plus faible avec indices
   
-  colnam<-c("all ecdf","pos ecdf","p0 binom")
-  
-  if (which=="rad"){ # Graphique pour les differents rayons
-    rads<-paste0("nrn",c("02","05","1","2"))
-    radstr.save<-""
-    kvec<-k
-    kstr.save<-paste0("_k",k)
-    distance <-dist
-    diststr.save<-dist
-    legs<-c("02","05","1","2")
-    dirstr.save<-get.dirstr(k,rean)
-  }
-  if (which=="") { # Graphique pour un rayon donne
+  # Graphique pour un rayon donne (base)
+  if (which=="") { 
     rads<-radtype
     radstr.save<-paste0("_",radtype)
     kvec<-k
@@ -132,10 +111,25 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
     distance <-dist
     diststr.save<-dist
     legs<-"05"
-    #if (k==1) colnam<-c(colnam,"pos gamma","pos egp")
+    style <- 1:length(legs)
+    type  <- rep(1,length(legs))
     dirstr.save<-get.dirstr(k,rean)
   }
-  if (which=="dist") { # Graphique pour les differentes distances (pour un rayon donne)
+  # Graphique pour les differents rayons
+  if (which=="rad"){ 
+    rads<-paste0("nrn",c("02","05","1","2"))
+    radstr.save<-""
+    kvec<-k
+    kstr.save<-paste0("_k",k)
+    distance <-dist
+    diststr.save<-dist
+    legs<-c("02","05","1","2")
+    style <- 1:length(legs)
+    type  <- rep(1,length(legs))
+    dirstr.save<-get.dirstr(k,rean)
+  }
+  # Graphique pour les differentes distances (pour un rayon donne)
+  if (which=="dist") { 
     rads<-radtype
     radstr.save<-paste0("_",radtype)
     kvec<-k
@@ -143,9 +137,12 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
     distance <-c("TWS","RMSE")
     diststr.save<-dist # pour stocker dist et l'utiliser pour le chemin du graphique, meme apres la boucle
     legs<-c("TWS","RMSE")
+    style <- 1:length(legs)
+    type  <- rep(1,length(legs))
     dirstr.save<-get.dirstr(k,rean)
   }
-  if (which=="k") { # dans ce cas, on compare pour un meme rayon les CRPSS des trois k (500,1000 et 500+1000) et enregistrement en amont dans l'arborescence
+  # Graphique pour les differents geopotentiels
+  if (which=="k") {
     rads<-radtype
     radstr.save<-paste0("_",radtype)
     kvec<- c(1,2,4)
@@ -153,9 +150,12 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
     distance <-dist
     diststr.save<-dist
     legs<-kvec
+    style <- 1:length(legs)
+    type  <- rep(1,length(legs))
     dirstr.save<-get.dirstr(rean = rean)
   }
-  if (which=="k_dist") { # dans ce cas, on compare pour un meme rayon les CRPSS des trois k (500,1000 et 500+1000) et enregistrement en amont dans l'arborescence
+  # Graphique pour les differents geopotentiels et distances
+  if (which=="k_dist") {
     rads<-radtype
     radstr.save<-paste0("_",radtype)
     kvec<- c(1,2)
@@ -168,136 +168,149 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
     dirstr.save<-get.dirstr(rean = rean)
   }
   
+  colnam<-c("all ecdf","pos ecdf","p0 binom")
   
-  for (nam in colnam){ # pour chacune des lois de probabilite ajustee
+  # pour les lois de probabilite ajustees
+  for (nam in colnam){
+    print(nam)
     crps.mat<-NULL
     coln<-NULL
-    for(dist in distance){ # pour les distances selectionnees
-      for (k in kvec){ # pour les k selectionnes
-        for (rad in rads){ # pour les rayons selectionnes
-          print(c(nam,str))
-          descriptors<-descr
+    # pour les distances selectionnees
+    for(dist in distance){
+      # pour les k selectionnes
+      for (k in kvec){ 
+        # pour les rayons selectionnes
+        for (rad in rads){ 
+
           descriptors<-lapply(descr,paste.descr,"05")
-          print(descriptors)
           
           for (i in 1:length(descriptors)){ # Import et recuperation des scores selon les differents couples d'indicateurs pour une distribution
-            print(descriptors[[i]])
-            print(paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors[[i]],collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".Rdata"))
             if (substr(descriptors[[i]][1],1,1)=="A") load(file=paste0(get.dirstr(k,rean),"compute_crps-CV.A/05_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
             else load(file=paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors[[i]],collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".Rdata"))
             crps.mat<-cbind(crps.mat,crps[,nam])
-            coln<-c(coln,paste0(descr[[i]],collapse="-"))
+            coln<-c(coln,paste0(namdescr[[i]],collapse="-"))
           }
         }
       }
     }
-    print(crps.mat[1:10,])
-    coln[coln!="A-A"] <- nam2str(coln[coln!="A-A"])
-    colnames(crps.mat)<-coln
     
-    idx<-which(apply(crps.mat,1,function(v) all(!is.na(v)))) # indice des lignes completes sans NA
+    # indice des lignes completes sans NA
+    idx<-which(apply(crps.mat,1,function(v) all(!is.na(v)))) 
     print(length(idx))
-    #  idx<-intersect(idx,which(!is.na(fit$loglik.i)))
-    #  print(length(idx))
     
-    meancrps<-apply(crps.mat[idx,],2,mean) # moyenne du CRPS par couple d'indicateur sur toutes les dates (sans NA sur la ligne)
+    # CRPS moyen par indicateur
+    meancrps<-apply(crps.mat[idx,],2,mean)
     
-    pos <- soso$ix[soso$x > 0.01] # on ne conserve que les indices des pluies positives
-    len <- length(pos)
-    idx.0<-intersect(idx,pos[(len-0.05*len):len]) # moyenne du CRPS par couple d'indicateurs sur les 5% des pluies les plus faibles
-    meancrps.0<-apply(crps.mat[idx.0,],2,mean)
-    
-    idx.1<-intersect(idx,soso$ix[1:(62*12)]) # moyenne du CRPS par couple d'indicateurs sur l'equivalent du maximum par mois de pluie (les 12*62 plus fortes pluies)
+    # par tranche de 10% de pluie positive
+    if(quant && substr(nam,1,3)=="pos"){
+      sosobis <- rev(soso$ix[soso$x>0]) # indice des pluies positives croissantes
+      pos <- quantile(1:length(sosobis),probs=seq(0,1,0.1))
+      idx.quant <- list()
+      meancrps.quant <- list()
+      for(i in 1:(length(pos)-1)){
+        idx.quant[[i]] <- intersect(idx,sosobis[pos[i]:pos[i+1]])
+        meancrps.quant[[i]]<-apply(crps.mat[idx.quant[[i]],],2,mean)
+      } 
+    }
+
+    # 62*12 pluies fortes
+    idx.1<-intersect(idx,soso$ix[1:(62*12)])
     meancrps.1<-apply(crps.mat[idx.1,],2,mean)
     
-    idx.2<-intersect(idx,soso$ix[1:62]) # moyenne du CRPS par couple d'indicateurs sur l'equivalent du maximum par an de pluie (les 62 plus fortes pluies)
+    # 62 pluies fortes
+    idx.2<-intersect(idx,soso$ix[1:62])
     meancrps.2<-apply(crps.mat[idx.2,],2,mean)
     
-    load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata")) # Import du score climatologique
+    # Score climato moyen
+    load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
     
-    #normalize<-mean(score$crps[idx,nam])
-    #normalize.1<-mean(score$crps[idx.1,nam])
-    #normalize.2<-mean(score$crps[idx.2,nam])
-    
-    if (substr(nam,1,3)=="pos") { # si "pos" dans le nom du modele
-      normalize<-mean(score$crps[idx,"pos ecdf"]) # Moyenne du score climato sur toutes dates non NA
-      normalize.0<-mean(score$crps[idx.0,"pos ecdf"]) # sur 5% les plus faibles
-      normalize.1<-mean(score$crps[idx.1,"pos ecdf"]) # sur 12*62
-      normalize.2<-mean(score$crps[idx.2,"pos ecdf"]) # sur 62
-    }
-    else{ # sinon, on fait la meme chose?
-      normalize<-mean(score$crps[idx,nam])
-      normalize.0<-mean(score$crps[idx.0,nam])
-      normalize.1<-mean(score$crps[idx.1,nam])
-      normalize.2<-mean(score$crps[idx.2,nam])
+    normalize<-mean(score$crps[idx,nam])
+    normalize.1<-mean(score$crps[idx.1,nam])
+    normalize.2<-mean(score$crps[idx.2,nam])
+    if(quant && substr(nam,1,3)=="pos"){
+      normalize.quant <- NULL
+      for(i in 1:(length(pos)-1)) normalize.quant[[i]] <- mean(score$crps[idx.quant[[i]],nam])
     }
     
+    # Graphiques
     
     if (seasonal) seastr<-"seasonal"
     else seastr<-"overall"
     
     filename<-paste0(dirstr.save,"compare.crps/",which,match(nam,colnam),"_",diststr.save,"_member",member,kstr.save,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),radstr.save,".png")
-    if (substr(nam,1,3)=="pos"){ # si "pos", trois fenetres graphiques
+    
+    # Fenêtre graphique
+    if (substr(nam,1,3)=="pos"){
       png(file=filename,width=18,height=8,units="in",res=72)
-      par(mar=c(11,4,4,2),mfrow=c(1,3))
-    }
-    else{ # sinon, une seule fenetre graphique
+      par(mar=c(max(nchar(coln))*2.3/3,4,4,2),mfrow=c(1,ifelse(quant,4,3)))
+    }else{
       png(file=filename,width=7,height=8,units="in",res=72)
-      par(mar=c(8.5,4,3,2))
+      par(mar=c(max(nchar(coln))*2/3.5,4,3,2))
     }
+    
+    # plot
     plot(c(1,ndesc),c(0,max(1-meancrps/normalize)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45)) # Definition des proprietes du graphique
     for (j in 1:length(legs)) { # pour chaque legs, on ajoute une courbe
-      points(1:ndesc,1-meancrps[(j-1)*ndesc+(1:ndesc)]/normalize,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1),pch=19)
-      lines(1:ndesc,1-meancrps[(j-1)*ndesc+(1:ndesc)]/normalize,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1))
+      points(1:ndesc,1-meancrps[(j-1)*ndesc+(1:ndesc)]/normalize,col=style[j],lty=type[j],pch=19)
+      lines(1:ndesc,1-meancrps[(j-1)*ndesc+(1:ndesc)]/normalize,col=style[j],lty=type[j])
     }
-    #legend(legend=1:3,col=1:3)
-    axis(2)
-    axis(1,labels=coln,at=1:length(meancrps),las=3,cex.axis=ifelse(substr(nam,1,3)=="pos",1.8,1.3))
+    
+    # Mise en forme
     box()
-    
-    title(paste0(nam," ",seastr))
+    axis(1,labels=coln,at=1:length(meancrps),las=3,cex.axis=ifelse(substr(nam,1,3)=="pos",1.8,1.3))
+    axis(2)
     grid()
-    if(which=="k_dist"){
-      legend("topleft",legend=legs,col=style,pch=19,lty = type, bty ="n",cex=1.3)
-    }else {legend("topleft",legend=legs,col=1:length(legs),pch=19,lty = 1, bty ="n",cex=1.3)}
     abline(v=1:ndesc,lty=2,col=gray(0.5))
+    title(paste0(nam," ",seastr))
+    legend("topleft",legend=legs,pch=19,bty ="n",lty = type,col=style,
+           cex=ifelse(substr(nam,1,3)=="pos",1.8,1.3))
     
-    if (substr(nam,1,3)=="pos"){ # si "pos" dans nam, on ajoute deux autres graphiques au png avec les 62*12 puis 12 plus fortes pluies
-      #plot(c(1,ndesc),c(0,max(1-meancrps.0/normalize.0)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.70)) # graphique 62
-      #for (j in 1:length(legs)) {
-      #  points(1:ndesc,1-meancrps.0[(j-1)*ndesc+(1:ndesc)]/normalize.0,col=j,pch=1)
-      #  lines(1:ndesc,1-meancrps.0[(j-1)*ndesc+(1:ndesc)]/normalize.0,col=j)
-      #}
-      #axis(2)
-      #axis(1,labels=coln,at=1:length(meancrps.0),las=3)
-      #box()
-      #title(paste0(nam," min 5% > 0.01"))
-      #abline(v=1:ndesc,lty=2,col=gray(0.5))
-      #grid()
+    # Fortes pluies
+    if (substr(nam,1,3)=="pos"){
       
-      plot(c(1,ndesc),c(0,max(1-meancrps.1/normalize.1)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45)) # graphique 62*12
+      # par tranche de 10% de pluie positive
+      if(quant){
+        plot(c(1,ndesc),c(0,max(1-meancrps.1/normalize.1)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45))
+        for (j in 1:(length(pos)-1)) {
+          points(1:ndesc,1-meancrps.quant[[j]]/normalize.quant[j],col=j,lty=1,pch=19)
+          lines(1:ndesc,1-meancrps.quant[[j]]/normalize.quant[j],col=j,lty=1)
+        }
+        box()
+        axis(1,labels=coln,at=1:length(meancrps.1),las=3, cex.axis=1.8)
+        axis(2)
+        grid()
+        abline(v=1:ndesc,lty=2,col=gray(0.5))
+        title(paste0(nam," monthly max (62*12 largest)"))
+        legend("topleft",legend=names(pos)[-1],pch=19,bty ="n",lty = type,col=1:(length(pos)-1),cex=1.8)
+      }
+      
+      # 62*12
+      plot(c(1,ndesc),c(0,max(1-meancrps.1/normalize.1)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45))
       for (j in 1:length(legs)) {
         points(1:ndesc,1-meancrps.1[(j-1)*ndesc+(1:ndesc)]/normalize.1,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1),pch=19)
         lines(1:ndesc,1-meancrps.1[(j-1)*ndesc+(1:ndesc)]/normalize.1,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1))
       }
-      axis(2)
-      axis(1,labels=coln,at=1:length(meancrps.1),las=3, cex.axis=1.8)
       box()
-      title(paste0(nam," monthly max (62*12 largest)"))
-      abline(v=1:ndesc,lty=2,col=gray(0.5))
+      axis(1,labels=coln,at=1:length(meancrps.1),las=3, cex.axis=1.8)
+      axis(2)
       grid()
+      abline(v=1:ndesc,lty=2,col=gray(0.5))
+      title(paste0(nam," monthly max (62*12 largest)"))
+      legend("topleft",legend=legs,pch=19,bty ="n",lty = type,col=style,cex=1.8)
       
-      plot(c(1,ndesc),c(0,max(1-meancrps.2/normalize.2)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45)) # graphique 62
+      # 62
+      plot(c(1,ndesc),c(0,max(1-meancrps.2/normalize.2)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45))
       for (j in 1:length(legs)) {
         points(1:ndesc,1-meancrps.2[(j-1)*ndesc+(1:ndesc)]/normalize.2,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1),pch=19)
         lines(1:ndesc,1-meancrps.2[(j-1)*ndesc+(1:ndesc)]/normalize.2,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1))
       }
-      axis(2)
-      axis(1,labels=coln,at=1:length(meancrps.2),las=3, cex.axis=1.8)
       box()
-      title(paste0(nam," yearly max (62 largest)"))
-      abline(v=1:ndesc,lty=2,col=gray(0.5))
+      axis(1,labels=coln,at=1:length(meancrps.2),las=3, cex.axis=1.8)
+      axis(2)
       grid()
+      abline(v=1:ndesc,lty=2,col=gray(0.5))
+      title(paste0(nam," yearly max (62 largest)"))
+      legend("topleft",legend=legs,pch=19,bty ="n",lty = type,col=style,cex=1.8)
     }
     
     dev.off()
@@ -712,7 +725,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
   
   if (!update) coln.new<-c("cel","mind","sing05","sing1","sing2","sing5","lsing05","lsing1","lsing2","lsing5","pers05","pers1","pers2","pers5","q05","q1","q2","q5","pcel","pnei05","pnei1","pnei2","pnei5","snei05","snei1","snei2","snei5")
   if (update) {
-    coln.new<-c("accnei","accneiR")
+    coln.new<-c("persnei","rsingnei")
   }
   
   criteria.new<-matrix(NA,ncol=length(coln.new),nrow=N)
@@ -783,8 +796,8 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="accR") {if (i==1) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/criteria[i-1,"cel"]/qi05)}
       #if (cc=="acc10R") {if (i %in% 1:10) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/mean(criteria[(i-10):(i-1),"cel"],na.rm=TRUE)/qi05)}
       
-      if (cc=="accnei") tmp <- c(tmp,mean(criteria[idi05,"acc"],na.rm=TRUE))
-      if (cc=="accneiR") tmp <- c(tmp,mean(criteria[idi05,"acc"],na.rm=TRUE)/qi05)
+      #if (cc=="accnei") tmp <- c(tmp,mean(criteria[idi05,"acc"],na.rm=TRUE))
+      #if (cc=="accneiR") tmp <- c(tmp,mean(criteria[idi05,"acc"],na.rm=TRUE)/qi05)
       # Minimum distance
       #if (cc=="mind") tmp<-c(tmp,di[soso$ix[2]]) # score minimum obtenu avec la meilleure journee analogue
       #
@@ -794,6 +807,8 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="sing2") tmp<-c(tmp,mean(di[idi2]))   # des 2% les plus proches
       #if (cc=="sing5") tmp<-c(tmp,mean(di[idi5]))   # des 5% les plus proches
       #if (cc=="sing10") tmp<-c(tmp,mean(di[idi10])) # des 10% les plus proches
+      #if (cc=="singnei") tmp <- c(tmp,mean(criteria[idi05,"sing05"],na.rm=TRUE))
+      if (cc=="rsingnei") tmp <- c(tmp,mean(criteria[idi05,"sing05"]/criteria[idi05,"q05"],na.rm=TRUE))
       #
       ## Log Singularite
       #if (cc=="lsing05") tmp<-c(tmp,mean(log(di[idi05]))) # moyenne du logarithme des distances des 0.5% les plus proches
@@ -808,6 +823,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="pers2") tmp<-c(tmp,mean(ri2$lengths[ri2$values==1]))    # du quantile 2%
       #if (cc=="pers5") tmp<-c(tmp,mean(ri5$lengths[ri5$values==1]))    # du quantile 5%
       #if (cc=="pers10") tmp<-c(tmp,mean(ri10$lengths[ri10$values==1])) # du quantile 10%
+      if (cc=="persnei") tmp <- c(tmp,mean(criteria[idi05,"snei05"],na.rm=TRUE))
       #
       ## Quantiles
       #if (cc=="q05") tmp<-c(tmp,qi05) # Quantile 0.5%
@@ -875,7 +891,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
 }
 
 # Calcul des CRPS apres analogie au sens des indicateurs
-compute_crps<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=TRUE,rean){
+compute_crps<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=TRUE,rean,best=FALSE){
   
   print(paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
   
@@ -899,6 +915,10 @@ compute_crps<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-
   #  load(file=fileegp)
   #  fit.egp<-fit
   #}
+  if(best){
+    load(file="2_Travail/20CR/Rresults/overall/k2/fit.empir-CV/persnei_singnei_RMSE_member1_k2_mean3day_1950-01-01_2011-12-31_std_nrn05.Rdata")
+    paramp0 <- param[,"p0"]
+  }
   
   load(file=paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata")) # on importe la loi empirique
   
@@ -909,8 +929,17 @@ compute_crps<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-
     if (!is.na(descr[i,1]) & !is.na(descr[i,2])){ # si les indicateurs du jour ne sont pas nuls
       tmp<-get.closest(i,descr,precip,CV,nbdays,radtype) # on prend les voisins selon un certain rayon
       pi<-precip[tmp$idx]
-      crps[i,"all ecdf"]<-crps_sample(precip[i],pi) # crps all ecdf
-      crps[i,"p0 binom"]<-crps_binom(precip[i]==0,1,param[i,"p0"]) # crps p0 binom
+      
+      if(best){
+        nbsec <- paramp0[i]*length(pi) # nombre de 0 a avoir
+        pi <- pi[pi != 0] # on enleve tous les 0
+        pi <- c(pi,rep(0,nbsec)) # on ajoute le nombre souhaite
+        crps[i,"all ecdf"]<-crps_sample(precip[i],pi) # crps all ecdf
+        crps[i,"p0 binom"]<-crps_binom(precip[i]==0,1,paramp0[i]) # crps p0 binom
+      } else{
+        crps[i,"all ecdf"]<-crps_sample(precip[i],pi) # crps all ecdf
+        crps[i,"p0 binom"]<-crps_binom(precip[i]==0,1,param[i,"p0"]) # crps p0 binom
+      }
       if (precip[i]>0) {
         crps[i,"pos ecdf"]<-crps_sample(precip[i],pi[pi>0]) # crps pos ecdf
         #if (file.exists(filegamma)) crps[i,"pos gamma"]<-crps_gamma(precip[i],shape=fit.gamma$param[i,"shape"],scale=fit.gamma$param[i,"scale"]) # crps pos gamma
@@ -922,7 +951,7 @@ compute_crps<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-
       }
     }
   }
-  save(crps,file=paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
+  save(crps,file=paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),ifelse(best,"_best",""),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
 }
 
 # Calcul des CRPS apres analogie au sens de l'analogie classique et des indicateurs combines
@@ -1173,37 +1202,6 @@ date_to_number<-function(nc,day,rean){
 }
 
 # Calcul des parametres de la loi empirique selon le voisinage au sens des indicateurs
-#fit.empir<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=TRUE,rean){
-#  
-#  print(paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
-#  
-#  precip<-get.precip(nbdays,start,end)
-#  
-#  descr<-NULL
-#  for (i in 1:length(descriptors)) descr<-cbind(descr,get.descriptor(descriptors[i],k,dist,nbdays,start,end,standardize,rean)) # recupere les indicateurs
-#  
-#  if (nrow(descr) !=length(precip)) stop("Probleme taille des donnees")
-#  
-#  N<-length(precip)
-#  
-#  param<-matrix(NA,ncol=7,nrow=N)
-#  for (i in 1:N){
-#    if (i %%50==0) print(i)
-#    if (!is.na(descr[i,1]) & !is.na(descr[i,2])){
-#      tmp<-get.closest(i,descr,precip,CV,nbdays,radtype)
-#      pi<-precip[tmp$idx]
-#      ni<-length(pi)
-#      ni1<-sum(pi>0)
-#      parami<-c(tmp$nb,1-ni1/ni,mean(pi[pi>0]),sd(pi[pi>0]),skewness(pi[pi>0]),kurtosis(pi[pi>0]),tmp$radius) # remplissage de la ligne: nbre de voisins, proba jour sec, moyenne et ecart-type des pluies non nulles, coefficient d'assymetrie et d'applatissement, rayon du cercle
-#    }
-#    else parami<-rep(NA,7) # si un des deux indicateurs est nul, ligne du tableau parametre vide
-#    param[i,]<-parami
-#  }
-#  colnames(param)<-c("nbnei","p0","mean","sd","skewness","kurtosis","radius")
-#  
-#  save(param,file=paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
-#}
-
 fit.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=TRUE){
   
   # Definition du repertoire de travail (lecture et ecriture)
@@ -1213,7 +1211,7 @@ fit.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="201
   }
   if(k[1] != k[2]){
     path1 <- paste0("2_Travail/",rean[1],"/Rresults/overall/")
-    path2 <- paste0(descriptors[1],"_",descriptors[2],"_k",k[1],"_k",k[2],"_",dist[1],"_member",member,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype)
+    path2 <- paste0(descriptors[1],"_",descriptors[2],"_k",k[1],"_k",k[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype)
   }                     
   if(rean[1] == rean[2] & k[1] == k[2]){
     path1 <- get.dirstr(k[1],rean[1])
@@ -1231,9 +1229,8 @@ fit.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="201
   descr2<-get.descriptor(descriptors[2],k[2],dist[2],nbdays,start,end,standardize=FALSE,rean[2])
   descrBis<- cbind(descr1,descr2)
   rad <- mean(c(sd(descrBis[,1],na.rm=TRUE),sd(descrBis[,2],na.rm=TRUE)))/2
-  idef<-which(apply(descrBis,1,function(v) all(!is.na(v))))
   
-  if (nrow(descr) !=length(precip)) stop("Probleme taille des donnees")
+  if (nrow(descr) != length(precip)) stop("Probleme taille des donnees")
   
   N<-length(precip)
   
@@ -1245,7 +1242,7 @@ fit.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="201
       pi<-precip[tmp$idx]
       ni<-length(pi)
       ni1<-sum(pi>0)
-      count <- nn2(data = descrBis[idef,],query = t(descrBis[i,]),searchtype = "radius",radius =  rad,k = length(idef)) # nombre de voisins dans le rayon 0.02
+      count <- nn2(data = descrBis[tmp$idef,],query = t(descrBis[i,]),searchtype = "radius",radius =  rad,k = length(tmp$idef)) # nombre de voisins dans le rayon 0.02
       nb <- rowSums(count$nn.idx>0)-1
       parami<-c(nb,1-ni1/ni,mean(pi[pi>0]),sd(pi[pi>0]),skewness(pi[pi>0]),kurtosis(pi[pi>0]),tmp$radius) # remplissage de la ligne: nbre de voisins, proba jour sec, moyenne et ecart-type des pluies non nulles, coefficient d'assymetrie et d'applatissement, rayon du cercle
     }
@@ -1515,6 +1512,7 @@ get.closest<-function(i,descr,precip,CV=TRUE,nbdays=3,radtype){
   }
   
   if (substr(radtype,1,3)=="nrn"){ # si le rayon demande n'est pas fixe (un pourcentage de voisins)
+    idef<-which(apply(descr,1,function(v) all(!is.na(v))))
     n<-nn2(descr[idef,],t(descr[i,]),str2prop(radstr)*length(precip)) # Nearest Neighbour Search
     radius<-max(n$nn.dists) # le rayon est la distance maximum selectionnee dans n
     idx<-sort(idef[n$nn.idx]) # idx = indice des jours dans le rayon du cercle
@@ -1533,7 +1531,7 @@ get.closest<-function(i,descr,precip,CV=TRUE,nbdays=3,radtype){
     idx<-sort(ipos[n$nn.idx]) # nouveau voisinage
   }
   
-  lclose<-list(idx=idx,radius=radius)
+  lclose<-list(idx=idx,radius=radius,idef=idef)
   return(lclose)
 }
 
@@ -1561,7 +1559,7 @@ get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011
   } else {load(file=paste0(get.dirstr(k,rean),"compute_criteria/criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))}
   
   if (descriptor=="celcelnei") descr<-criteria[,"cel"]/criteria[,"celnei"] # division de la celerite du jour par la celerite moyenne des voisins
-  else if (substr(descriptor,1,5)=="rsing") {
+  else if (substr(descriptor,1,5)=="rsing" & substr(descriptor,nchar(descriptor)-2,nchar(descriptor))!="nei") {
     nb<-substr(descriptor,6,nchar(descriptor))
     descr<-criteria[,paste0("sing",nb)]/criteria[,paste0("q",nb)] # calcul de rsing (local dimension), en divisant la singularite par le quantile souhaite
   }
@@ -1659,97 +1657,38 @@ makegrad<-function(mat,l){
 }
 
 # Noms propres des couples d'indicateurs
-nam2str<-function(nams){
-  strs<-NULL
-  for (nam in nams){
-    if (nam=="sing-sing") strs<-c(strs,"sing")
-    if (nam=="cel-sing") strs<-c(strs,"cel-sing")
-    if (nam=="snei-sing") strs<-c(strs,"pers-sing")
-    if (nam=="rsing-rsing") strs<-c(strs,"rsing")
-    if (nam=="cel-rsing") strs<-c(strs,"cel-rsing")
-    if (nam=="snei-rsing") strs<-c(strs,"pers-rsing")
-    if (nam=="sing-rsing") strs<-c(strs,"sing-rsing")
-    if (nam=="cel-sing-rsing") strs<-c(strs,"cel-sing-rsing")
-    if (nam=="snei-sing-rsing") strs<-c(strs,"pers-sing-rsing")
-    if (nam=="cel") strs<-c(strs,"cel")
-    if (nam=="sing") strs<-c(strs,"sing")
-    if (nam=="rsing") strs<-c(strs,"rsing")
-    if (nam=="snei") strs<-c(strs,"pers")
-    if (nam=="celR-sing") strs<-c(strs,"rcel-sing")
-    if (nam=="celnei-sing") strs<-c(strs,"celnei-sing")
-    if (nam=="celneiR-sing") strs<-c(strs,"rcelnei-sing")
-    if (nam=="celR-rsing") strs<-c(strs,"rcel-rsing")
-    if (nam=="celnei-rsing") strs<-c(strs,"celnei-rsing")
-    if (nam=="celneiR-rsing") strs<-c(strs,"rcelnei-rsing")
-    if (nam=="acc-sing") strs<-c(strs,"acc-sing")
-    if (nam=="accR-sing") strs<-c(strs,"racc-sing")
-    if (nam=="accnei-sing") strs<-c(strs,"accnei-sing")
-    if (nam=="accneiR-sing") strs<-c(strs,"raccnei-sing")
-    if (nam=="acc-rsing") strs<-c(strs,"acc-rsing")
-    if (nam=="accR-rsing") strs<-c(strs,"racc-rsing")
-    if (nam=="accnei-rsing") strs<-c(strs,"accnei-rsing")
-    if (nam=="accneiR-rsing") strs<-c(strs,"raccnei-rsing")
+nam2str<-function(nams,cloud=FALSE){
+
+  for(i in 1:length(nams)){
+    if(nams[i] == "snei") nams[i] <- "pers"
+    if(nams[i] == "sing05_2") nams[i] <- "singNew"
+    if(nams[i] == "sing05_2_500") nams[i] <- "singNew500"
+    if(nams[i] == "sing05_2nei") nams[i] <- "singNewnei"
+    if(nams[i] == "rsingnei_best") nams[i] <- "rsingnei-best"
   }
-  strs
+  
+  if(!cloud && length(nams)==2 && nams != c("A","A")){
+    if(nams[1]==nams[2]) nams <- nams[1]
+  }
+  nams
 }
 
 # Ajout d'une chaine de caractere a l'indicateur (05,1,2,5,10 a tous les indicateurs sauf cel)
 paste.descr<-function(descr,str){
-  descr[substr(descr,1,3) != "cel" & substr(descr,1,3) != "acc"] <- paste0(descr[substr(descr,1,3) != "cel" & substr(descr,1,3) != "acc"],str)
+  
+  cond <- c(substr(descr,1,3) == "cel",
+            substr(descr,1,3) == "acc",
+            substr(descr,1,8) == "sing05_2",
+            substr(descr,1,8) == "rsingnei",
+            descr == "singnei",
+            descr == "persnei")
+  
+  cond <- matrix(data = cond,nrow = length(cond)/2,ncol = 2,byrow = TRUE)
+  descr[apply(cond,2,sum)==0] <- paste0(descr[apply(cond,2,sum)==0],str)
   descr
 }
 
 # Trace la repartition des parametres empiriques dans le plan des indicateurs (un couple d'indicateur par png)
-#plot.empir<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,rean,empir=TRUE,obs=FALSE){
-#  
-#  descriptor1<-descriptors[1]
-#  descriptor2<-descriptors[2]
-#  
-#  if(!empir) precip <- get.precip(nbdays,start,end)
-#  
-#  print(paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype,".Rdata"))
-#  load(file=paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype,".Rdata")) # importation des parametres de la loi empirique
-#  param<-param[,colnames(param)!="kurtosis"]
-#  
-#  descr1<-get.descriptor(descriptor1,k,dist,nbdays,start,end,standardize=FALSE,rean)
-#  descr2<-get.descriptor(descriptor2,k,dist,nbdays,start,end,standardize=FALSE,rean)
-#  
-#  if(empir){
-#    print(paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"))
-#    png(file=paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"),width=10,height=7,units="in",res=72)
-#    par(mfrow=c(2,3))
-#    for (i in 1:ncol(param)){
-#      param.i<-param[,i]
-#      #q1<-quantile(param.i,0.005,na.rm=TRUE)
-#      #q2<-quantile(param.i,0.995,na.rm=TRUE)
-#      #param.i[param.i<q1]<-q1
-#      #param.i[param.i>q2]<-q2
-#      plot(descr1,descr2,col=getcol(param.i),xlab=descriptor1,ylab=descriptor2)
-#      addscale(param.i)
-#      ind.extr <- get.ind.extr(nbre = 62,nbdays = 3)
-#      ind.extr <- as.vector(ind.extr)
-#      points(descr1[ind.extr],descr2[ind.extr],pch=19)
-#      title(colnames(param)[i])
-#    }
-#  }
-#  
-#  if(obs){ 
-#    print(paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_obs_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"))
-#    png(file=paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_obs_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"),width=10,height=7,units="in",res=72)#,width=10,height=7,units="in",res=72)
-#    layout(matrix(1:2,1,2))
-#    
-#    plot(descr1,descr2,col=getcol(precip*nbdays),xlab=descriptor1,ylab=descriptor2)#.,pch=19,cex=0.6)
-#    addscale(precip*nbdays)
-#    title("Observed precipitation")
-#    
-#    plot(descr1,descr2,col=as.numeric(precip==0)+1,xlab=descriptor1,ylab=descriptor2)#,pch=19,cex=0.6)
-#    legend("topleft",c("Rain","No rain"),col=c(1,2),bty="n",pch=19)
-#    title("Rain - No rain")
-#  }
-#  
-#  dev.off()
-#}
-
 plot.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE){
   
   # Definition du repertoire de travail (lecture et ecriture)
@@ -1759,7 +1698,7 @@ plot.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="20
   }
   if(k[1] != k[2]){
     path1 <- paste0("2_Travail/",rean[1],"/Rresults/overall/")
-    path2 <- paste0(descriptors[1],"_",descriptors[2],"_k",k[1],"_k",k[2],"_",dist[1],"_member",member,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
+    path2 <- paste0(descriptors[1],"_",descriptors[2],"_k",k[1],"_k",k[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
   } 
   if(rean[1] == rean[2] & k[1] == k[2]){
     path1 <- get.dirstr(k[1],rean[1])
@@ -1775,12 +1714,17 @@ plot.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="20
   descr1<-get.descriptor(descriptors[1],k[1],dist[1],nbdays,start,end,standardize=FALSE,rean[1])
   descr2<-get.descriptor(descriptors[2],k[2],dist[2],nbdays,start,end,standardize=FALSE,rean[2])
   
+  # Nom propre des indicateurs
+  cond <- substr(descriptors,nchar(descriptors)-1,nchar(descriptors)) == substr(radtype,nchar(radtype)-1,nchar(radtype))
+  descriptors[cond] <- substr(descriptors[cond],1,nchar(descriptors[cond])-2)
+  namdescr <- nam2str(descriptors, cloud = TRUE)
+  
   # Creation du plot
   png(file=paste0(path1,"plot.empir",get.CVstr(CV),"/plot_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),".png"),width=10,height=7,units="in",res=72) # manip substr pour enlever le std
   par(mfrow=c(2,3))
   for (i in 1:ncol(param)){
     param.i<-param[,i]
-    plot(descr1,descr2,col=getcol(param.i),xlab=descriptors[1],ylab=descriptors[2])
+    plot(descr1,descr2,col=getcol(param.i),xlab=namdescr[1],ylab=namdescr[2])
     addscale(param.i)
     ind.extr <- get.ind.extr(nbre = 3,nbdays = 3)
     points(descr1[ind.extr],descr2[ind.extr],pch=19)

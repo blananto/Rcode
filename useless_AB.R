@@ -341,6 +341,38 @@ compute_density<-function(descriptor1,descriptor2,k,dist,nbdays=3,start="1950-01
   #print(dim(dens$z))
 }
 
+# Ancienne fonction fit.empir
+fit.empir.old<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=TRUE,rean){
+  
+  print(paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
+  
+  precip<-get.precip(nbdays,start,end)
+  
+  descr<-NULL
+  for (i in 1:length(descriptors)) descr<-cbind(descr,get.descriptor(descriptors[i],k,dist,nbdays,start,end,standardize,rean)) # recupere les indicateurs
+  
+  if (nrow(descr) !=length(precip)) stop("Probleme taille des donnees")
+  
+  N<-length(precip)
+  
+  param<-matrix(NA,ncol=7,nrow=N)
+  for (i in 1:N){
+    if (i %%50==0) print(i)
+    if (!is.na(descr[i,1]) & !is.na(descr[i,2])){
+      tmp<-get.closest(i,descr,precip,CV,nbdays,radtype)
+      pi<-precip[tmp$idx]
+      ni<-length(pi)
+      ni1<-sum(pi>0)
+      parami<-c(tmp$nb,1-ni1/ni,mean(pi[pi>0]),sd(pi[pi>0]),skewness(pi[pi>0]),kurtosis(pi[pi>0]),tmp$radius) # remplissage de la ligne: nbre de voisins, proba jour sec, moyenne et ecart-type des pluies non nulles, coefficient d'assymetrie et d'applatissement, rayon du cercle
+    }
+    else parami<-rep(NA,7) # si un des deux indicateurs est nul, ligne du tableau parametre vide
+    param[i,]<-parami
+  }
+  colnames(param)<-c("nbnei","p0","mean","sd","skewness","kurtosis","radius")
+  
+  save(param,file=paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",paste0(descriptors,collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
+}
+
 # Ajustement d'une loi de Pareto selon le voisinage au sens des indicateurs
 fit.loglik.egp<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=TRUE,rean){
   
@@ -553,6 +585,57 @@ make.precip1<-function(start="1950-01-01",end="2011-12-31") { #debut=19500101, n
   }
   
   precip
+}
+
+# Ancienne fonction plot.empir
+plot.empir.old<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,rean,empir=TRUE,obs=FALSE){
+  
+  descriptor1<-descriptors[1]
+  descriptor2<-descriptors[2]
+  
+  if(!empir) precip <- get.precip(nbdays,start,end)
+  
+  print(paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype,".Rdata"))
+  load(file=paste0(get.dirstr(k,rean),"fit.empir",get.CVstr(CV),"/",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype,".Rdata")) # importation des parametres de la loi empirique
+  param<-param[,colnames(param)!="kurtosis"]
+  
+  descr1<-get.descriptor(descriptor1,k,dist,nbdays,start,end,standardize=FALSE,rean)
+  descr2<-get.descriptor(descriptor2,k,dist,nbdays,start,end,standardize=FALSE,rean)
+  
+  if(empir){
+    print(paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"))
+    png(file=paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"),width=10,height=7,units="in",res=72)
+    par(mfrow=c(2,3))
+    for (i in 1:ncol(param)){
+      param.i<-param[,i]
+      #q1<-quantile(param.i,0.005,na.rm=TRUE)
+      #q2<-quantile(param.i,0.995,na.rm=TRUE)
+      #param.i[param.i<q1]<-q1
+      #param.i[param.i>q2]<-q2
+      plot(descr1,descr2,col=getcol(param.i),xlab=descriptor1,ylab=descriptor2)
+      addscale(param.i)
+      ind.extr <- get.ind.extr(nbre = 62,nbdays = 3)
+      ind.extr <- as.vector(ind.extr)
+      points(descr1[ind.extr],descr2[ind.extr],pch=19)
+      title(colnames(param)[i])
+    }
+  }
+  
+  if(obs){ 
+    print(paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_obs_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"))
+    png(file=paste0(get.dirstr(k,rean),"plot.empir",get.CVstr(CV),"/plot_",descriptor1,"_",descriptor2,"_obs_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"),width=10,height=7,units="in",res=72)#,width=10,height=7,units="in",res=72)
+    layout(matrix(1:2,1,2))
+    
+    plot(descr1,descr2,col=getcol(precip*nbdays),xlab=descriptor1,ylab=descriptor2)#.,pch=19,cex=0.6)
+    addscale(precip*nbdays)
+    title("Observed precipitation")
+    
+    plot(descr1,descr2,col=as.numeric(precip==0)+1,xlab=descriptor1,ylab=descriptor2)#,pch=19,cex=0.6)
+    legend("topleft",c("Rain","No rain"),col=c(1,2),bty="n",pch=19)
+    title("Rain - No rain")
+  }
+  
+  dev.off()
 }
 
 # Trace les boxplot des interquantiles des scores pour les sequences seches et les sequences des pluies fortes
