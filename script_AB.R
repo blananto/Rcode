@@ -42,11 +42,11 @@ plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start 
 # Version generique
 fit.empir(rean = c("20CR","20CR"), k = c(2,2), descriptors = c("persnei","singnei"), dist = c("RMSE","RMSE"),
           nbdays = 3, start = start, end = end, radtype = M)
-plot.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("sing05_2nei","rsingnei"), dist = c("TWS","TWS"),
-           nbdays = 3, start = start, end = end, radtype = M)
+plot.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("sing05","rsing05"), dist = c("TWS","TWS"),
+           nbdays = 3, start = start, end = end, radtype = M, obs = TRUE)
 compute_crps(descriptors = c("sing05_2nei","rsingnei"), k = k, dist = dist, nbdays = nbdays,
              start = start, end = end, radtype = M, rean = rean, best=TRUE)
-compare.crps(which = "", k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
+compare.crps(which = "", k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean, quant = TRUE)
 
 # Analogie en deux etapes: selection analogie classique puis sous selection indicateurs ----
 descr <- c("sing05","rsing05")
@@ -69,3 +69,10 @@ fit.empir.comb(descriptors = c("cel","sing05"), k = k, dist = dist, nbdays = nbd
 
 run.comb(k = k, dist = dist, nbdays = nbdays, str = Q, start = start, end = end, p = 0, rad = "05", rean = rean)
 compare.crps.comb(k = k, dist = dist, nbdays = nbdays, start = start, end = end, p = 0, rad = "05", rean = rean)
+
+# Tests distribution
+summary.distrib(descriptors = c("persnei","singnei"),k = k, dist = dist, nbdays = nbdays, start = start, end = end, rean = rean, rev = TRUE)
+plot.distrib(rean = rean,k = k,descriptors = c("persnei","singnei"),dist = dist,nbdays = nbdays,start = start,end = end)
+plot.crps(rean = rean,k = k,descriptors = c("sing05_2nei","rsingnei"),dist = dist,nbdays = nbdays,start = start,end = end)
+image.region()
+image.cumul()
