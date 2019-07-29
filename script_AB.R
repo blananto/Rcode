@@ -4,8 +4,8 @@ setwd("C:/Users/blanca/Documents")
 rean     <- "20CR"
 member   <- 1
 seasonal <- FALSE
-k        <- 1
-dist     <- "TWS"
+k        <- 2
+dist     <- "RMSE"
 nbdays   <- 3
 N        <- "02" # %age de voisins selectionnes pour l'analogie classique
 Q        <- "05" # %age de voisins selectionnes pour construire les indicateurs 
@@ -40,13 +40,13 @@ plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start 
                 radtype = M, rean = rean, ref="1900-01-01")
 
 # Version generique
-fit.empir(rean = c("20CR","20CR"), k = c(2,2), descriptors = c("persnei","singnei"), dist = c("RMSE","RMSE"),
+fit.empir(rean = c("20CR","20CR"), k = c(2,2), descriptors = c("rsingnei","celnei"), dist = c("RMSE","RMSE"),
           nbdays = 3, start = start, end = end, radtype = M)
-plot.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("sing05","rsing05"), dist = c("TWS","TWS"),
-           nbdays = 3, start = start, end = end, radtype = M, obs = TRUE)
-compute_crps(descriptors = c("sing05_2nei","rsingnei"), k = k, dist = dist, nbdays = nbdays,
-             start = start, end = end, radtype = M, rean = rean, best=TRUE)
-compare.crps(which = "", k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean, quant = TRUE)
+plot.empir(rean = c("20CR","20CR"), k = c(2,2), descriptors = c("rsingnei","celnei"), dist = c("RMSE","RMSE"),
+           nbdays = 3, start = start, end = end, radtype = M)
+compute_crps(descriptors = c("singnei","rsingnei"), k = k, dist = dist, nbdays = nbdays,
+             start = start, end = end, radtype = M, rean = rean)
+compare.crps(which = "", k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
 
 # Analogie en deux etapes: selection analogie classique puis sous selection indicateurs ----
 descr <- c("sing05","rsing05")
@@ -73,6 +73,6 @@ compare.crps.comb(k = k, dist = dist, nbdays = nbdays, start = start, end = end,
 # Tests distribution
 summary.distrib(descriptors = c("persnei","singnei"),k = k, dist = dist, nbdays = nbdays, start = start, end = end, rean = rean, rev = TRUE)
 plot.distrib(rean = rean,k = k,descriptors = c("persnei","singnei"),dist = dist,nbdays = nbdays,start = start,end = end)
-plot.crps(rean = rean,k = k,descriptors = c("sing05_2nei","rsingnei"),dist = dist,nbdays = nbdays,start = start,end = end)
+plot.crps(rean = rean,k = k,descriptors = c("singnei","rsingnei"),dist = dist,nbdays = nbdays,start = start,end = end)
 image.region()
 image.cumul()

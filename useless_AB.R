@@ -787,67 +787,6 @@ save.precip<-function(nbdays,start="1950-01-01",end="2011-12-31"){
   write.csv(precip,file=paste0("/Users/juliette/DataLTHE/METEO-FRANCE/DAILY/Isere@Grenoble/Isere@Grenoble_cum",nbdays,"day_",start,"_",end,".csv"),row.names=FALSE)
 }
 
-# Renvoie les scores de l'analogie classique pour chaque journee
-save.score.A <- function(k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean){
-  
-  gc()
-  
-  dist.vec<-getdist(k,dist,start,end,rean)
-  gc()
-  
-  dist.vec<-unlist(dist.vec)
-  gc()
-  
-  dates<-getdates(start,end)
-  N<-length(dates)
-  gc()
-  
-  U<-c(0,(N-1):1)
-  sU<-sapply(1:(N-1),function(x) sum(U[1:x]))
-  gc()
-  
-  score <-vector("list",N-nbdays+1)
-  ddi.mat<-NULL
-  
-  for (i in 1:(N-nbdays+1)){
-    if (i %% 50==0) {
-      print(i)
-    }
-    
-    if (nbdays>1){
-      if (i==1){
-        for (i2 in 1:nbdays) ddi.mat<-rbind(ddi.mat,getdist4i(i2,dist.vec,N,sU))
-      }
-      else {
-        ddi.mat<-ddi.mat[-1,]
-        ddi.mat<-rbind(ddi.mat,getdist4i(i+nbdays-1,dist.vec,N,sU))
-      }
-      
-      tmp.mat<-matrix(NA,ncol=N-nbdays+1,nrow=nbdays)
-      tmp.mat[1,]<-ddi.mat[1,1:(N-nbdays+1)]
-      for (i2 in (2:nbdays)) tmp.mat[i2,]<-ddi.mat[i2,i2:(N-nbdays+i2)]
-      ddi<-apply(tmp.mat,2,sum)
-    }
-    else{
-      ddi<-getdist4i(i,dist.vec,N,sU)
-    }
-    
-    if (seasonal){
-      j<-selind_season(i,len=30,dates)
-      di<-ddi[j]
-    }
-    else {
-      di<-ddi
-    }
-    
-    score[[i]] <- di
-    gc()
-    
-  }
-  
-  save(score, file = paste0(get.dirstr(k,rean),"save.score.A/score_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
-}
-
 # Enregistrement des dates dans le membre utilise
 savedates<-function(){
   dates<-substr(as.POSIXct(nc[[1]]$dim$time$vals*3600,origin='1800-01-01 00:00',tz="GMT"),1,10) #format "YYYY-MM-DD"
