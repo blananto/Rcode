@@ -4,8 +4,8 @@ setwd("C:/Users/blanca/Documents")
 rean     <- "20CR"
 member   <- 1
 seasonal <- FALSE
-k        <- 2
-dist     <- "RMSE"
+k        <- 1
+dist     <- "TWS"
 nbdays   <- 3
 N        <- "02" # %age de voisins selectionnes pour l'analogie classique
 Q        <- "05" # %age de voisins selectionnes pour construire les indicateurs 
@@ -31,7 +31,7 @@ compare.crps.A(k = k, dist = dist, nbdays = nbdays, start = start, end = end, re
 compute_criteria(k = k, dist = dist, start = start, end = end, rean = rean, update = TRUE)
 run(k = k, dist = dist, nbdays = nbdays, str = Q, radtype = M, start = start, end = end, rean = rean) # possibilite d'ajuster plusieurs lois, de modifier les couples d'indicateurs
 compare.crps(which = "", k = k, dist = dist, nbdays = nbdays,radtype = M, start = start, end = end, rean = rean)
-
+compare.crps.sais(k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
 
 # Visualisation dans le plan des indicateurs ----
 descr <- c("sing05","rsing05")
@@ -40,11 +40,11 @@ plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start 
                 radtype = M, rean = rean, ref="1900-01-01")
 
 # Version generique
-fit.empir(rean = c("20CR","20CR"), k = c(2,2), descriptors = c("rsingnei","celnei"), dist = c("RMSE","RMSE"),
+fit.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("celnei_2","rsingnei"), dist = c("TWS","TWS"),
           nbdays = 3, start = start, end = end, radtype = M)
-plot.empir(rean = c("20CR","20CR"), k = c(2,2), descriptors = c("rsingnei","celnei"), dist = c("RMSE","RMSE"),
+plot.empir(rean = c("20CR","20CR"), k = c(2,2), descriptors = c("celnei","rsingnei"), dist = c("TWS","TWS"),
            nbdays = 3, start = start, end = end, radtype = M)
-compute_crps(descriptors = c("singnei","rsingnei"), k = k, dist = dist, nbdays = nbdays,
+compute_crps(descriptors = c("celnei_2","singnei"), k = k, dist = dist, nbdays = nbdays,
              start = start, end = end, radtype = M, rean = rean)
 compare.crps(which = "", k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
 

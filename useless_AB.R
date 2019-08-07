@@ -547,6 +547,32 @@ fit.loglik.gamma.A<-function(rad,k,dist,nbdays=3,start="1950-01-01",end="2011-12
   save(fit,file=paste0(get.dirstr(k,rean),"fit.loglik.gamma-CV.A/",rad,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
 }
 
+# Taille de la fenetre spatiale d'analogie (fonction Simon)
+getinfo_window=function(k){ 
+  #lat et lon correspondent aux degrés de longitude et latitude pour lesquels on a les données des géopot 500 et 1000
+  lon<-nc[[1]]$dim$lon$vals # de -30 à 50 deg E tranches de 2 deg -> 41 valeurs
+  lat<-nc[[1]]$dim$lat$vals #de 24 - 72 deg N tranches de 2 deg ->25 valeurs
+  #time=data500$dim$time$vals # 58804 valeurs par tranches de 24h (du 01-01-1851 au 31-12-2011), valeurs à 9h chaque jour
+  #paramètre fenêtre d'analogie
+  
+  c_lon<-6 #centre de la fenêtre longitude
+  c_lat<-44 #centre de la fenêtre latitude
+  
+  if(k==1) {#500hPA
+    d_lon<-32
+    d_lat<-16
+  }
+  if (k==2){ #1000 hPA
+    d_lon<-16
+    d_lat<-8
+  }
+  infolon<-c(which(lon==c_lon-d_lon/2),which(lon==c_lon+d_lon/2)-which(lon==c_lon-d_lon/2)+1) #1er point de grille et nbre de points de grille
+  infolat<-c(which(lat==c_lat-d_lat/2),which(lat==c_lat+d_lat/2)-which(lat==c_lat-d_lat/2)+1)
+  
+  return(rbind(infolon,infolat))#matrice 2x2 
+  
+} 
+
 # Si rayon fixe, calcule le rayon du cercle voisin en moyennant les ecart-types des deux descripteurs
 get.radius<-function(descr,norm){
   sdvec<-apply(descr,2,sd,na.rm=TRUE)
