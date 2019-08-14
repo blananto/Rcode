@@ -94,18 +94,19 @@ getcol<-function(vec=NULL,range=NULL,transparent=FALSE,centered=FALSE,rev=FALSE)
 }
 
 # Calcule et trace les CRPSS pour analogie indicateurs pour les differents couples d'indicateurs et differents rayons 
-compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="",standardize=TRUE,CV=TRUE,rean){
+compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="",standardize=TRUE,CV=TRUE,rean,comp=F){
   
   # Indicateurs a comparer
   descr<-list(
     c("singnei","rsingnei"),
     c("celnei_2","rsingnei"),
     c("sing05_2nei","rsingnei"),
+    c("TWSgeo","rsingnei"),
     c("A05","A05")
   )
   
-  threeday <- rep(F,4)
-  ndesc <- length(descr)
+  threeday <- rep(F,5)
+  ndesc <- ifelse(comp,length(descr)-1,length(descr))
   namdescr <- lapply(descr,nam2str)
   
   # Pluies
@@ -274,14 +275,14 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
     }
     
     # plot
-    plot(c(1,ndesc-1),c(0,max(1-meancrps/normalize)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45)) # Definition des proprietes du graphique
+    plot(c(1,ndesc),c(0,max(1-meancrps/normalize)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45)) # Definition des proprietes du graphique
     for (j in 1:length(legs)) { # pour chaque legs, on ajoute une courbe
-      points(1:(ndesc-1),1-meancrps[(j-1)*ndesc+(1:(ndesc-1))]/normalize,col=style[j],lty=type[j],pch=19)
-      lines(1:(ndesc-1),1-meancrps[(j-1)*ndesc+(1:(ndesc-1))]/normalize,col=style[j],lty=type[j])
+      points(1:ndesc,1-meancrps[(j-1)*ndesc+(1:ndesc)]/normalize,col=style[j],lty=type[j],pch=19)
+      lines(1:ndesc,1-meancrps[(j-1)*ndesc+(1:ndesc)]/normalize,col=style[j],lty=type[j])
     }
     
     # Mise en forme
-    abline(h = 1-meancrps[(j-1)*ndesc+ndesc]/normalize,lty=3,lwd=2,col="red")
+    if(comp) abline(h = 1-meancrps[(j-1)*(ndesc+1)+(ndesc+1)]/normalize,lty=3,lwd=2,col="red")
     box()
     axis(1,labels=coln,at=1:length(meancrps),las=3,cex.axis=ifelse(substr(nam,1,3)=="pos",1.8,1.3))
     axis(2)
@@ -295,12 +296,12 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
     if (substr(nam,1,3)=="pos"){
       
       # 3% fortes pluies ete
-      plot(c(1,ndesc-1),c(0,max(1-meancrps.ete/normalize.ete)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45))
+      plot(c(1,ndesc),c(0,max(1-meancrps.ete/normalize.ete)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45))
       for (j in 1:length(legs)) {
-        points(1:(ndesc-1),1-meancrps.ete[(j-1)*ndesc+(1:(ndesc-1))]/normalize.ete,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1),pch=19)
-        lines(1:(ndesc-1),1-meancrps.ete[(j-1)*ndesc+(1:(ndesc-1))]/normalize.ete,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1))
+        points(1:ndesc,1-meancrps.ete[(j-1)*ndesc+(1:ndesc)]/normalize.ete,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1),pch=19)
+        lines(1:ndesc,1-meancrps.ete[(j-1)*ndesc+(1:ndesc)]/normalize.ete,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1))
       }
-      abline(h = 1-meancrps.ete[(j-1)*ndesc+ndesc]/normalize.ete,lty=3,lwd=2,col="red")
+      if(comp) abline(h = 1-meancrps.ete[(j-1)*(ndesc+1)+(ndesc+1)]/normalize.ete,lty=3,lwd=2,col="red")
       box()
       axis(1,labels=coln,at=1:length(meancrps.ete),las=3, cex.axis=1.8)
       axis(2)
@@ -310,12 +311,12 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
       legend("topleft",legend=legs,pch=19,bty ="n",lty = type,col=style,cex=1.8)
       
       # 62*12
-      plot(c(1,ndesc-1),c(0,max(1-meancrps.1/normalize.1)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45))
+      plot(c(1,ndesc),c(0,max(1-meancrps.1/normalize.1)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45))
       for (j in 1:length(legs)) {
-        points(1:(ndesc-1),1-meancrps.1[(j-1)*ndesc+(1:(ndesc-1))]/normalize.1,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1),pch=19)
-        lines(1:(ndesc-1),1-meancrps.1[(j-1)*ndesc+(1:(ndesc-1))]/normalize.1,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1))
+        points(1:ndesc,1-meancrps.1[(j-1)*ndesc+(1:ndesc)]/normalize.1,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1),pch=19)
+        lines(1:ndesc,1-meancrps.1[(j-1)*ndesc+(1:ndesc)]/normalize.1,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1))
       }
-      abline(h = 1-meancrps.1[(j-1)*ndesc+ndesc]/normalize.1,lty=3,lwd=2,col="red")
+      if(comp) abline(h = 1-meancrps.1[(j-1)*(ndesc+1)+(ndesc+1)]/normalize.1,lty=3,lwd=2,col="red")
       box()
       axis(1,labels=coln,at=1:length(meancrps.1),las=3, cex.axis=1.8)
       axis(2)
@@ -325,12 +326,12 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
       legend("topleft",legend=legs,pch=19,bty ="n",lty = type,col=style,cex=1.8)
       
       # 62
-      plot(c(1,ndesc-1),c(0,max(1-meancrps.2/normalize.2)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45))
+      plot(c(1,ndesc),c(0,max(1-meancrps.2/normalize.2)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45))
       for (j in 1:length(legs)) {
-        points(1:(ndesc-1),1-meancrps.2[(j-1)*ndesc+(1:(ndesc-1))]/normalize.2,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1),pch=19)
-        lines(1:(ndesc-1),1-meancrps.2[(j-1)*ndesc+(1:(ndesc-1))]/normalize.2,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1))
+        points(1:ndesc,1-meancrps.2[(j-1)*ndesc+(1:ndesc)]/normalize.2,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1),pch=19)
+        lines(1:ndesc,1-meancrps.2[(j-1)*ndesc+(1:ndesc)]/normalize.2,col=ifelse(which=="k_dist",style[j],j),lty=ifelse(which=="k_dist",type[j],1))
       }
-      abline(h = 1-meancrps.2[(j-1)*ndesc+ndesc]/normalize.2,lty=3,lwd=2,col="red")
+      if(comp) abline(h = 1-meancrps.2[(j-1)*(ndesc+1)+(ndesc+1)]/normalize.2,lty=3,lwd=2,col="red")
       box()
       axis(1,labels=coln,at=1:length(meancrps.2),las=3, cex.axis=1.8)
       axis(2)
@@ -360,14 +361,14 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
       png(file=filename,width=7,height=8,units="in",res=72)
       par(mar=c(max(nchar(coln))*2/3,4,3,2))
       
-      plot(c(1,ndesc-1),c(0,max(1-meancrps.0/normalize.0)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.5)) # Definition des proprietes du graphique
+      plot(c(1,ndesc),c(0,max(1-meancrps.0/normalize.0)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.5)) # Definition des proprietes du graphique
       for (j in 1:length(legs)) { # pour chaque legs, on ajoute une courbe
-        points(1:(ndesc-1),1-meancrps.0[(j-1)*ndesc+(1:(ndesc-1))]/normalize.0,col=style[j],lty=type[j],pch=19)
-        lines(1:(ndesc-1),1-meancrps.0[(j-1)*ndesc+(1:(ndesc-1))]/normalize.0,col=style[j],lty=type[j])
+        points(1:ndesc,1-meancrps.0[(j-1)*ndesc+(1:ndesc)]/normalize.0,col=style[j],lty=type[j],pch=19)
+        lines(1:ndesc,1-meancrps.0[(j-1)*ndesc+(1:ndesc)]/normalize.0,col=style[j],lty=type[j])
       }
       
       # Mise en forme
-      abline(h = 1-meancrps.0[(j-1)*ndesc+ndesc]/normalize.0,lty=3,lwd=2,col="red")
+      if(comp) abline(h = 1-meancrps.0[(j-1)*(ndesc+1)+(ndesc+1)]/normalize.0,lty=3,lwd=2,col="red")
       box()
       axis(1,labels=coln,at=1:length(meancrps),las=3,cex.axis=1.3)
       axis(2)
@@ -1842,6 +1843,17 @@ get.ind.extr <- function(nbre, ref = "1950-01-01", nbdays=3, start="1950-01-01",
   return(ind)
 }
 
+# Renvoie les indices des min et max d'un descripteur a partir d'une certaine reference
+get.ind.min.max <- function(descr, ref = "1950-01-01", start="1950-01-01"){
+  
+  load(file="2_Travail/20CR/Rresults/overall/k1/compute_criteria/criteria_TWS_member1_k1_1950-01-01_2011-12-31.Rdata")
+  res <- list()
+  res$x <- c(min(criteria[,descr],na.rm=T),max(criteria[,descr],na.rm=T))
+  res$idx <- c(which.min(criteria[,descr]),which.max(criteria[,descr]))
+  if(ref!="1950-01-01") res$idx <- res$idx + get.delta(ref = ref,start = start)
+  res
+}
+
 # Importation des donnees de precipitation
 get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="all"){
   
@@ -2183,6 +2195,38 @@ paste.descr<-function(descr,str){
   descr
 }
 
+# plot les analogues du plus/moins attracteur pour expliquer difference sing et rsing
+plot.ana<-function(){
+  pos <- get.ind.min.max("rsing05")
+  ana_min <- get.ana(date = getdates()[pos$idx[1]],rank=1:112,ref = "1950-01-01",
+                     k = 1,dist = "TWS",nbdays = 1,start,end,rean)$score
+  ana_max <- get.ana(date = getdates()[pos$idx[2]],rank=1:112,ref = "1950-01-01",
+                     k = 1,dist = "TWS",nbdays = 1,start,end,rean)$score
+  
+  for(i in 1:3){
+    png(filename = paste0("2_Travail/20CR/Rresults/overall/k1/plot.ana/plot_ana_",i,".png"),width = 610,height = 390,units = "px")
+    par(bg="grey")
+    plot(c(0,0.5),c(0,0),type="n",axes=FALSE,xlab="",ylab="",ylim=c(-40,100))
+    points(0,0,pch=4)
+    points(ana_min,rep(0,112),col="red",pch=4)
+    points(ana_max,rep(0,112),col="royalblue",pch=4)
+    axis(1,pos = -10)
+    text(0.25,-40,"TWS score")
+    if(i!=1){
+      abline(v=mean(ana_min),lty=2,lwd=2)
+      abline(v=mean(ana_max),lty=2,lwd=2)
+      arrows(mean(ana_min),80,mean(ana_max),80,code = 3,length = 0.1)
+      text(0.28,90,expression(paste(Delta,"sing")))}
+    if(i==3){
+      lines(density(ana_min))
+      lines(density(ana_max))
+      arrows(mean(ana_min)+0.022,15,mean(ana_max)-0.01,15,code = 3,length = 0.1)
+      text(0.28,25,expression(paste(Delta,"rsing")))
+    }
+    graphics.off()
+  }
+}
+  
 # plot la comparaison des p0 et mean(p>0) par mois entre la climato, l'analogie classique et les indicateurs
 plot.clim<-function(rean,k,descriptorsPos,descriptorsp0,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",str="05",CV=TRUE){
   

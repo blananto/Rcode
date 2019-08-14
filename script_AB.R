@@ -40,9 +40,9 @@ plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start 
                 radtype = M, rean = rean, ref="1900-01-01")
 
 # Version generique
-fit.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("celnei_2","rsingnei"), dist = c("TWS","TWS"),
+fit.empir(rean = c("20CR","20CR"), k = c(2,2), descriptors = c("singnei","singnei"), dist = c("TWS","RMSE"),
           nbdays = 3, start = start, end = end, radtype = M)
-plot.empir(rean = c("20CR","20CR"), k = c(2,2), descriptors = c("celnei","rsingnei"), dist = c("TWS","TWS"),
+plot.empir(rean = c("20CR","20CR"), k = c(2,2), descriptors = c("singnei","singnei"), dist = c("TWS","RMSE"),
            nbdays = 3, start = start, end = end, radtype = M)
 compute_crps(descriptors = c("celnei_2","singnei"), k = k, dist = dist, nbdays = nbdays,
              start = start, end = end, radtype = M, rean = rean)
