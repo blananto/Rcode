@@ -98,11 +98,10 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
   
   # Indicateurs a comparer
   descr<-list(
-    c("singnei","rsingnei"),
-    c("celnei_2","rsingnei"),
-    c("sing05_2nei","rsingnei"),
-    c("TWSgeo","rsingnei"),
-    c("A05","A05")
+    c("persnei","singnei"),
+    c("celnei","rsingnei")
+    #c("TWSgeo","rsingnei"),
+    #c("A05","A05")
   )
   
   threeday <- rep(F,5)
@@ -128,13 +127,13 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
   }
   # Graphique pour les differents rayons
   if (which=="rad"){ 
-    rads<-paste0("nrn",c("02","05","1","2"))
+    rads<-paste0("nrn",c("02","05"))
     radstr.save<-""
     kvec<-k
     kstr.save<-paste0("_k",k)
     distance <-dist
     diststr.save<-dist
-    legs<-c("02","05","1","2")
+    legs<-c("02","05")
     style <- 1:length(legs)
     type  <- rep(1,length(legs))
     dirstr.save<-get.dirstr(k,rean)
@@ -196,7 +195,7 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
           descriptors<-lapply(descr,paste.descr,"05")
           
           for (i in 1:length(descriptors)){ # Import et recuperation des scores selon les differents couples d'indicateurs pour une distribution
-            if (substr(descriptors[[i]][1],1,1)=="A") load(file=paste0(get.dirstr(k,rean),"compute_crps-CV.A/05_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+            if (substr(descriptors[[i]][1],1,1)=="A") load(file=paste0(get.dirstr(3,rean),"compute_crps-CV.A/02_",dist,"_member",member,"_k",3,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
             else load(file=paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors[[i]],collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,ifelse(threeday[i],"_threeday",""),".Rdata"))
             crps.mat<-cbind(crps.mat,crps[,nam])
             coln<-c(coln,paste0(namdescr[[i]],collapse="-"))
@@ -474,6 +473,152 @@ compare.crps.A<-function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rea
     }
     
     dev.off()
+  }
+}
+
+# Calcule et trace les CPRSS et comparaison avec meilleure analogie classique
+compare.crps.ana <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,CV=TRUE,rean){
+  
+  rad <- "nrn05"
+  
+  descr<-list(
+    c("singnei","rsingnei"),
+    c("celnei_2","rsingnei"),
+    c("sing05_2nei","rsingnei")
+  )
+  
+  ndesc <- length(descr)
+  namdescr <- lapply(descr,nam2str)
+  
+  precip<-get.precip(nbdays,start,end)
+  soso<-sort(precip,index.return=TRUE,decreasing=TRUE) # Classement des pluies de la plus forte a la plus faible avec indices
+
+  colnam<-c("all ecdf","pos ecdf","p0 binom")
+
+  for (nam in colnam){
+    
+    print(nam)
+    crps.mat<-NULL
+    coln<-NULL
+    descriptors<-lapply(descr,paste.descr,"05")
+    
+    for (i in 1:length(descriptors)){ # Import et recuperation des scores selon les differents couples d'indicateurs pour une distribution
+      load(file=paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors[[i]],collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".Rdata"))
+      crps.mat<-cbind(crps.mat,crps[,nam])
+      coln<-c(coln,paste0(namdescr[[i]],collapse="-"))
+    }
+    
+    idx<-which(apply(crps.mat,1,function(v) all(!is.na(v)))) 
+    print(length(idx))
+    
+    # CRPS moyen
+    meancrps<-apply(crps.mat[idx,],2,mean)
+    
+    if(nam =="pos ecdf"){
+      # quantile 0.94 pluies positives
+      qua <- quantile(precip[precip>0],probs=c(0.94))
+      idx.0 <- intersect(idx,which(precip>qua))
+      meancrps.0<-apply(crps.mat[idx.0,],2,mean)
+      
+      # 62*12 pluies fortes
+      idx.1<-intersect(idx,soso$ix[1:(62*12)])
+      meancrps.1<-apply(crps.mat[idx.1,],2,mean)
+      
+      # 62 pluies fortes
+      idx.2<-intersect(idx,soso$ix[1:62])
+      meancrps.2<-apply(crps.mat[idx.2,],2,mean)
+    }
+    
+    # Analogie classique
+    load(file=paste0(get.dirstr(3,rean),"compute_crps-CV.A/02_TWS_member",member,"_k",3,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    meancrps.A<-mean(crps[idx,nam])
+    if(nam =="pos ecdf"){
+    meancrps.A.0<-mean(crps[idx.0,nam])
+    meancrps.A.1<-mean(crps[idx.1,nam])
+    meancrps.A.2<-mean(crps[idx.2,nam])
+    }
+    
+    # CRPS climato moyen
+    load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    
+    normalize<-mean(score$crps[idx,nam])
+    if(nam == "pos ecdf"){
+      normalize.0<-mean(score$crps[idx.0,nam])
+      normalize.1<-mean(score$crps[idx.1,nam])
+      normalize.2<-mean(score$crps[idx.2,nam])
+    }
+    
+    # Graphiques
+    filename<-paste0(get.dirstr(k,rean),"compare.crps.ana/",nam,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".pdf")
+    pdf(file = filename, width = 6, height = 6)
+    par(mar=c(11,5,3,3))
+    
+    plot(c(1,ndesc),c(0,max(c(1-meancrps/normalize,1-meancrps.A/normalize))*1.2),axes=FALSE,xlab="",ylab="CRPSS",type="n")
+    points(1:ndesc,1-meancrps/normalize,pch=19)
+    lines(1:ndesc,1-meancrps/normalize)
+    abline(h=1-meancrps.A/normalize,col="red",lty=2)
+    box()
+    axis(1,labels=coln,at=1:length(meancrps),las=3,cex.axis=1.2)
+    axis(2)
+    grid()
+    abline(v=1:ndesc,lty=2,col=gray(0.5))
+    if (nam=="all ecdf") title("Overall")
+    if (nam=="pos ecdf") title("Non-zero rainfall")
+    if (nam=="p0 binom") title("Rain/No rain")
+    graphics.off()
+    
+    if (nam =="pos ecdf"){
+      # 0.94
+      filename<-paste0(get.dirstr(k,rean),"compare.crps.ana/",nam,"_0.94_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".pdf")
+      pdf(file = filename, width = 6, height = 6)
+      par(mar=c(11,5,3,3))
+      
+      plot(c(1,ndesc),c(0,max(c(1-meancrps.0/normalize.0,1-meancrps.A.0/normalize.0))*1.2),axes=FALSE,xlab="",ylab="CRPSS",type="n")
+      points(1:ndesc,1-meancrps.0/normalize.0,pch=19)
+      lines(1:ndesc,1-meancrps.0/normalize.0)
+      abline(h=1-meancrps.A.0/normalize.0,col="red",lty=2)
+      box()
+      axis(1,labels=coln,at=1:length(meancrps.0),las=3,cex.axis=1.2)
+      axis(2)
+      grid()
+      abline(v=1:ndesc,lty=2,col=gray(0.5))
+      title(paste0(nam," > 0.94 quantile"))
+      graphics.off()
+
+      # 62*12
+      filename<-paste0(get.dirstr(k,rean),"compare.crps.ana/",nam,"_monthly_max_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".pdf")
+      pdf(file = filename, width = 6, height = 6)
+      par(mar=c(11,5,3,3))
+      
+      plot(c(1,ndesc),c(0,max(c(1-meancrps.1/normalize.1,1-meancrps.A.1/normalize.1))*1.2),axes=FALSE,xlab="",ylab="CRPSS",type="n")
+      points(1:ndesc,1-meancrps.1/normalize.1,pch=19)
+      lines(1:ndesc,1-meancrps.1/normalize.1)
+      abline(h=1-meancrps.A.1/normalize.1,col="red",lty=2)
+      box()
+      axis(1,labels=coln,at=1:length(meancrps.1),las=3,cex.axis=1.2)
+      axis(2)
+      grid()
+      abline(v=1:ndesc,lty=2,col=gray(0.5))
+      title(paste0(nam," 12*62 largest rainfalls"))
+      graphics.off()
+      
+      # 62
+      filename<-paste0(get.dirstr(k,rean),"compare.crps.ana/",nam,"_yearly_max_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".pdf")
+      pdf(file = filename, width = 6, height = 6)
+      par(mar=c(11,5,3,3))
+      
+      plot(c(1,ndesc),c(0,max(c(1-meancrps.2/normalize.2,1-meancrps.A.2/normalize.2))*1.2),axes=FALSE,xlab="",ylab="CRPSS",type="n")
+      points(1:ndesc,1-meancrps.2/normalize.2,pch=19)
+      lines(1:ndesc,1-meancrps.2/normalize.2)
+      abline(h=1-meancrps.A.2/normalize.2,col="red",lty=2)
+      box()
+      axis(1,labels=coln,at=1:length(meancrps.2),las=3,cex.axis=1.2)
+      axis(2)
+      grid()
+      abline(v=1:ndesc,lty=2,col=gray(0.5))
+      title(paste0(nam," 62 largest rainfalls"))
+      graphics.off()
+    }
   }
 }
 
@@ -870,6 +1015,152 @@ compare.crps.TL<-function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",ra
   
 }
 
+# Calcule et trace les CPRSS et comparaison avec les Weather Patterns d'EDF
+compare.crps.wp <- function(k,dist,nbdays=1,start="1950-01-01",end="2011-12-31",standardize=TRUE,CV=TRUE,rean){
+  
+  rad <- "nrn05"
+  
+  descr<-list(
+    c("singnei","rsingnei"),
+    c("celnei_2","rsingnei"),
+    c("sing05_2nei","rsingnei")
+  )
+  
+  ndesc <- length(descr)
+  namdescr <- lapply(descr,nam2str)
+  
+  precip<-get.precip(nbdays,start,end)
+  soso<-sort(precip,index.return=TRUE,decreasing=TRUE) # Classement des pluies de la plus forte a la plus faible avec indices
+  
+  colnam<-c("all ecdf","pos ecdf","p0 binom")
+  
+  for (nam in colnam){
+    
+    print(nam)
+    crps.mat<-NULL
+    coln<-NULL
+    descriptors<-lapply(descr,paste.descr,"05")
+    
+    for (i in 1:length(descriptors)){ # Import et recuperation des scores selon les differents couples d'indicateurs pour une distribution
+      load(file=paste0(get.dirstr(k,rean),"compute_crps",get.CVstr(CV),"/",paste0(descriptors[[i]],collapse="_"),"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".Rdata"))
+      crps.mat<-cbind(crps.mat,crps[,nam])
+      coln<-c(coln,paste0(namdescr[[i]],collapse="-"))
+    }
+    
+    idx<-which(apply(crps.mat,1,function(v) all(!is.na(v)))) 
+    print(length(idx))
+    
+    # CRPS moyen
+    meancrps<-apply(crps.mat[idx,],2,mean)
+    
+    if(nam =="pos ecdf"){
+      # quantile 0.94 pluies positives
+      qua <- quantile(precip[precip>0],probs=c(0.94))
+      idx.0 <- intersect(idx,which(precip>qua))
+      meancrps.0<-apply(crps.mat[idx.0,],2,mean)
+      
+      # 62*12 pluies fortes
+      idx.1<-intersect(idx,soso$ix[1:(62*12)])
+      meancrps.1<-apply(crps.mat[idx.1,],2,mean)
+      
+      # 62 pluies fortes
+      idx.2<-intersect(idx,soso$ix[1:62])
+      meancrps.2<-apply(crps.mat[idx.2,],2,mean)
+    }
+    
+    # WP EDF
+    load(file="2_Travail/Rresults/compute.crps.wp/crps_wp.Rdata")
+    meancrps.wp<-mean(crps[idx,nam])
+    if(nam =="pos ecdf"){
+      meancrps.wp.0<-mean(crps[idx.0,nam])
+      meancrps.wp.1<-mean(crps[idx.1,nam])
+      meancrps.wp.2<-mean(crps[idx.2,nam])
+    }
+    
+    # CRPS climato moyen
+    load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    
+    normalize<-mean(score$crps[idx,nam])
+    if(nam == "pos ecdf"){
+      normalize.0<-mean(score$crps[idx.0,nam])
+      normalize.1<-mean(score$crps[idx.1,nam])
+      normalize.2<-mean(score$crps[idx.2,nam])
+    }
+    
+    # Graphiques
+    filename<-paste0(get.dirstr(k,rean),"compare.crps.wp/",nam,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".pdf")
+    pdf(file = filename, width = 6, height = 6)
+    par(mar=c(11,5,3,3))
+    
+    plot(c(1,ndesc),c(0,max(c(1-meancrps/normalize,1-meancrps.wp/normalize))*1.2),axes=FALSE,xlab="",ylab="CRPSS",type="n")
+    points(1:ndesc,1-meancrps/normalize,pch=19)
+    lines(1:ndesc,1-meancrps/normalize)
+    abline(h=1-meancrps.wp/normalize,col="royalblue",lty=2)
+    box()
+    axis(1,labels=coln,at=1:length(meancrps),las=3,cex.axis=1.2)
+    axis(2)
+    grid()
+    abline(v=1:ndesc,lty=2,col=gray(0.5))
+    if (nam=="all ecdf") title("Overall")
+    if (nam=="pos ecdf") title("Non-zero rainfall")
+    if (nam=="p0 binom") title("Rain/No rain")
+    graphics.off()
+    
+    if (nam =="pos ecdf"){
+      # 0.94
+      filename<-paste0(get.dirstr(k,rean),"compare.crps.wp/",nam,"_0.94_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".pdf")
+      pdf(file = filename, width = 6, height = 6)
+      par(mar=c(11,5,3,3))
+      
+      plot(c(1,ndesc),c(0,max(c(1-meancrps.0/normalize.0,1-meancrps.wp.0/normalize.0))*1.2),axes=FALSE,xlab="",ylab="CRPSS",type="n")
+      points(1:ndesc,1-meancrps.0/normalize.0,pch=19)
+      lines(1:ndesc,1-meancrps.0/normalize.0)
+      abline(h=1-meancrps.wp.0/normalize.0,col="royalblue",lty=2)
+      box()
+      axis(1,labels=coln,at=1:length(meancrps.0),las=3,cex.axis=1.2)
+      axis(2)
+      grid()
+      abline(v=1:ndesc,lty=2,col=gray(0.5))
+      title(paste0(nam," > 0.94 quantile"))
+      graphics.off()
+      
+      # 62*12
+      filename<-paste0(get.dirstr(k,rean),"compare.crps.wp/",nam,"_monthly_max_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".pdf")
+      pdf(file = filename, width = 6, height = 6)
+      par(mar=c(11,5,3,3))
+      
+      plot(c(1,ndesc),c(0,max(c(1-meancrps.1/normalize.1,1-meancrps.wp.1/normalize.1))*1.2),axes=FALSE,xlab="",ylab="CRPSS",type="n")
+      points(1:ndesc,1-meancrps.1/normalize.1,pch=19)
+      lines(1:ndesc,1-meancrps.1/normalize.1)
+      abline(h=1-meancrps.wp.1/normalize.1,col="royalblue",lty=2)
+      box()
+      axis(1,labels=coln,at=1:length(meancrps.1),las=3,cex.axis=1.2)
+      axis(2)
+      grid()
+      abline(v=1:ndesc,lty=2,col=gray(0.5))
+      title(paste0(nam," 12*62 largest rainfalls"))
+      graphics.off()
+      
+      # 62
+      filename<-paste0(get.dirstr(k,rean),"compare.crps.wp/",nam,"_yearly_max_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".pdf")
+      pdf(file = filename, width = 6, height = 6)
+      par(mar=c(11,5,3,3))
+      
+      plot(c(1,ndesc),c(0,max(c(1-meancrps.2/normalize.2,1-meancrps.wp.2/normalize.2))*1.2),axes=FALSE,xlab="",ylab="CRPSS",type="n")
+      points(1:ndesc,1-meancrps.2/normalize.2,pch=19)
+      lines(1:ndesc,1-meancrps.2/normalize.2)
+      abline(h=1-meancrps.wp.2/normalize.2,col="royalblue",lty=2)
+      box()
+      axis(1,labels=coln,at=1:length(meancrps.2),las=3,cex.axis=1.2)
+      axis(2)
+      grid()
+      abline(v=1:ndesc,lty=2,col=gray(0.5))
+      title(paste0(nam," 62 largest rainfalls"))
+      graphics.off()
+    }
+  }
+}
+
 # Calcul de la relative sinfularite pour tous les rayons possibles
 compute.rsing<- function(vec,sing=F){
   som <- cumsum(vec)
@@ -1232,6 +1523,34 @@ compute_crps.A<-function(rad,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31"
   }
   
   save(crps,file=paste0(get.dirstr(k,rean),"compute_crps-CV.A/",rad,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+}
+
+# Calcul des CRPS avec les WP et saison a risque
+compute.crps.wp <- function(start="1950-01-01",end="2011-12-31"){
+  
+  # Import
+  precip <- get.precip(1,start,end)
+  wp <- get.wp(start,end,risk=T)
+  load("2_Travail/Rresults/save.wp.ind/WP_ind.Rdata")
+  
+  # Calcul
+  N <- length(precip)
+  crps<-matrix(NA,ncol=3,nrow=N)
+  colnames(crps)<-c("all ecdf","pos ecdf","p0 binom")
+  
+  for(i in 1:N){
+    if (i %%50==0) print(i)
+    pi <- precip[wp.ind[[wp[i]]]]
+    p0 <- sum(pi==0)/length(pi)
+    
+    crps[i,"all ecdf"]<-crps_sample(precip[i],pi) # crps all ecdf
+    crps[i,"p0 binom"]<-crps_binom(precip[i]==0,1,p0) # crps p0 binom
+    if (precip[i]>0) crps[i,"pos ecdf"]<-crps_sample(precip[i],pi[pi>0]) # crps pos ecdf
+  }
+  
+  # Sauvegarde
+  save(crps,file="2_Travail/Rresults/compute.crps.wp/crps_wp.Rdata")
+  
 }
 
 # Calcul des distances de maniere generique
@@ -1624,7 +1943,7 @@ fit.loglik.p0.A<-function(rad,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31
 }
 
 # Sort la matrice de donnees de dat500 (k=1) ou dat1000 (k=2) dans notre fenetre d'analogie pour le jour j (de 1=01/01/1851 a 58804=31/12/2011)
-getdata=function(k,day0,day1=day0,rean){
+getdata<-function(k,day0,day1=day0,rean){
   num0<-date_to_number(nc[[k]],day0,rean)
   num1<-date_to_number(nc[[k]],day1,rean)
   N<-length(num0:num1)
@@ -1748,16 +2067,18 @@ get.closest<-function(i,descr,precip,CV=TRUE,nbdays=3,radtype){
   
   if (CV) idx<-setdiff(idx,(i-nbdays+1):(i+nbdays-1)) # si Cross-Validation, on retire les indices des sequences de nbdays jours dans lesquelles le jour i intervient
   pi<-precip[idx]
-  ni0<-sum(pi>0) # nombre de jours pluvieux dans le voisinage selectionne
-  if (ni0<20) {
-    #we increase the radius to embrace >=20 positive rainfall
-    ipos<-which(precip>0 & !is.na(descr[,1]) & !is.na(descr[,2])) # selection des pluies positives avec indicateurs non nuls
-    if (CV) ipos<-setdiff(ipos,(i-nbdays+1):(i+nbdays-1)) # si cross-validation, on enleve les sequences incluent le jour i
-    n<-nn2(descr[ipos,],t(descr[i,]),20) # recherche de 20 voisins parmi les jours pluvieux
-    radius<-max(n$nn.dists)
-    #idx<-which(d<=radius^2)
-    idx<-sort(ipos[n$nn.idx]) # nouveau voisinage
-  }
+  
+  
+  #ni0<-sum(pi>0) # nombre de jours pluvieux dans le voisinage selectionne
+  #if (ni0<20) {
+  #  #we increase the radius to embrace >=20 positive rainfall
+  #  ipos<-which(precip>0 & !is.na(descr[,1]) & !is.na(descr[,2])) # selection des pluies positives avec indicateurs non nuls
+  #  if (CV) ipos<-setdiff(ipos,(i-nbdays+1):(i+nbdays-1)) # si cross-validation, on enleve les sequences incluent le jour i
+  #  n<-nn2(descr[ipos,],t(descr[i,]),20) # recherche de 20 voisins parmi les jours pluvieux
+  #  radius<-max(n$nn.dists)
+  #  #idx<-which(d<=radius^2)
+  #  idx<-sort(ipos[n$nn.idx]) # nouveau voisinage
+  #}
   
   lclose<-list(idx=idx,radius=radius,idef=idef)
   return(lclose)
@@ -1875,6 +2196,20 @@ get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="all"){
 get.stdstr<-function(standardize){
   if (standardize) return("_std")
   else return("")
+}
+
+# Importation des WP EDF
+get.wp <- function(start="1950-01-01",end="2011-12-31",risk=F){
+  
+  wp <- read.table("2_Travail/Data/WP/type_temps_jour.txt", quote="\"", comment.char="")
+  wp[,1] <- as.character(format(as.Date(wp[,1],"%d/%m/%Y"),"%Y-%m-%d"))
+  wp <- wp[which(wp[,1]==start):which(wp[,1]==end),2]
+  
+  if(risk){
+    dates <- getdates(start,end)
+    wp[substr(dates,6,7) %in% c("03","04","05","06","07","08")] <- wp[substr(dates,6,7) %in% c("03","04","05","06","07","08")]+8
+  }
+  wp
 }
 
 # Calcule les gradients pour 500 (k=1) ou 1000 (k=2) pour tous les jours
@@ -2128,7 +2463,7 @@ make.precip1.isere<-function(start="1950-01-01",end="2011-12-31") {
   
   bord<-read.csv("2_Travail/Data/Carto/border_Isere@Grenoble.csv",sep=",") #coordonnées des bassins
   
-  load("2_Travail/Data/Carto/Isere@Grenoble_24h_minlength50.Rdata") #precip journlières
+  load("2_Travail/Data/Carto/Isere@Grenoble_24h_minlength50.Rdata") #precip journalières
   
   #bassin<-c(87,567,706,577,797,621,136,180,1092,116,792) #ensemble des bassins de l'Isère
   bassin<-c(670,19,35,124,248,176,596,104) #ensemble des bassins du Drac
@@ -2166,8 +2501,8 @@ nam2str<-function(nams,cloud=FALSE){
     if(nams[i] == "snei") nams[i] <- "pers"
     if(nams[i] == "sing05_2") nams[i] <- "singNew"
     if(nams[i] == "sing05_2_500") nams[i] <- "singNew500"
-    if(nams[i] == "sing05_2nei") nams[i] <- "singnei_new"
-    if(nams[i] == "celnei_2") nams[i] <- "celnei_new"
+    if(nams[i] == "sing05_2nei") nams[i] <- "singneiNew"
+    if(nams[i] == "celnei_2") nams[i] <- "celneiNew"
     if(nams[i] == "rsingnei_best") nams[i] <- "rsingnei-best"
     if(nams[i] == "TWSgeo") nams[i] <- "TWS_500_1000"
   }
@@ -3140,7 +3475,7 @@ save.nei.A<-function(k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean){
   
   print(paste0(get.dirstr(k,rean),"save.nei.A/nei_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
   
-  dist.vec<-getdist(k,dist,start,end,rean,nbdays=1)
+  dist.vec<-getdist(k,dist,start,end,rean)
   gc()
   dist.vec<-unlist(dist.vec)
   gc()
@@ -3262,6 +3597,22 @@ save.score.A <- function(k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean)
   save(dist.list, file = paste0("2_Travail/20CR/Rresults/compute_dist/",ifelse(nbdays>1,paste0(nbdays,"day_"),""),dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
 }
 
+# Indices des 16 differentes classes de wp (saison a risque de 1 a 8, non risque de 9 a 16)
+save.wp.ind <- function(start="1950-01-01",end="2011-12-31"){
+  
+  wp <- get.wp(start,end,risk=T)
+  delta <- get.delta(ref="1851-01-01",start = start)
+  wp.ind <- list()
+  
+  for(i in 1:16){
+    wp.ind[[i]] <- which(wp==i)
+    write(x = wp.ind[[i]]+delta, file = paste0("2_Travail/Rresults/save.wp.ind/WP",i,".txt"), ncolumns = length(wp.ind[[i]]),sep = ",")
+  }
+  
+  save(wp.ind,file="2_Travail/Rresults/save.wp.ind/WP_ind.Rdata")
+  
+}
+
 # Tranforme la liste de score en matrice diagonale
 score.to.mat <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
   load(file=paste0("2_Travail/",rean,"/Rresults/compute_dist/",ifelse(nbdays>1,paste0(nbdays,"day_"),""),dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
@@ -3271,6 +3622,23 @@ score.to.mat <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rea
   dist.list <- rbind(dist.list,last) # ajout de la derniere ligne
   dist.list2 <- t(dist.list)
   dist.list <- dist.list + dist.list2
+}
+
+# Trace le boxplot des max max annuels par mois de precipitation journaliere
+season.at.risk <- function(start="1950-01-01",end="2011-12-31"){
+  
+  precip <- get.precip(1,start,end)
+  mon_max <- aggregate(precip,by=list(substr(getdates(start,end),1,7)),FUN=max)
+  
+  png("2_Travail/Rresults/season.at.risk/boxplot_daily_rainfall.png",width = 670,height = 500,units = "px")
+  boxplot(mon_max[,2]~as.factor(substr(mon_max[,1],6,7)),outline=F,names=month.abb,xlab="Month",ylab="Precipitation (mm)")
+  points(aggregate(mon_max[,2],by=list(substr(mon_max[,1],6,7)),FUN=quantile,probs=0.9),col="red",pch=19) # on ajoute le quantile 90%
+  abline(v = 2.5,col="red",lty=2)
+  abline(v = 8.5,col="red",lty=2)
+  legend("topleft","90% quantile",col="red",pch=19,bty="n")
+  title("Annual maxima")
+  graphics.off()
+  
 }
 
 # Renvoie les indices des dates dans les + ou - len jours de chaque annee
