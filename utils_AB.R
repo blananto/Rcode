@@ -1016,15 +1016,20 @@ compare.crps.TL<-function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",ra
 }
 
 # Calcule et trace les CPRSS et comparaison avec les Weather Patterns d'EDF
-compare.crps.wp <- function(k,dist,nbdays=1,start="1950-01-01",end="2011-12-31",standardize=TRUE,CV=TRUE,rean){
+compare.crps.wp <- function(k,dist,nbdays=1,start="1950-01-01",end="2011-12-31",standardize=TRUE,CV=TRUE,rean,ana=F){
   
   rad <- "nrn05"
   
   descr<-list(
-    c("singnei","rsingnei"),
-    c("celnei_2","rsingnei"),
-    c("sing05_2nei","rsingnei")
+    c("persnei","singnei"),
+    c("celnei","rsingnei")
   )
+  
+  #descr <-list(
+  #  c("singnei","rsingnei"),
+  #  c("celnei_2","rsingnei"),
+  #  c("sing05_2nei","rsingnei")
+  #)
   
   ndesc <- length(descr)
   namdescr <- lapply(descr,nam2str)
@@ -1157,6 +1162,93 @@ compare.crps.wp <- function(k,dist,nbdays=1,start="1950-01-01",end="2011-12-31",
       abline(v=1:ndesc,lty=2,col=gray(0.5))
       title(paste0(nam," 62 largest rainfalls"))
       graphics.off()
+    }
+    
+    # Analogie classique
+    if(ana){
+      load(file=paste0(get.dirstr(3,rean),"compute_crps-CV.A/02_TWS_member",member,"_k",3,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+      meancrps.A<-mean(crps[idx,nam])
+      if(nam =="pos ecdf"){
+        meancrps.A.0<-mean(crps[idx.0,nam])
+        meancrps.A.1<-mean(crps[idx.1,nam])
+        meancrps.A.2<-mean(crps[idx.2,nam])
+      }
+      
+      # Graphiques
+      filename<-paste0(get.dirstr(k,rean),"compare.crps.wp/",nam,"_ana_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".pdf")
+      pdf(file = filename, width = 6, height = 6)
+      par(mar=c(11,5,3,3))
+      
+      plot(c(1,ndesc),c(0,max(c(1-meancrps/normalize,1-meancrps.wp/normalize,1-meancrps.A/normalize))*1.2),axes=FALSE,xlab="",ylab="CRPSS",type="n")
+      points(1:ndesc,1-meancrps/normalize,pch=19)
+      lines(1:ndesc,1-meancrps/normalize)
+      abline(h=1-meancrps.wp/normalize,col="royalblue",lty=2)
+      abline(h=1-meancrps.A/normalize,col="red",lty=2)
+      box()
+      axis(1,labels=coln,at=1:length(meancrps),las=3,cex.axis=1.2)
+      axis(2)
+      grid()
+      abline(v=1:ndesc,lty=2,col=gray(0.5))
+      if (nam=="all ecdf") title("Overall")
+      if (nam=="pos ecdf") title("Non-zero rainfall")
+      if (nam=="p0 binom") title("Rain/No rain")
+      graphics.off()
+      
+      if (nam =="pos ecdf"){
+        # 0.94
+        filename<-paste0(get.dirstr(k,rean),"compare.crps.wp/",nam,"_ana_0.94_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".pdf")
+        pdf(file = filename, width = 6, height = 6)
+        par(mar=c(11,5,3,3))
+        
+        plot(c(1,ndesc),c(0,max(c(1-meancrps.0/normalize.0,1-meancrps.wp.0/normalize.0,1-meancrps.A.0/normalize.0))*1.2),axes=FALSE,xlab="",ylab="CRPSS",type="n")
+        points(1:ndesc,1-meancrps.0/normalize.0,pch=19)
+        lines(1:ndesc,1-meancrps.0/normalize.0)
+        abline(h=1-meancrps.wp.0/normalize.0,col="royalblue",lty=2)
+        abline(h=1-meancrps.A.0/normalize.0,col="red",lty=2)
+        box()
+        axis(1,labels=coln,at=1:length(meancrps.0),las=3,cex.axis=1.2)
+        axis(2)
+        grid()
+        abline(v=1:ndesc,lty=2,col=gray(0.5))
+        title(paste0(nam," > 0.94 quantile"))
+        graphics.off()
+        
+        # 62*12
+        filename<-paste0(get.dirstr(k,rean),"compare.crps.wp/",nam,"_ana_monthly_max_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".pdf")
+        pdf(file = filename, width = 6, height = 6)
+        par(mar=c(11,5,3,3))
+        
+        plot(c(1,ndesc),c(0,max(c(1-meancrps.1/normalize.1,1-meancrps.wp.1/normalize.1,1-meancrps.A.1/normalize.1))*1.2),axes=FALSE,xlab="",ylab="CRPSS",type="n")
+        points(1:ndesc,1-meancrps.1/normalize.1,pch=19)
+        lines(1:ndesc,1-meancrps.1/normalize.1)
+        abline(h=1-meancrps.wp.1/normalize.1,col="royalblue",lty=2)
+        abline(h=1-meancrps.A.1/normalize.1,col="red",lty=2)
+        box()
+        axis(1,labels=coln,at=1:length(meancrps.1),las=3,cex.axis=1.2)
+        axis(2)
+        grid()
+        abline(v=1:ndesc,lty=2,col=gray(0.5))
+        title(paste0(nam," 12*62 largest rainfalls"))
+        graphics.off()
+        
+        # 62
+        filename<-paste0(get.dirstr(k,rean),"compare.crps.wp/",nam,"_ana_yearly_max_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",rad,".pdf")
+        pdf(file = filename, width = 6, height = 6)
+        par(mar=c(11,5,3,3))
+        
+        plot(c(1,ndesc),c(0,max(c(1-meancrps.2/normalize.2,1-meancrps.wp.2/normalize.2,1-meancrps.A.2/normalize.2))*1.2),axes=FALSE,xlab="",ylab="CRPSS",type="n")
+        points(1:ndesc,1-meancrps.2/normalize.2,pch=19)
+        lines(1:ndesc,1-meancrps.2/normalize.2)
+        abline(h=1-meancrps.wp.2/normalize.2,col="royalblue",lty=2)
+        abline(h=1-meancrps.A.2/normalize.2,col="red",lty=2)
+        box()
+        axis(1,labels=coln,at=1:length(meancrps.2),las=3,cex.axis=1.2)
+        axis(2)
+        grid()
+        abline(v=1:ndesc,lty=2,col=gray(0.5))
+        title(paste0(nam," 62 largest rainfalls"))
+        graphics.off()
+      }
     }
   }
 }
@@ -2375,7 +2467,7 @@ image.cumul<-function(crue=FALSE){
     qua <- round(distrib(precip[ind]),4)
     
     png(file = "2_Travail/Rresults/image.cumul/Quant_rain_flood.png",width = 517,height = 369,units = "px",res = 72)
-    plot(qua*100,ylim=c(60,100),col="royalblue",pch=19,xlab="10 largest floods 1969-2011",ylab="3-day positive rainfall quantile (%)")
+    plot(qua*100,ylim=c(60,100),col="royalblue",pch=19,xlab="10 largest flow rates 1969-2011",ylab="3-day positive rainfall quantile (%)")
     abline(h=94,col="red",lty=2)
     graphics.off()
     
@@ -2386,7 +2478,7 @@ image.cumul<-function(crue=FALSE){
     # Histogramme des crues par mois
     png(file = "2_Travail/Rresults/image.cumul/Histogram_flood_month.png",width = 419,height = 322,units = "px",res = 72)
     tmp <- as.numeric(substr(crues[,1],6,7))
-    hist(tmp,0:12,axes = FALSE,xlab="Month",col = "royalblue",main="10 largest floods 1969 -2011",border = "white")
+    hist(tmp,0:12,axes = FALSE,xlab="Month",col = "royalblue",main="10 largest flow rates 1969 -2011",border = "white")
     lines(c(0,12),c(0,0))
     axis(2)
     axis(1,at = 0.5:11.5,labels = 1:12,tick = FALSE,padj = -1)
@@ -2560,6 +2652,41 @@ plot.ana<-function(){
     }
     graphics.off()
   }
+}
+
+# plot le bilan des valeurs des indicateurs pluies fortes & sequences seches
+plot.bilan<-function(k,dist,val=c(5,5,5,5),type="fort"){
+  
+  descr <- c("celnei","persnei","singnei","rsingnei")
+  
+  png(filename = paste0("2_Travail/Rresults/plot.bilan/plot_bilan_k",k,"_",dist,"_",type,".png"),width = 400,height = 400,units = "px")
+  par(pty="s")
+  
+  plot(c(1,4),c(1,10),type="n",ylim=c(1,10),pch=19,xaxt="n",yaxt="n",xlab="",ylab="")
+  axis(side=1, at=1:4, labels = descr)
+  axis(side=2, at=1:10, labels = 1:10)
+  grid()
+  points(1:4,val,pch=19,cex=1.5)
+  title(paste0(ifelse(k==1,"500","1000"),"hPa - ",dist))
+  graphics.off()
+  
+  
+  #for(i in comb){
+  #  k <- ifelse(substr(i,1,3)=="500",1,2)
+  #  dist <- ifelse(substr(i,10,12)=="TWS","TWS","RMSE")
+  #  tab.descr <- matrix(NA,length(getdates(start,end))-nbdays+1,length(descr))
+  #  colnames(tab.descr) <- descr
+  #  ind.descr <- NULL
+  #  for(j in descr){
+  #    tab.descr[,j] <- get.descriptor(descriptor = j,k = k,dist = dist,nbdays = nbdays,start = start,end = end,
+  #                                    standardize = F,rean = rean)
+  #    tmp <- 
+  #  }
+  #  
+  #  tab.qua <- apply(tab.descr,2,function(x) y=(sort(x,index.return=T)$ix-1)/(length(x)-1)*10)
+  #  boxplot(tab.qua[ind,])
+  #  
+  #}
 }
   
 # plot la comparaison des p0 et mean(p>0) par mois entre la climato, l'analogie classique et les indicateurs
@@ -2785,8 +2912,54 @@ plot.crps<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="201
   
 }
 
+# plot la comparaison des CRPS analogie classique et climato pour differents quantiles de pluie
+plot.crps.ana<-function(rean,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",str="05",CV=TRUE){
+  
+  # Import des scores ana & climato
+  load(file=paste0(get.dirstr(k,rean),"compute_crps-CV.A/",str,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  crps_ana <- crps[,"pos ecdf"]
+  
+  load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  crps_clim <- score$crps[,"pos ecdf"]
+  
+  rm(crps,score)
+  
+  # Quantiles de pluie
+  precip <- get.precip(nbdays,start,end)
+  pos <- sort(precip,index.return=T)$ix[-c(1:length(precip[precip==0]))] # ordre croissant des pluies positives
+  quant <- unname(round(quantile(1:length(pos),probs=seq(0,1,0.1)),0)) # position des quantiles
+  
+  # Boxplot
+  df <- data.frame(Climatology=crps_clim[pos], Analog=crps_ana[pos])
+  
+  df$Quantile <- c(rep(1:10,each=nrow(df)/10),rep(10,4))
+  df$Quantile <- paste0((df$Quantile-1)*10,"% - ",df$Quantile*10,"%")
+  rain.qua <- quantile(precip[precip>0],probs=seq(0,1,0.1))
+  rain <- NULL
+  for(i in 1:10) rain[i] <- paste0("[",round(rain.qua[i],2),"-",round(rain.qua[i+1],2),"]")
+  rain <- c(rep(rain,each=nrow(df)/10),rep(rain[10],4))
+  df$Quantile <- paste0(df$Quantile,"\n ",rain)
+  
+  df <- gather(data = df,key = "Method",value = "CRPS",1:2)
+  df$Method <- factor(df$Method, levels = c("Climatology","Analog"))
+  
+  ggplot(df, aes(x=Quantile, y=CRPS, fill=Method)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(1.5,3,1.5,1.5),"cm"),legend.key.size = unit(2,"cm"))+
+    geom_boxplot(outlier.shape = NA)+
+    xlab("Quantile (mm/d)")+
+    theme(axis.text.x = element_text(color="black", face="bold",size=9,angle=45,vjust=0.5))+
+    ylim(0,5)+
+    scale_fill_manual(values=c("royalblue","red"))+
+    geom_hline(yintercept = 0,linetype="dashed")+
+    theme(plot.title = element_text(hjust = 0.5))
+
+  ggsave(paste0(get.dirstr(k,rean),"plot.crps.ana",get.CVstr(CV),"/boxplot_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"), width = 10, height = 5, dpi = 100)
+  graphics.off()
+}
+
 # plot la distribution modelisee et observee de certaines sequences de pluie
-plot.distrib<- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE){
+plot.distrib<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE){
   
   # Import des precip et des indicateurs
   precip<-get.precip(nbdays,start,end)
@@ -2799,7 +2972,7 @@ plot.distrib<- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end=
   nei<-nei[["05"]]
   
   # Sequences qu'on veut ploter
-  ind <- sample(which(precip >1 & precip<4),size = 9)
+  ind <- sample(which(precip >0.1 & precip<1),size = 9)
   dates <- paste0(getdates(start,end)[ind]," - ",getdates(start,end)[ind+2])
   
   png(file=paste0(get.dirstr(k,rean),"plot.distrib",get.CVstr(CV),"/plot_",descriptors[1],"_",descriptors[2],"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"),width=17,height=13,units="in",res=200)
@@ -2828,8 +3001,20 @@ plot.distrib<- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end=
            lty=1,lwd = c(2,2,1,1),pch = c(NA,NA,19,19),bty="n",col=c("black","green","royalblue","red"))
     
   }
+  graphics.off()
+ 
+  # Analogie seule
+  png(file=paste0(get.dirstr(k,rean),"plot.distrib",get.CVstr(CV),"/plot_ana_seule_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(FALSE),"_",radtype,".png"),width=450,height=350,units="px")
+  pos <- 7970
+  date <- paste0(getdates(start,end)[pos]," - ",getdates(start,end)[pos+2])
+  pi<-precip[setdiff(nei[[pos]],(pos-nbdays+1):(pos+nbdays-1))]
+  plot(ecdf(pi),col="red",xlab="Precipitations (mm/day)",main=paste0(date," (",round(precip[pos],1)," mm/day)"),lwd=3)
+  segments(0,0,precip[pos],0,lwd = 2)
+  segments(precip[pos],0,precip[pos],1,lwd = 2)
+  segments(precip[pos],1,100,1,lwd = 2)
+  legend("bottomright",inset=.05,legend = c("Obs","Analog"),cex=1.2,lty=1,lwd = c(2,1),pch = c(NA,19),bty="n",col=c("black","red"))
+  graphics.off()
   
-  dev.off()
 }
 
 # Trace la repartition des parametres empiriques dans le plan des indicateurs (un couple d'indicateur par png)
@@ -3119,14 +3304,15 @@ plot.empir.sel<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end
   # Creation du plot
   png(file=paste0(path1,"plot.empir.sel",get.CVstr(CV),"/plot_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),".png"),width=520,height=400,units="px",res=72) # manip substr pour enlever le std
   plot(descr1,descr2,
-         col="grey",
-         xlab=namdescr[1],
-         ylab=namdescr[2],
-         ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2))
+       asp=1,
+       col="grey",
+       xlab=namdescr[1],
+       ylab=namdescr[2])#,
+       #ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+max(descr2,na.rm=T)-min(descr2,na.rm=T))
     
   ind <- get.closest(22643,cbind(descr1,descr2),precip,CV,nbdays,radtype)
   points(descr1[ind$idx],descr2[ind$idx],col="black",pch=21,bg="red")
-  points(descr1[22643],descr2[22643],pch=24,cex=1.4,col="white",bg="black")
+  points(descr1[22643],descr2[22643],pch=24,cex=1.1,col="white",bg="black")
   
   
   dev.off()
@@ -3134,7 +3320,7 @@ plot.empir.sel<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end
 }
 
 # plot le papillon de Lorenz en 3d colorie par indicateur
-plot.lorenz<- function(){
+plot.lorenz <- function(){
   
   # papillon
   parameters <- c(a = -8/3,b = -10,c = 28)
@@ -3181,6 +3367,30 @@ plot.lorenz<- function(){
   plot(sing,rsing,ylim=c(min(rsing),min(rsing)+(max(rsing)-min(rsing))*1.2),col=getcol(nb))
   addscale(nb)
   graphics.off()
+}
+
+# plot p0 en fonction du WP et de la saison
+plot.p0.wp <- function(){
+  
+  # Import
+  load("2_Travail/Rresults/save.wp.ind/WP_ind.Rdata")
+  precip <- get.precip(1)
+  
+  # Calcul
+  p0 <- lapply(wp.ind,function(x) {p=precip[x];res=table(p==0)[2]/length(p);return(res)})
+  p0 <- unlist(p0,use.names = F)
+  dim(p0) <- c(8,2)
+  
+  # Graphique
+  png(filename = "2_Travail/Rresults/plot.p0.wp/plot_p0_wp.png",width = 580,height = 440,units = "px")
+  plot(p0[,1],pch=19,ylim=c(0,0.8),col="red",xlab="Weather Pattern",ylab="p0")
+  lines(p0[,1],col="red")
+  points(p0[,2],pch=19)
+  lines(p0[,2])
+  grid()
+  legend("topleft",c("Season-at-risk (Sept-Fev)","Low-risk-season (Mar-Aug)"),col=c("red","black"),pch=19,lty=1,bty="n")
+  graphics.off()
+  
 }
 
 # Trace les hyétorgammes des 62 plus grosses séquences de pluie
