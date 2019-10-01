@@ -482,9 +482,8 @@ compare.crps.ana <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31"
   rad <- "nrn05"
   
   descr<-list(
-    c("singnei","rsingnei"),
-    c("celnei_2","rsingnei"),
-    c("sing05_2nei","rsingnei")
+    c("celnei","singnei"),
+    c("singnei","rsingnei")
   )
   
   ndesc <- length(descr)
@@ -1021,8 +1020,8 @@ compare.crps.wp <- function(k,dist,nbdays=1,start="1950-01-01",end="2011-12-31",
   rad <- "nrn05"
   
   descr<-list(
-    c("persnei","singnei"),
-    c("celnei","rsingnei")
+    c("celnei","singnei"),
+    c("singnei","rsingnei")
   )
   
   #descr <-list(
@@ -2333,7 +2332,9 @@ illustr.precip.seq<-function(nbdays,start="1950-01-01",end="2011-12-31"){
   plot(range(precip0),range(precip0),type="n",xlab=paste0(nbdays,"-day precip (mm/day)"),ylab="daily precip (mm/day)")
   for (i in 1:ncol(tmp)) points(precip,tmp[,i],col=i,pch=19,cex=0.8)
   abline(v=quantile(precip,1-62/length(precip)),lty=2)
+  text(x=quantile(precip,1-62/length(precip))*1.1,y=67,"q = 0.9973",font = 3,srt = 90)
   abline(h=quantile(precip0,0.9),lty=2)
+  text(x=55,y=quantile(precip0,0.9)*1.2,"q = 0.9",font = 3)
   text(x=65,y=5,paste0(rep[1],"%"),font = 2,cex=1.2)
   text(x=65,y=20,paste0(rep[2],"%"),font = 2,cex=1.2)
   dev.off()
@@ -2654,7 +2655,7 @@ plot.ana<-function(){
   }
 }
 
-# plot le bilan des valeurs des indicateurs pluies fortes & sequences seches
+# plot le bilan des valeurs des indicateurs pluies fortes & sequences seches QUALITATIF
 plot.bilan<-function(k,dist,val=c(5,5,5,5),type="fort"){
   
   descr <- c("celnei","persnei","singnei","rsingnei")
@@ -2669,24 +2670,44 @@ plot.bilan<-function(k,dist,val=c(5,5,5,5),type="fort"){
   points(1:4,val,pch=19,cex=1.5)
   title(paste0(ifelse(k==1,"500","1000"),"hPa - ",dist))
   graphics.off()
+}
+
+# plot le bilan des valeurs des indicateurs pluies fortes & sequences seches QUANTITATIF
+plot.bilan.quant <- function(nbdays=3,start="1950-01-01",end="2011-12-31",rean){
   
+  comb  <- c("500hPa - TWS","500hPa - RMSE","1000hPa -TWS","1000hPa - RMSE")
+  descr <- c("celnei","persnei","singnei","rsingnei")
   
-  #for(i in comb){
-  #  k <- ifelse(substr(i,1,3)=="500",1,2)
-  #  dist <- ifelse(substr(i,10,12)=="TWS","TWS","RMSE")
-  #  tab.descr <- matrix(NA,length(getdates(start,end))-nbdays+1,length(descr))
-  #  colnames(tab.descr) <- descr
-  #  ind.descr <- NULL
-  #  for(j in descr){
-  #    tab.descr[,j] <- get.descriptor(descriptor = j,k = k,dist = dist,nbdays = nbdays,start = start,end = end,
-  #                                    standardize = F,rean = rean)
-  #    tmp <- 
-  #  }
-  #  
-  #  tab.qua <- apply(tab.descr,2,function(x) y=(sort(x,index.return=T)$ix-1)/(length(x)-1)*10)
-  #  boxplot(tab.qua[ind,])
-  #  
-  #}
+  precip <- get.precip(nbdays,start,end)
+  
+  ind_min <- which(precip==0)
+  ind_max <- sort(precip,decreasing=T,index.return=T)$ix[1:62]
+  #ind_max <- which(precip>quantile(precip[precip>0],probs=0.94))
+  ind=list(ind_min,ind_max)
+  
+  for(i in 1:length(ind)){
+    for(j in comb){
+      k <- ifelse(substr(j,1,3)=="500",1,2)
+      dist <- ifelse(substr(j,10,12)=="TWS","TWS","RMSE")
+      tab.descr <- matrix(NA,length(getdates(start,end))-nbdays+1,length(descr))
+      colnames(tab.descr) <- descr
+      ind.descr <- NULL
+      
+      for(l in descr){
+        tab.descr[,l] <- get.descriptor(descriptor = l,k = k,dist = dist,nbdays = nbdays,start = start,end = end,
+                                        standardize = F,rean = rean)
+      }
+      
+      tab.qua <- apply(tab.descr,2,function(x) y=(rank(x)-1)/(length(x)-1)*100)
+      
+      png(filename = paste0("2_Travail/20CR/Rresults/overall/plot.bilan.quant/boxplot_",ifelse(i==1,"p0_","pmax_"),dist,"_member",member,"_k",k,"_mean",nbdays,"day.png"),width = 400,height = 400,units = "px")
+      boxplot(tab.qua[ind[[i]],],ylim=c(0,100),outline=F,col=ifelse(i==1,"mistyrose","lightsteelblue1"),ylab="Quantile (%)",type="n")
+      grid()
+      title(j)
+      graphics.off()
+      
+    }
+  }
 }
   
 # plot la comparaison des p0 et mean(p>0) par mois entre la climato, l'analogie classique et les indicateurs
@@ -3157,8 +3178,10 @@ plot.empir.clean<-function(sel=c("p0","mean"),rean,k,descriptors,dist,nbdays=3,s
     param.i<-param[,i]
     plot(descr1,descr2,
          col=getcol(param.i,range = ifelse(rep(i %in% c(1:3),2),gamme[[i]],range(param.i,na.rm=T))),
-         xlab=namdescr[1],
-         ylab=namdescr[2],
+         #xlab=namdescr[1],
+         #ylab=namdescr[2],
+         xlab="Célérité",
+         ylab="Singularité",
          ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2))
     if(i %in% c(1:3)) {addscale(vec = c(param.i,gamme[[i]]))
     } else {addscale(vec = param.i)}
@@ -3198,6 +3221,79 @@ plot.empir.clean<-function(sel=c("p0","mean"),rean,k,descriptors,dist,nbdays=3,s
   }
   
 }
+
+# plot.empir pour presentations, avec obs
+plot.empir.clean.obs<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F)){
+  
+  # Definition du repertoire de travail (lecture et ecriture)
+  if(rean[1] != rean[2]){ 
+    path1 <- paste0("2_Travail/Comparaison_reanalyses/")
+    path2 <- paste0(descriptors[1],"_",descriptors[2],"_",rean[1],"_",rean[2],"_",dist[1],"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
+  }
+  if(k[1] != k[2]){
+    path1 <- paste0("2_Travail/",rean[1],"/Rresults/overall/")
+    path2 <- paste0(descriptors[1],"_",descriptors[2],"_k",k[1],"_k",k[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
+  } 
+  if(rean[1] == rean[2] & k[1] == k[2]){
+    path1 <- get.dirstr(k[1],rean[1])
+    path2 <- paste0(descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
+  }
+  
+  # Import des precip, du fit.empir, des indicateurs
+  precip <- get.precip(nbdays,start,end)
+  
+  if(TRUE %in% threeday) {comp <- paste0("_threeday",which(threeday==T))
+  } else {comp <- ""}
+  load(file=paste0(path1,"fit.empir",get.CVstr(CV),"/",path2,comp,".Rdata"))
+  param<-param[,colnames(param)!="kurtosis"]
+  
+  descr1<-get.descriptor(descriptors[1],k[1],dist[1],nbdays,start,end,standardize=FALSE,rean[1],threeday[1])
+  descr2<-get.descriptor(descriptors[2],k[2],dist[2],nbdays,start,end,standardize=FALSE,rean[2],threeday[2])
+  
+  # Nom propre des indicateurs
+  cond <- substr(descriptors,nchar(descriptors)-1,nchar(descriptors)) == substr(radtype,nchar(radtype)-1,nchar(radtype))
+  descriptors[cond] <- substr(descriptors[cond],1,nchar(descriptors[cond])-2)
+  namdescr <- nam2str(descriptors, cloud = TRUE)
+  
+  # Creation du plot
+  pdf(file=paste0(path1,"plot.empir.clean.obs",get.CVstr(CV),"/plot_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),comp,"_obs.pdf"),width=8,height=3) # manip substr pour enlever le std
+  par(mfrow=c(1,3))
+  
+  gamme <- c(0,5380)
+  param <- param[,c("nbnei")]
+  
+  plot(descr1,descr2,
+       col=getcol(param,range = gamme),
+       #xlab=namdescr[1],
+       #ylab=namdescr[2],
+       xlab="Célérité",
+       ylab="Singularité",
+       ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2))
+  addscale(vec = c(param,gamme))
+  text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T))*0.8,
+       y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2*0.95,
+       paste0(round(min(param,na.rm=T),2),"-",round(max(param,na.rm=T),2)))
+  title(names(param))
+  
+  plot(descr1,descr2,
+       col=getcol(param,range = gamme),
+       #xlab=namdescr[1],
+       #ylab=namdescr[2],
+       xlab="Célérité",
+       ylab="Singularité",
+       ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2))
+  addscale(vec = c(param,gamme))
+  text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T))*0.8,
+       y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2*0.95,
+       paste0(round(min(param,na.rm=T),2),"-",round(max(param,na.rm=T),2)))
+  ind.extr <- get.ind.extr(nbre = 250,nbdays = nbdays)
+  points(descr1[ind.extr],descr2[ind.extr],pch=19,cex=0.5)
+  title(names(param))
+  
+graphics.off()
+
+}
+
 
 # plot.empir seulement pour la moyenne, avec evenements extremes et rectangles de selections
 plot.empir.mean<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,rean,extr = TRUE,rect = TRUE,ref = "1950-01-01"){
