@@ -1,4 +1,4 @@
-setwd("C:/Users/blanca/Documents")
+setwd("C:/Users/blananto/Documents")
 
 # Parametres ----
 rean     <- "20CR"
