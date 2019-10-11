@@ -19,6 +19,9 @@ library(ggpubr) #ggarrange
 library(deSolve) #ode
 library(plot3D) #lines3D
 library(PACBO) # runiform_ball
+library(rgeos) # pour maptools
+library(maptools) # wrld_simpl
+library("RColorBrewer")
 
 # Fonctions graphiques
 addcircle<-function(radius){
@@ -91,6 +94,38 @@ getcol<-function(vec=NULL,range=NULL,transparent=FALSE,centered=FALSE,rev=FALSE)
   }
   col[is.na(col)]<-gray(0.5)
   col
+}
+
+# Compare notre BV au BV Isere@StEgreve EDF
+compare.bv.edf<-function(){
+  
+  # Import nouveau BV
+  poly <- readOGR("2_Travail/Rresults/compare.bv.edf", "DTG_bv_isere_stegreve")
+  bv_edf <- poly@polygons[[1]]@Polygons[[1]]@coords/1000
+  
+  # Export nouveau BV
+  write.csv(bv_edf,file="2_Travail/Rresults/compare.bv.edf/border_Isere@Grenoble_EDF.csv",row.names = F)
+  
+  # Carte des deux BVs
+  pdf(file=paste0("2_Travail/Rresults/compare.bv.edf/map_compare_bv.pdf"),width = 7.5,height = 7.5)
+  load(file=paste("2_Travail/Data/Carto/griddata_1x1_IsereSavoieHautesAlpes.Rdata",sep=""))
+  Fx<-griddata$Fx
+  Fy<-griddata$Fy
+  Fz<-griddata$Fz*1000
+  image.plot(Fx,Fy,Fz,col=gray(seq(0.1,0.99,length=100)),xlab="X (km) - Lambert II extended",ylab="Y (km) - Lambert II extended",legend.line=-2.3, cex.axis=1.3, cex.lab=1.3)
+  bord<-read.csv("2_Travail/Data/Carto/border_Isere@Grenoble.csv",sep=",")
+  ui<-unique(bord[,1])
+  a1<-as(bord[bord[,1]==unique(bord[,1])[1],2:3],"gpc.poly")
+  a2<-as(bord[bord[,1]==unique(bord[,1])[2],2:3],"gpc.poly")
+  a<-union(a1,a2)
+  for (i in ui[-(1:2)]) {
+    a1<-as(bord[bord[,1]==i,2:3],"gpc.poly")
+    a<-union(a1,a)
+  } 
+  lines(a@pts[[1]]$x,a@pts[[1]]$y,col="white",lwd=3)
+  lines(bv_edf,col="red",lwd=3)
+  graphics.off()
+  
 }
 
 # Calcule et trace les CRPSS pour analogie indicateurs pour les differents couples d'indicateurs et differents rayons 
@@ -1289,7 +1324,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
     coln.new<-c("sing05","q05")
   }
   if (update) {
-    coln.new<-c("celnei","persnei","singnei","rsingnei")
+    coln.new<-c("accnei")
     #coln.new <- c("rsingnei")
   }
   
@@ -1358,12 +1393,12 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="celVR") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v])/qi05)}
       
       # Acceleration
-      #if (cc=="acc") {if (i==1) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/criteria[i-1,"cel"])}
+      if (cc=="acc") {if (i==1) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/criteria[i-1,"cel"])}
       #if (cc=="acc10") {if (i %in% 1:10) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/mean(criteria[(i-10):(i-1),"cel"],na.rm=TRUE))}
       #if (cc=="accR") {if (i==1) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/criteria[i-1,"cel"]/qi05)}
       #if (cc=="acc10R") {if (i %in% 1:10) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/mean(criteria[(i-10):(i-1),"cel"],na.rm=TRUE)/qi05)}
       
-      #if (cc=="accnei") tmp <- c(tmp,mean(criteria[idi05,"acc"],na.rm=TRUE))
+      if (cc=="accnei") tmp <- c(tmp,mean(criteria[idi05,"acc"],na.rm=TRUE))
       #if (cc=="accneiR") tmp <- c(tmp,mean(criteria[idi05,"acc"],na.rm=TRUE)/qi05)
       # Minimum distance
       #if (cc=="mind") tmp<-c(tmp,di[soso$ix[2]]) # score minimum obtenu avec la meilleure journee analogue
@@ -1422,6 +1457,9 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="celnei2") tmp<-c(tmp,mean(criteria[idi2,"cel"],na.rm=TRUE))   # des 2% les plus proches
       #if (cc=="celnei5") tmp<-c(tmp,mean(criteria[idi5,"cel"],na.rm=TRUE))   # des 5% les plus proches
       #if (cc=="celnei10") tmp<-c(tmp,mean(criteria[idi10,"cel"],na.rm=TRUE)) # des 10% les plus proches
+      
+      ## TWSgeo: score TWS entre les geopotentiels 500 et 1000 normalises par leur sd respectifs
+      if (cc=="TWSgeonei") tmp<-c(tmp,mean(criteria[idi05,"TWSgeo"],na.rm=TRUE))
       
       # La singularite relative rsing (ou local dimension) est calculee dans la fonction get.descriptor
       
@@ -2587,6 +2625,36 @@ make.precip1.isere<-function(start="1950-01-01",end="2011-12-31") {
   precip
 }
 
+# Carte de geopotentiel d'un jour donne
+map.geo <- function(date,rean,k){
+  
+  # Import des donnees
+  load.nc(rean)
+  if(k==1){nc <- nc$nc500
+  }else{nc <- nc$nc1000}
+  
+  lon <- nc$dim$lon$vals
+  lat <- nc$dim$lat$vals
+  num0<-date_to_number(nc,date,rean)
+  
+  geo <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),1))
+  title <- ifelse(k==1,"500 hPa","1000 hPa")
+  zlim <- ifelse(rep(k==1,2),c(4900,6050),c(-300,450))
+  
+  # Carte
+  png(filename = paste0("2_Travail/Rresults/map.geo/",date,"_k",k,".png"))
+  image.plot(lon,lat,geo,xlim=c(-20,25),ylim=c(25,70),asp=1,zlim=zlim,
+             col=rev(brewer.pal(n = 11, name = "RdBu")),
+             xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(date," - ",title),
+             legend.line=-2.3, cex.axis=1.3, cex.lab=1.3, cex.main=1.3)
+  
+  data(wrld_simpl)
+  plot(wrld_simpl, add = TRUE)
+  box()
+  graphics.off()
+  
+}
+
 # Noms propres des couples d'indicateurs
 nam2str<-function(nams,cloud=FALSE){
 
@@ -2676,7 +2744,7 @@ plot.bilan<-function(k,dist,val=c(5,5,5,5),type="fort"){
 plot.bilan.quant <- function(nbdays=3,start="1950-01-01",end="2011-12-31",rean){
   
   comb  <- c("500hPa - TWS","500hPa - RMSE","1000hPa -TWS","1000hPa - RMSE")
-  descr <- c("celnei","persnei","singnei","rsingnei")
+  descr <- c("celnei","persnei","singnei","rsingnei","accnei")
   
   precip <- get.precip(nbdays,start,end)
   
@@ -3294,7 +3362,6 @@ graphics.off()
 
 }
 
-
 # plot.empir seulement pour la moyenne, avec evenements extremes et rectangles de selections
 plot.empir.mean<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,rean,extr = TRUE,rect = TRUE,ref = "1950-01-01"){
   
@@ -3659,6 +3726,28 @@ plot.score <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean,
   #abline(v = c(0.01,0.005,0.002,0.001)*ncol(moy))
   #graphics.off()
   
+}
+
+plot.TWSgeo<-function(k,dist,nbdays,start,end,rean){
+  
+  # Import
+  precip <- get.precip(nbdays,start,end)
+  geo <- get.descriptor(descriptor = "TWSgeonei",k = k,dist = dist,nbdays = nbdays,start = start,end = end,
+                 standardize = F,rean = rean)
+  # Traitement
+  ind <- list(2)
+  ind[[1]] <- sort(precip,decreasing=T,index.return=T)$ix[1:(62*12)]
+  ind[[2]] <- sort(precip,decreasing=T,index.return=T)$ix[1:62]
+  
+  # Boxplot
+  png(filename = paste0("2_Travail/20CR/Rresults/overall/plot.TWSgeo/boxplot_",dist,"_member",member,"_k",k,"_mean",nbdays,"day.png"),width = 400,height = 400,units = "px")
+  plot(1,1,type="n",xlim=c(0,3),ylim=range(geo),xlab="",ylab="",xaxt="n")
+  grid()
+  boxplot(geo,at=0.5,xlim=c(0,3),col="lightsteelblue1",add=T)
+  boxplot(geo[ind[[1]]],at=1.5,add=T,col="lightsteelblue1")
+  boxplot(geo[ind[[2]]],at=2.5,add=T,col="lightsteelblue1")
+  axis(side = 1,at = c(0.5,1.5,2.5),labels = c("all","monthly max","yearly max"))
+  graphics.off()
 }
 
 # Concatenation et aggregation de netcdf sous R
