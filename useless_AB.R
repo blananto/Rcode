@@ -341,6 +341,30 @@ compute_density<-function(descriptor1,descriptor2,k,dist,nbdays=3,start="1950-01
   #print(dim(dens$z))
 }
 
+# Calcul du nouveau score RMSE_new_bon (formule de base, donc ok mais long)
+compute_RMSE_new_bon<-function(k,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Import geopotentiel et score RMSE
+  load.nc()
+  dat<-getdata(k,start,end,rean)
+  N<-dim(dat)[3]
+  
+  # Calcul nouveau score
+  moy_geo<-apply(dat,3,mean)
+  moy_geo <- rep(moy_geo,each=dim(dat)[1]*dim(dat)[2])
+  dim(moy_geo) <- dim(dat)
+  norm <- dat - moy_geo
+  dist.list<-list()
+  
+  for(i in 1:(N-1)){
+    if (i%%50==0) print(i)
+    normj<- norm[,,(i+1):N]
+    normi<-array(norm[,,i],dim(normj))
+    dist.list[[i]] <- apply(normi-normj,3,function(v) sqrt(mean(v^2)))
+  }
+  dist.list
+}
+
 # Ancienne fonction fit.empir
 fit.empir.old<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05",CV=TRUE,rean){
   

@@ -21,7 +21,7 @@ library(plot3D) #lines3D
 library(PACBO) # runiform_ball
 library(rgeos) # pour maptools
 library(maptools) # wrld_simpl
-library("RColorBrewer")
+library(RColorBrewer) # brewer.pal
 
 # Fonctions graphiques
 addcircle<-function(radius){
@@ -133,13 +133,17 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
   
   # Indicateurs a comparer
   descr<-list(
+    c("persnei","celnei"),
+    c("celnei","singnei"),
     c("persnei","singnei"),
-    c("celnei","rsingnei")
+    c("celnei","rsingnei"),
+    c("persnei","rsingnei"),
+    c("singnei","rsingnei")
     #c("TWSgeo","rsingnei"),
     #c("A05","A05")
   )
   
-  threeday <- rep(F,5)
+  threeday <- rep(F,6)
   ndesc <- ifelse(comp,length(descr)-1,length(descr))
   namdescr <- lapply(descr,nam2str)
   
@@ -1321,10 +1325,10 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
   
   if (!update) {
     #coln.new<-c("cel","mind","sing05","sing1","sing2","sing5","lsing05","lsing1","lsing2","lsing5","pers05","pers1","pers2","pers5","q05","q1","q2","q5","pcel","pnei05","pnei1","pnei2","pnei5","snei05","snei1","snei2","snei5")
-    coln.new<-c("sing05","q05")
+    coln.new<-c("q05","cel","snei05","sing05")
   }
   if (update) {
-    coln.new<-c("accnei")
+    coln.new<-c("celnei","persnei","singnei","rsingnei","accnei")
     #coln.new <- c("rsingnei")
   }
   
@@ -1345,7 +1349,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
     gc()
     
     soso<-sort(di,index.return=TRUE) # classement par plus petit score, et donne les positions
-    #qi05<-di[soso$ix[(0.005*n)]]     # quantile 0.5%
+    qi05<-di[soso$ix[(0.005*n)]]     # quantile 0.5%
     #qi1<-di[soso$ix[(0.01*n)]]       # 1%
     #qi2<-di[soso$ix[(0.02*n)]]       # 2%
     #qi5<-di[soso$ix[(0.05*n)]]       # 5%
@@ -1370,6 +1374,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
     #ri10<-rle(as.integer(di<=qi10)) # du quantile 10%
     
     tmp<-NULL
+    
     for (cc in coln.new){
       
       # Celerite
@@ -1393,7 +1398,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="celVR") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean(di[idi05v])/qi05)}
       
       # Acceleration
-      if (cc=="acc") {if (i==1) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/criteria[i-1,"cel"])}
+      #if (cc=="acc") {if (i==1) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/criteria[i-1,"cel"])}
       #if (cc=="acc10") {if (i %in% 1:10) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/mean(criteria[(i-10):(i-1),"cel"],na.rm=TRUE))}
       #if (cc=="accR") {if (i==1) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/criteria[i-1,"cel"]/qi05)}
       #if (cc=="acc10R") {if (i %in% 1:10) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/mean(criteria[(i-10):(i-1),"cel"],na.rm=TRUE)/qi05)}
@@ -1459,7 +1464,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="celnei10") tmp<-c(tmp,mean(criteria[idi10,"cel"],na.rm=TRUE)) # des 10% les plus proches
       
       ## TWSgeo: score TWS entre les geopotentiels 500 et 1000 normalises par leur sd respectifs
-      if (cc=="TWSgeonei") tmp<-c(tmp,mean(criteria[idi05,"TWSgeo"],na.rm=TRUE))
+      #if (cc=="TWSgeonei") tmp<-c(tmp,mean(criteria[idi05,"TWSgeo"],na.rm=TRUE))
       
       # La singularite relative rsing (ou local dimension) est calculee dans la fonction get.descriptor
       
@@ -1685,9 +1690,11 @@ compute.crps.wp <- function(start="1950-01-01",end="2011-12-31"){
 # Calcul des distances de maniere generique
 compute_dist.gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean){
   if (k %in% 1:2) {
-    if (dist %in% c("TWS","RMSE")){
+    if (dist %in% c("TWS","RMSE","RMSE_I","RMSE_II")){
       if (dist=="TWS") dist.list<-compute_TWS(k,start,end,rean)
       if (dist=="RMSE") dist.list<-compute_RMSE(k,start,end,rean)
+      if (dist=="RMSE_I") dist.list<-compute_RMSE_I(k,start,end,rean)
+      if (dist=="RMSE_II") dist.list<-compute_RMSE_II(k,start,end,rean)
       save(dist.list,file=paste0("2_Travail/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
     }
     else{ # si on demande un nTWS, sTWS, nRMSE ou sRMSE, les distances sont normalisees par la moyenne ou l'ecart type des distances
@@ -1791,6 +1798,42 @@ compute_RMSE<-function(k,start="1950-01-01",end="2011-12-31",rean){
   dist.list
 }
 
+# Calcul de RMSE_I: delta des pts normalises par la moyenne du jour
+compute_RMSE_I<-function(k,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Import geopotentiel et score RMSE
+  load.nc(rean)
+  dat<-getdata(k,start,end,rean)
+  N<-dim(dat)[3]
+  RMSE<-getdist(k,"RMSE",start,end,rean)
+  
+  # Calcul nouveau score
+  moy_geo<-apply(dat,3,mean)
+  dist.list<-RMSE
+  
+  for(i in 1:(N-1)){
+    if (i%%50==0) print(i)
+    dist.list[[i]] <- sqrt(dist.list[[i]]^2 - (moy_geo[i]-moy_geo[(i+1):length(moy_geo)])^2)
+  }
+  dist.list
+}
+
+# Calcul de RMSE_II: delta des moyennes du jour
+compute_RMSE_II<-function(k,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Import scores RMSE
+  load(paste0("2_Travail/",rean,"/Rresults/compute_dist/RMSE_I_member1_k",k,"_",start,"_",end,".Rdata"))
+  dist.list.rmseI <- dist.list
+  
+  load(paste0("2_Travail/",rean,"/Rresults/compute_dist/RMSE_member1_k",k,"_",start,"_",end,".Rdata"))
+  dist.list.rmse <- dist.list
+  rm(dist.list)
+  
+  # Calcul de RMSE II
+  dist.list <- lapply(mapply("-",lapply(dist.list.rmse,function(v) v^2),lapply(dist.list.rmseI,function(v) v^2),SIMPLIFY = FALSE),sqrt)
+  dist.list
+}
+
 # Calcul des scores TWS
 compute_TWS<-function(k,start="1950-01-01",end="2011-12-31",rean){
   gradlist<-grad(k,start,end,rean)
@@ -1829,25 +1872,55 @@ compute_TWS<-function(k,start="1950-01-01",end="2011-12-31",rean){
   dist.list
 }
 
-# Calcul des scores TWS entre le geopotentiel 500 et 1000 de chaque journee
-compute_TWS_500_1000<-function(start="1950-01-01",end="2011-12-31",rean){
+# Calcul de l'indicateur D500_1000 pour les 4 distances
+compute_D500_1000<-function(start="1950-01-01",end="2011-12-31",rean){
   
   # Import des champs de geopotentiels
-  load.nc()
-  gradlist500 <- grad(k=1,start,end,rean)
-  gradlist1000 <- grad(k=2,start,end,rean)
-  
-  # Normalisation
-  gradlist500$gradlon <- gradlist500$gradlon/sd(gradlist500$gradlon)
-  gradlist500$gradlat <- gradlist500$gradlat/sd(gradlist500$gradlat)
-  gradlist1000$gradlon <- gradlist1000$gradlon/sd(gradlist1000$gradlon)
-  gradlist1000$gradlat <- gradlist1000$gradlat/sd(gradlist1000$gradlat)
+  load.nc(rean)
+  dat500<-getdata(1,start,end,rean)
+  dat1000<-getdata(2,start,end,rean,large_win = T)
   
   # Calcul TWS
+  print("TWS")
+  gradlist500 <- grad(k=1,start,end,rean)
+  gradlist1000 <- grad(k=2,start,end,rean,large_win = T)
   fct <- function(v) sum(abs(v))
   num <- apply(gradlist500$gradlon - gradlist1000$gradlon,3,fct) + apply(gradlist500$gradlat - gradlist1000$gradlat,3,fct)
   den <- apply(pmax(abs(gradlist500$gradlon),abs(gradlist1000$gradlon)),3,sum)+apply(pmax(abs(gradlist500$gradlat),abs(gradlist1000$gradlat)),3,sum)
-  dist.vec <- num/den/2
+  D500_1000_TWS <- num/den/2
+  
+  load("2_Travail/20CR/Rresults/overall/k1/compute_criteria/criteria_TWS_member1_k1_1950-01-01_2011-12-31.Rdata")
+  criteria <- cbind(criteria,D500_1000_TWS)
+  colnames(criteria)[ncol(criteria)] <- "D_500_1000"
+  save(criteria, file="2_Travail/20CR/Rresults/overall/k1/compute_criteria/criteria_TWS_member1_k1_1950-01-01_2011-12-31.Rdata")
+  
+  # RMSE
+  print("RMSE")
+  D500_1000_RMSE <- apply(dat500-dat1000,3,function(v) sqrt(mean(v^2)))
+  
+  load("2_Travail/20CR/Rresults/overall/k1/compute_criteria/criteria_RMSE_member1_k1_1950-01-01_2011-12-31.Rdata")
+  criteria <- cbind(criteria,D500_1000_RMSE)
+  colnames(criteria)[ncol(criteria)] <- "D_500_1000"
+  save(criteria, file="2_Travail/20CR/Rresults/overall/k1/compute_criteria/criteria_RMSE_member1_k1_1950-01-01_2011-12-31.Rdata")
+  
+  # RMSE_II
+  print("RMSE_II")
+  D500_1000_RMSE_II <- apply(dat500,3,mean) - apply(dat1000,3,mean)
+  
+  load("2_Travail/20CR/Rresults/overall/k1/compute_criteria/criteria_RMSE_II_member1_k1_1950-01-01_2011-12-31.Rdata")
+  criteria <- cbind(criteria,D500_1000_RMSE_II)
+  colnames(criteria)[ncol(criteria)] <- "D_500_1000"
+  save(criteria, file="2_Travail/20CR/Rresults/overall/k1/compute_criteria/criteria_RMSE_II_member1_k1_1950-01-01_2011-12-31.Rdata")
+  
+  # RMSE_I
+  print("RMSE_I")
+  D500_1000_RMSE_I <- sqrt(D500_1000_RMSE^2 - D500_1000_RMSE_II^2)
+  
+  load("2_Travail/20CR/Rresults/overall/k1/compute_criteria/criteria_RMSE_I_member1_k1_1950-01-01_2011-12-31.Rdata")
+  criteria <- cbind(criteria,D500_1000_RMSE_I)
+  colnames(criteria)[ncol(criteria)] <- "D_500_1000"
+  save(criteria, file="2_Travail/20CR/Rresults/overall/k1/compute_criteria/criteria_RMSE_I_member1_k1_1950-01-01_2011-12-31.Rdata")
+  
 }
 
 # Trouve le jour de NetCDF associe a la date
@@ -2072,11 +2145,11 @@ fit.loglik.p0.A<-function(rad,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31
 }
 
 # Sort la matrice de donnees de dat500 (k=1) ou dat1000 (k=2) dans notre fenetre d'analogie pour le jour j (de 1=01/01/1851 a 58804=31/12/2011)
-getdata<-function(k,day0,day1=day0,rean){
+getdata<-function(k,day0,day1=day0,rean,large_win=F){
   num0<-date_to_number(nc[[k]],day0,rean)
   num1<-date_to_number(nc[[k]],day1,rean)
   N<-length(num0:num1)
-  infowind<-getinfo_window(k)
+  infowind<-getinfo_window(k,large_win)
   ncvar_get(nc[[k]],varid="hgt",start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
 }
 
@@ -2116,7 +2189,7 @@ getdist4i<-function(i,dist.vec,N,sU){
 }
 
 # Definit la fenetre spatiale d'analogie pour extraire des donnees de data500 et data1000 
-getinfo_window<-function(k){ 
+getinfo_window<-function(k,large_win = F){ 
   # lat et lon correspondent aux degres de longitude et latitude pour lesquels on a les donnees des geopot 500 et 1000
   lon<-nc[[1]]$dim$lon$vals # de -30 a 50 deg E tranches de 2 deg -> 41 valeurs
   lat<-nc[[1]]$dim$lat$vals #de 24 a 72 deg N tranches de 2 deg -> 25 valeurs
@@ -2126,11 +2199,11 @@ getinfo_window<-function(k){
   c_lon<-6 # centre de la fenetre longitude
   c_lat<-44 # centre de la fenetre latitude
   
-  if(k==1) {# 500hPA
+  if(k==1 | large_win==T) {# 500hPA
     d_lon<-32 # on prend 32 en longitude pour 500hPa
     d_lat<-16 # on prend 16 en latitude pour 500hPa
   }
-  if (k==2){ # 1000 hPA
+  if (k==2 & large_win==F){ # 1000 hPA
     d_lon<-16 # on prend 16 en longitude pour 1000hPa
     d_lat<-8  # on prend 8 en latitude pour 1000hPa
   }
@@ -2294,13 +2367,14 @@ get.ind.extr <- function(nbre, ref = "1950-01-01", nbdays=3, start="1950-01-01",
 }
 
 # Renvoie les indices des min et max d'un descripteur a partir d'une certaine reference
-get.ind.min.max <- function(descr, ref = "1950-01-01", start="1950-01-01"){
+get.ind.min.max <- function(descr,k,dist,nbdays,start="1950-01-01",end="2011-12-31"){
   
-  load(file="2_Travail/20CR/Rresults/overall/k1/compute_criteria/criteria_TWS_member1_k1_1950-01-01_2011-12-31.Rdata")
+  descr <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = nbdays,
+                          start = start,end = end,standardize = F,rean = rean)
   res <- list()
-  res$x <- c(min(criteria[,descr],na.rm=T),max(criteria[,descr],na.rm=T))
-  res$idx <- c(which.min(criteria[,descr]),which.max(criteria[,descr]))
-  if(ref!="1950-01-01") res$idx <- res$idx + get.delta(ref = ref,start = start)
+  res$x <- c(min(descr,na.rm=T),max(descr,na.rm=T))
+  res$idx <- c(which.min(descr),which.max(descr))
+  res$xdate <- getdates(start,end)[res$idx]
   res
 }
 
@@ -2342,8 +2416,8 @@ get.wp <- function(start="1950-01-01",end="2011-12-31",risk=F){
 }
 
 # Calcule les gradients pour 500 (k=1) ou 1000 (k=2) pour tous les jours
-grad<-function(k,day0,day1,rean){
-  x=getdata(k,day0,day1,rean)  #data500 ou data1000, 3 dims
+grad<-function(k,day0,day1,rean,large_win=F){
+  x=getdata(k,day0,day1,rean,large_win)  #data500 ou data1000, 3 dims
   gradlon=(makegrad(x,1)) #selon lon
   gradlat=(makegrad(x,2)) #selon lat
   return(list(gradlon=gradlon,gradlat=gradlat))
@@ -2392,22 +2466,25 @@ image.region<-function(pluvios = TRUE, sousBV = F){
   image.plot(Fx,Fy,Fz,col=gray(seq(0.1,0.99,length=100)),xlab="X (km) - Lambert II extended",ylab="Y (km) - Lambert II extended",legend.line=-2.3, cex.axis=1.3, cex.lab=1.3)
   
   # Bordure du BV et des sous-BV
-  bord<-read.csv("2_Travail/Data/Carto/border_Isere@Grenoble.csv",sep=",")
+  bord<-read.csv("2_Travail/Data/Carto/borders-lambert93-lambertII.csv",sep=";")
+  bord<-cbind(bord$XLII.m,bord$YLII.m)/1000
+  lines(bord,col="white",lwd=3)
+  #geometry::polyarea(bord[,1],bord[,2]) pour calculer la surface!
   #bord <- bord[bord[,1] %in% c(670,19,35,124,248,176,596,104),] # Drac
   #bord <- bord[bord[,1] %in% c(87,576,706,577,797,621,136,180,1092,116,792),] # Isere
-  ui<-unique(bord[,1])
+  #ui<-unique(bord[,1])
   #for (i in ui) lines(bord[bord[,1]==i,2],bord[bord[,1]==i,3],col="red")
   
-  a1<-as(bord[bord[,1]==unique(bord[,1])[1],2:3],"gpc.poly")
-  a2<-as(bord[bord[,1]==unique(bord[,1])[2],2:3],"gpc.poly")
-  a<-union(a1,a2) # Initialisation puis boucle
+  #a1<-as(bord[bord[,1]==unique(bord[,1])[1],2:3],"gpc.poly")
+  #a2<-as(bord[bord[,1]==unique(bord[,1])[2],2:3],"gpc.poly")
+  #a<-union(a1,a2) # Initialisation puis boucle
 
   # Tout le BV
-  for (i in ui[-(1:2)]) {
-    a1<-as(bord[bord[,1]==i,2:3],"gpc.poly")
-    a<-union(a1,a)
-  } 
-  lines(a@pts[[1]]$x,a@pts[[1]]$y,col="white",lwd=3) # fonction rgeos::area.poly pour avoir la surface du BV
+  #for (i in ui[-(1:2)]) {
+  #  a1<-as(bord[bord[,1]==i,2:3],"gpc.poly")
+  #  a<-union(a1,a)
+  #} 
+  #lines(a@pts[[1]]$x,a@pts[[1]]$y,col="white",lwd=3)
   
   if(sousBV){ # On retrace le Drac dessus
     bord <- bord[bord[,1] %in% c(670,19,35,124,248,176,596,104),] # Drac
@@ -2471,16 +2548,17 @@ image.cumul<-function(crue=FALSE){
   graphics.off()
   
   # Import des bordures
-  bord<-read.csv("2_Travail/Data/Carto/border_Isere@Grenoble.csv",sep=",")
-  ui<-unique(bord[,1])
-  
-  a1<-as(bord[bord[,1]==unique(bord[,1])[1],2:3],"gpc.poly")
-  a2<-as(bord[bord[,1]==unique(bord[,1])[2],2:3],"gpc.poly")
-  a<-union(a1,a2) # Initialisation puis boucle
-  for (i in ui[-(1:2)]) {
-    a1<-as(bord[bord[,1]==i,2:3],"gpc.poly")
-    a<-union(a1,a)
-  }
+  bord<-read.csv("2_Travail/Data/Carto/borders-lambert93-lambertII.csv",sep=",")
+  bord<-cbind(bord$XLII.m,bord$YLII.m)/1000
+  #ui<-unique(bord[,1])
+  #
+  #a1<-as(bord[bord[,1]==unique(bord[,1])[1],2:3],"gpc.poly")
+  #a2<-as(bord[bord[,1]==unique(bord[,1])[2],2:3],"gpc.poly")
+  #a<-union(a1,a2) # Initialisation puis boucle
+  #for (i in ui[-(1:2)]) {
+  #  a1<-as(bord[bord[,1]==i,2:3],"gpc.poly")
+  #  a<-union(a1,a)
+  #}
   
   # Import des rivieres
   riv<-readOGR("2_Travail/Data/Carto/Principales/Principales/riviere2_3.shp")
@@ -2531,7 +2609,8 @@ image.cumul<-function(crue=FALSE){
     # Carte de base
     image.plot(Fx,Fy,Fz,col=gray(seq(0.1,0.99,length=100)),xlab="X (km) - Lambert II extended",ylab="Y (km) - Lambert II extended",
                legend.line=-2.3, cex.axis=1.3, cex.lab=1.3, legend.shrink = 0.5) # fond
-    lines(a@pts[[1]]$x,a@pts[[1]]$y,col="white",lwd=3) # contour
+    lines(bord,col="white",lwd=3)
+    #lines(a@pts[[1]]$x,a@pts[[1]]$y,col="white",lwd=3) # contour
     for (j in id){ # rivieres
       tmp<-riv@lines[[j]]@Lines[[1]]@coords/1000
       lines(tmp[,1],tmp[,2],col="cyan")
@@ -2626,7 +2705,7 @@ make.precip1.isere<-function(start="1950-01-01",end="2011-12-31") {
 }
 
 # Carte de geopotentiel d'un jour donne
-map.geo <- function(date,rean,k){
+map.geo <- function(date,rean,k,save=F){
   
   # Import des donnees
   load.nc(rean)
@@ -2639,10 +2718,10 @@ map.geo <- function(date,rean,k){
   
   geo <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),1))
   title <- ifelse(k==1,"500 hPa","1000 hPa")
-  zlim <- ifelse(rep(k==1,2),c(4900,6050),c(-300,450))
+  zlim <- ifelse(rep(k==1,2),c(4900,6050),c(-400,450))
   
   # Carte
-  png(filename = paste0("2_Travail/Rresults/map.geo/",date,"_k",k,".png"))
+  if(save) png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.geo/",date,"_k",k,".png"))
   image.plot(lon,lat,geo,xlim=c(-20,25),ylim=c(25,70),asp=1,zlim=zlim,
              col=rev(brewer.pal(n = 11, name = "RdBu")),
              xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(date," - ",title),
@@ -2651,6 +2730,43 @@ map.geo <- function(date,rean,k){
   data(wrld_simpl)
   plot(wrld_simpl, add = TRUE)
   box()
+  if(save) graphics.off()
+  
+}
+
+map.extr <- function(k,start,end,rean){
+  
+  precip <- get.precip(3,start,end)
+  dates <- as.Date(getdates(start,end))
+  
+  # Carte des 62 plus fortes sequences
+  dates.extr <- dates[sort(precip,decreasing = T,index.return=T)$ix[1:62]]
+  
+  pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.extr/map_62_max_k",k,"_",start,"_",end,".pdf"),width = 10,height = 14)
+  layout(matrix(1:15,5,3,byrow = T))
+  par(mar=c(4.5,5,4,6.5))
+  print(paste0(length(dates.extr)," max"))
+  for(i in 1:length(dates.extr)){
+    print(paste0(i,"/",length(dates.extr)))
+    map.geo(dates.extr[i],rean,k); map.geo(dates.extr[i]+1,rean,k); map.geo(dates.extr[i]+2,rean,k)
+  }
+  graphics.off()
+  
+  # Carte des max annuels
+  ann <- format(dates,"%Y")[1:22643]
+  pos <- aggregate(precip,by=list(ann),which.max)
+  
+  pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.extr/map_annual_max_k",k,"_",start,"_",end,".pdf"),width = 10,height = 14)
+  layout(matrix(1:15,5,3,byrow = T))
+  par(mar=c(4.5,5,4,6.5))
+  print("Annual max")
+  for(i in 1:nrow(pos)){
+    print(paste0(i,"/",nrow(pos)))
+    ann.i <- pos[i,1]
+    delta <- which(ann==ann.i)[1]-1
+    date.i <- dates[delta+pos[i,2]]
+    map.geo(date.i,rean,k); map.geo(date.i+1,rean,k); map.geo(date.i+2,rean,k)
+  }
   graphics.off()
   
 }
@@ -2743,7 +2859,8 @@ plot.bilan<-function(k,dist,val=c(5,5,5,5),type="fort"){
 # plot le bilan des valeurs des indicateurs pluies fortes & sequences seches QUANTITATIF
 plot.bilan.quant <- function(nbdays=3,start="1950-01-01",end="2011-12-31",rean){
   
-  comb  <- c("500hPa - TWS","500hPa - RMSE","1000hPa -TWS","1000hPa - RMSE")
+  comb  <- c("500hPa - TWS","500hPa - RMSE","500hPa - RMSE_I","500hPa - RMSE_II",
+             "1000hPa - TWS","1000hPa - RMSE","1000hPa - RMSE_I","1000hPa - RMSE_II")
   descr <- c("celnei","persnei","singnei","rsingnei","accnei")
   
   precip <- get.precip(nbdays,start,end)
@@ -2754,9 +2871,16 @@ plot.bilan.quant <- function(nbdays=3,start="1950-01-01",end="2011-12-31",rean){
   ind=list(ind_min,ind_max)
   
   for(i in 1:length(ind)){
+    png(filename = paste0("2_Travail/20CR/Rresults/overall/plot.bilan.quant/boxplot_",ifelse(i==1,"p0","pmax"),"_member",member,"_",nbdays,"day.png"),width = 1200,height = 800,units = "px")
+    layout(matrix(1:length(comb),2,length(comb)/2,byrow = T))
+    
     for(j in comb){
       k <- ifelse(substr(j,1,3)=="500",1,2)
-      dist <- ifelse(substr(j,10,12)=="TWS","TWS","RMSE")
+      if(substr(j,nchar(j)-2,nchar(j))=="TWS") dist <- "TWS"
+      if(substr(j,nchar(j)-3,nchar(j))=="RMSE") dist <- "RMSE"
+      if(substr(j,nchar(j)-5,nchar(j))=="RMSE_I") dist <- "RMSE_I"
+      if(substr(j,nchar(j)-6,nchar(j))=="RMSE_II") dist <- "RMSE_II"
+      
       tab.descr <- matrix(NA,length(getdates(start,end))-nbdays+1,length(descr))
       colnames(tab.descr) <- descr
       ind.descr <- NULL
@@ -2765,16 +2889,14 @@ plot.bilan.quant <- function(nbdays=3,start="1950-01-01",end="2011-12-31",rean){
         tab.descr[,l] <- get.descriptor(descriptor = l,k = k,dist = dist,nbdays = nbdays,start = start,end = end,
                                         standardize = F,rean = rean)
       }
-      
       tab.qua <- apply(tab.descr,2,function(x) y=(rank(x)-1)/(length(x)-1)*100)
       
-      png(filename = paste0("2_Travail/20CR/Rresults/overall/plot.bilan.quant/boxplot_",ifelse(i==1,"p0_","pmax_"),dist,"_member",member,"_k",k,"_mean",nbdays,"day.png"),width = 400,height = 400,units = "px")
+      #png(filename = paste0("2_Travail/20CR/Rresults/overall/plot.bilan.quant/boxplot_",ifelse(i==1,"p0_","pmax_"),dist,"_member",member,"_k",k,"_mean",nbdays,"day.png"),width = 400,height = 400,units = "px")
       boxplot(tab.qua[ind[[i]],],ylim=c(0,100),outline=F,col=ifelse(i==1,"mistyrose","lightsteelblue1"),ylab="Quantile (%)",type="n")
       grid()
       title(j)
-      graphics.off()
-      
     }
+    graphics.off()
   }
 }
   
@@ -3804,6 +3926,9 @@ run<-function(k,dist,nbdays,str,radtype,start,end,rean){
   
   for (i in 1:length(descr)){
     fit.empir(rean = rean, k = k, descriptors = descr[[i]], dist = dist,
+              nbdays = nbdays, start = start, end = end, radtype = M)
+    
+    plot.empir(rean = rean, k = k, descriptors = descr[[i]], dist = dist,
               nbdays = nbdays, start = start, end = end, radtype = M)
     
     compute_crps(descriptors = descr[[i]], k = unique(k), dist = unique(dist), nbdays = nbdays,
