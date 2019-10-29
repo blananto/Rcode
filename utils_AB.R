@@ -2718,7 +2718,7 @@ map.geo <- function(date,rean,k,save=F){
   
   geo <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),1))
   title <- ifelse(k==1,"500 hPa","1000 hPa")
-  zlim <- ifelse(rep(k==1,2),c(4900,6050),c(-400,450))
+  zlim <- ifelse(rep(k==1,2),c(4800,6100),c(-400,500))
   
   # Carte
   if(save) png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.geo/",date,"_k",k,".png"))
@@ -2734,6 +2734,7 @@ map.geo <- function(date,rean,k,save=F){
   
 }
 
+# Carte de geopotentiels des sequences de plus fortes precipitations
 map.extr <- function(k,start,end,rean){
   
   precip <- get.precip(3,start,end)
@@ -2756,15 +2757,20 @@ map.extr <- function(k,start,end,rean){
   ann <- format(dates,"%Y")[1:22643]
   pos <- aggregate(precip,by=list(ann),which.max)
   
-  pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.extr/map_annual_max_k",k,"_",start,"_",end,".pdf"),width = 10,height = 14)
-  layout(matrix(1:15,5,3,byrow = T))
-  par(mar=c(4.5,5,4,6.5))
+  pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.extr/map_annual_max_k",k,"_",start,"_",end,".pdf"),width = 13,height = 14)
+  layout(matrix(1:20,5,4,byrow = T))
+  
   print("Annual max")
   for(i in 1:nrow(pos)){
     print(paste0(i,"/",nrow(pos)))
     ann.i <- pos[i,1]
     delta <- which(ann==ann.i)[1]-1
     date.i <- dates[delta+pos[i,2]]
+    precip.i <- round(precip[dates==date.i],1)
+    par(mar=c(4.5,2,4,2))
+    plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",axes=F)
+    text(1,1,paste0(precip.i," mm/d"),font=2,cex=1.8)
+    par(mar=c(4.5,5,4,6.5))
     map.geo(date.i,rean,k); map.geo(date.i+1,rean,k); map.geo(date.i+2,rean,k)
   }
   graphics.off()
@@ -4393,4 +4399,32 @@ test.distrib<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-
   abline(h=5,lty=2)
   
   dev2bitmap(file=paste0(get.dirstr(k),"test.distrib/pvalplot_",descriptor1,"_",descriptor2,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),randstr,".pdf"),type="pdfwrite",width=10,heigh=10)
+}
+
+# Repartition sur la pariode et dans l'annee des plus fortes precipitations
+time.extr <- function(start,end){
+  
+  precip <- get.precip(3,start,end)
+  dates <- as.Date(getdates(start,end))
+  
+  # 62 plus fortes sequences
+  dates.extr <- dates[sort(precip,decreasing = T,index.return=T)$ix[1:62]]
+  ann <- as.numeric(format(dates.extr,"%Y"))
+  mois <- as.numeric(format(dates.extr,"%m"))
+  
+  pdf(file=paste0("2_Travail/Rresults/time.extr/repartition_extr_",start,"_",end,".pdf"),width = 7,height = 4)
+  hist(x = ann,breaks = seq(1950.5,2011.5,1),col="cornflowerblue",border = "royalblue",
+       xlab = "Year",main="62 max 3-days precipitations")
+  hist(mois,breaks=0:12,col="cornflowerblue",border = "royalblue",
+       xlab = "Month",main="62 max 3-days precipitations",xaxt="n")
+  axis(side = 1,at = 0.5:11.5,month.abb)
+  
+  # max annuel
+  ann <- format(dates,"%Y")[1:22643]
+  pos <- aggregate(precip,by=list(ann),which.max)
+  mon <- as.integer(pos[,2]/365.25*12+1)
+  hist(mon,breaks = 0:12,col="cornflowerblue",border = "royalblue",
+       xlab = "Month",main="Annual max 3-days precipitations",xaxt="n")
+  axis(side = 1,at = 0.5:11.5,month.abb)
+  graphics.off()
 }
