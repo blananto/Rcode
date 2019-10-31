@@ -2335,7 +2335,7 @@ get.dirstr<-function(k=NULL,rean){
   dirstr
 }
 
-# Renvoie les indices des nbre events extremes de pluie a partir d'une certaine reference
+# Renvoie les indices des nbre events extremes de precip a partir d'une certaine reference
 get.ind.extr <- function(nbre, ref = "1950-01-01", nbdays=3, start="1950-01-01", end="2011-12-31", nei=FALSE, bv="all"){
   
   # Classement
@@ -2366,8 +2366,23 @@ get.ind.extr <- function(nbre, ref = "1950-01-01", nbdays=3, start="1950-01-01",
   return(ind)
 }
 
+# Renvoie les indices des max annuels ou mensuels de precip
+get.ind.max <- function(type="year",nbdays=3,start="1950-01-01", end="2011-12-31",bv="all"){
+  
+  # Import
+  precip <- get.precip(nbdays, start, end, bv)
+  dates <- as.Date(getdates(start,end))
+  length(dates) <- length(precip)
+  
+  # Traitement
+  ag <- as.Date(format(dates,ifelse(type=="year","%Y-01-01","%Y-%m-01")))
+  pos <- aggregate(precip,by=list(ag),which.max)
+  pos <- pos[,2] + as.numeric(pos[,1]-pos[1,1])
+  pos
+}
+
 # Renvoie les indices des min et max d'un descripteur a partir d'une certaine reference
-get.ind.min.max <- function(descr,k,dist,nbdays,start="1950-01-01",end="2011-12-31"){
+get.ind.min.max.descr <- function(descr,k,dist,nbdays,start="1950-01-01",end="2011-12-31"){
   
   descr <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = nbdays,
                           start = start,end = end,standardize = F,rean = rean)
@@ -2734,47 +2749,61 @@ map.geo <- function(date,rean,k,save=F){
   
 }
 
-# Carte de geopotentiels des sequences de plus fortes precipitations
-map.extr <- function(k,start,end,rean){
+# Carte de geopotentiels des sequences de plus fortes precipitations, avec distribution des analogues
+map.extr <- function(k,N="02",start,end,rean){
   
+  if(N=="02") n <- "0.2"
+  if(N=="05") n <- "0.5"
+  
+  # Import des donnees
   precip <- get.precip(3,start,end)
   dates <- as.Date(getdates(start,end))
   
-  # Carte des 62 plus fortes sequences
-  dates.extr <- dates[sort(precip,decreasing = T,index.return=T)$ix[1:62]]
+  load(file=paste0(get.dirstr(k,rean),"save.nei.A/nei_TWS_member",member,"_k",k,"_mean",3,"day_",start,"_",end,".Rdata"))
+  neiTWS<-nei[[N]]
   
-  pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.extr/map_62_max_k",k,"_",start,"_",end,".pdf"),width = 10,height = 14)
-  layout(matrix(1:15,5,3,byrow = T))
-  par(mar=c(4.5,5,4,6.5))
-  print(paste0(length(dates.extr)," max"))
-  for(i in 1:length(dates.extr)){
-    print(paste0(i,"/",length(dates.extr)))
-    map.geo(dates.extr[i],rean,k); map.geo(dates.extr[i]+1,rean,k); map.geo(dates.extr[i]+2,rean,k)
-  }
-  graphics.off()
+  load(file=paste0(get.dirstr(k,rean),"save.nei.A/nei_RMSE_member",member,"_k",k,"_mean",3,"day_",start,"_",end,".Rdata"))
+  neiRMSE<-nei[[N]]
   
-  # Carte des max annuels
-  ann <- format(dates,"%Y")[1:22643]
-  pos <- aggregate(precip,by=list(ann),which.max)
+  # Cartes
+  config <- c("62_max","annual_max")
+  q90 <- quantile(precip[precip>0],probs=0.9)
   
-  pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.extr/map_annual_max_k",k,"_",start,"_",end,".pdf"),width = 13,height = 14)
-  layout(matrix(1:20,5,4,byrow = T))
-  
-  print("Annual max")
-  for(i in 1:nrow(pos)){
-    print(paste0(i,"/",nrow(pos)))
-    ann.i <- pos[i,1]
-    delta <- which(ann==ann.i)[1]-1
-    date.i <- dates[delta+pos[i,2]]
-    precip.i <- round(precip[dates==date.i],1)
-    par(mar=c(4.5,2,4,2))
-    plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",axes=F)
-    text(1,1,paste0(precip.i," mm/d"),font=2,cex=1.8)
+  for(j in 1:length(config)){
+    
+    if(j==1) ind <- sort(precip,decreasing = T,index.return=T)$ix[1:62]
+    if(j==2) ind <- get.ind.max(type = "year",start = start,end = end)
+    dates.extr <- dates[ind]
+    
+    pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.extr/map_",config[j],"_k",k,"_",N,"_",start,"_",end,".pdf"),width = 13,height = 8)
+    layout(matrix(1:12,3,4,byrow = T))
     par(mar=c(4.5,5,4,6.5))
-    map.geo(date.i,rean,k); map.geo(date.i+1,rean,k); map.geo(date.i+2,rean,k)
+    print(paste0(length(dates.extr)," max"))
+    
+    for(i in 1:length(dates.extr)){
+      
+      print(paste0(i,"/",length(dates.extr)))
+      
+      # les 3 cartes
+      map.geo(dates.extr[i],rean,k); map.geo(dates.extr[i]+1,rean,k); map.geo(dates.extr[i]+2,rean,k)
+      
+      # la distribution des analogues
+      precip.i <- precip[ind[i]]
+      neiTWS.i <- neiTWS[[ind[i]]][-1]
+      neiRMSE.i <- neiRMSE[[ind[i]]][-1]
+      
+      plot(ecdf(precip[neiTWS.i]),xlim=c(0,60),lwd=2,xlab="Precipitation (mm/d)",
+           main=paste0(length(neiTWS.i)," analog sequences (",n,"%)"))
+      lines(ecdf(precip[neiRMSE.i]),col="purple")
+      abline(v=precip.i,col="darkblue",lwd=2)
+      text(precip.i-3,0.8,"obs",col="darkblue",font=2,srt=90)
+      abline(v=q90,col="red",lwd=2)
+      text(q90-3,0.8,"q90",col="red",font=2,srt=90)
+      legend(ifelse(precip.i<40,40,20),0.2,c("TWS","RMSE"),col=c("black","purple"),lwd=2,pch=19,bty="n",cex=0.8)
+      
+    }
+    graphics.off()
   }
-  graphics.off()
-  
 }
 
 # Noms propres des couples d'indicateurs
@@ -3684,6 +3713,58 @@ plot.p0.wp <- function(){
   
 }
 
+# Trace le boxplot des quantiles d'un indicateur, pour 500 & 1000, pour les 4 distances
+plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Import de l'indicateurs pour k1, k2, et les 4 distances
+  k <- c(1,2)
+  dist <- c("TWS","RMSE","RMSE_I","RMSE_II")
+  mat <- NULL
+  
+  for(i in k){
+    for(j in dist){
+      des <- get.descriptor(descriptor = descr,k = i,dist = j,nbdays = nbdays,
+                              start = start,end = end,standardize = F,rean = rean)
+      mat <- cbind(mat,des)
+      colnames(mat)[ncol(mat)] <- paste0(j,"_",i)
+    }
+  }
+  
+  # Traitement
+  ind.year <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
+  ind.mon <- get.ind.max(type = "month",nbdays = nbdays,start = start,end = end)
+  ind <- list(ind.year,ind.mon)
+  
+  qua <- apply(mat,2,function(v) ecdf(v)(v)*100)
+  l <- vector("list",2)
+  
+  for(i in 1:length(ind)){
+  tmp <- qua[ind[[i]],]
+  tmp <- pivot_longer(data = as.data.frame(tmp),1:8,names_to = "dist",values_to = "quantile")
+  tmp$geo <- substr(tmp$dist,nchar(tmp$dist),nchar(tmp$dist))
+  tmp$dist <- substr(tmp$dist,1,nchar(tmp$dist)-2)
+  tmp$dist <- factor(tmp$dist,levels = dist)
+  l[[i]] <- tmp
+  }
+  
+  # Boxplot
+  ggplot(l[[1]], aes(x=dist, y=quantile, fill=geo)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(2,3,2,2),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=10),
+          axis.text.y = element_text(size=10))+
+    stat_boxplot(geom = "errorbar", width = 0.2,col="darkblue",position = ) +
+    geom_boxplot(outlier.shape = NA)+
+    geom_vline(xintercept=c(1.5,2.5,3.5), linetype="dashed")
+  
+  ggplot(l[[2]], aes(x=dist, y=quantile, fill=geo)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(1.5,3,1.5,1.5),"cm"),legend.key.size = unit(2,"cm"))+
+    geom_boxplot(outlier.shape = NA)+
+    geom_vline(xintercept=c(1.5,2.5,3.5), linetype="dashed")
+  
+}
+
 # Trace les hyétorgammes des 62 plus grosses séquences de pluie
 plot.rain <- function(nbdays=3,start="1950-01-01",end="2011-12-31"){
   
@@ -3778,6 +3859,52 @@ plot.ratio.BV <- function(nbdays=3,start="1950-01-01",end="2011-12-31",rain=FALS
   dev.off()
 }
 
+# plot le ratio de pluvios concernes pour les differents quantiles de precip sur le BV
+plot.ratio.pluvios <- function(nbdays,seuil=0,start="1950-01-01",end="2011-12-31"){
+  
+  # Import des donnees station et BV
+  precip <- get.precip(nbdays,start,end)
+  ind <- which(precip>seuil)
+  precip <- precip[ind]
+  
+  load("2_Travail/Data/Precip/data_precip.Rdata")
+  data_sta <- as.data.frame(data$precip/10)
+  rownames(data_sta) <- as.Date(rownames(data_sta),"%Y%m%d")
+  data_sta <- subset(data_sta,rownames(data_sta)>=start & rownames(data_sta)<=end)
+  
+  # Traitement des donnees
+  if(nbdays>1) data_sta <- rollapply(data_sta,width=nbdays,FUN=mean)
+  ratio <- apply(data_sta,1,function(v) sum(v>seuil,na.rm=T)/sum(!is.na(v))*100)
+  ratio <- ratio[ind]
+  qua <- ecdf(precip)(precip)*10
+  qua[which.max(qua)] <- max(qua)-0.001 # -0.0001 car ecdf donne quantile 100% pour valeur max
+  qua <- as.integer(qua)+1
+  df <- as.data.frame(cbind(qua,ratio))
+  
+  xlabel <- NULL
+  for(i in 1:10){
+    q1 <- round(quantile(precip,probs=(i-1)*0.1),1)
+    q2 <- round(quantile(precip,probs=i*0.1),1)
+    xlabel[i] <- paste0(i*10-10,"%-",i*10,"%\n",q1,"-",q2)
+  }
+  
+  # Graphique
+  ggplot(df, aes(x=qua, y=ratio, group=qua)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(2,3,2,2),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=10),
+          axis.text.y = element_text(size=10))+
+    stat_boxplot(geom = "errorbar", width = 0.2,col="darkblue") +
+    geom_boxplot(outlier.shape = NA,fill="cornflowerblue",color="darkblue")+
+    xlab(paste0("Isere catchment basin ",nbdays,"-day positive precipitation (mm/d)"))+
+    ylab(paste0("% of stations with positive \n",nbdays,"-day precipitation"))+
+    scale_x_discrete(limits = 1:10,labels=xlabel)
+  
+  ggsave(filename = paste0("2_Travail/Rresults/plot.ratio.pluvios/ratio_",nbdays,"day_seuil",seuil,"_",start,"_",end,".png"),
+         width = 28,height = 15,units = "cm")
+  graphics.off()
+}
+  
 # Trace la fonction de repartition des scores
 plot.score <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean,rsing=FALSE,sing=FALSE){
   
@@ -4402,7 +4529,7 @@ test.distrib<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-
 }
 
 # Repartition sur la pariode et dans l'annee des plus fortes precipitations
-time.extr <- function(start,end){
+time.extr <- function(start="1950-01-01",end="2011-12-31"){
   
   precip <- get.precip(3,start,end)
   dates <- as.Date(getdates(start,end))
