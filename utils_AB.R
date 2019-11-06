@@ -1300,6 +1300,64 @@ compute.rsing<- function(vec,sing=F){
   res
 }
 
+# Calcul le %age des analogues en commun pour differentes distances et indicateurs
+compute_common<-function(type=1,dist1="TWS",dist2="RMSE",descr=c("celnei","singnei"),k,nbdays=3,str="05",start="1950-01-01",end="2011-12-31",rean){
+  
+  # type=1: comparaison de deux distances pour analogie classique: dist1 et dist2: a quel point le score d'analogie nous fait prendre des analogues identiques/differents?
+  # type=2: comparaison de la meme distance pour analogie classique mais pour deux geopotentiels: dist1/k1 et dist1/k2: a quel point le geopotentiel fait qu'on prend des analogues differents?
+  # type=3: comparaison de l'analogie classique aux indicateurs: dist1 et ind: a quel point les analogues par indicateurs sont aussi proches en geopotentiel?
+  
+  
+  # Import
+  load(file=paste0(get.dirstr(k,rean),"save.nei.A/nei_",dist1,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  nei1 <- nei[[str]]
+  
+  if(type==1){
+    load(file=paste0(get.dirstr(k,rean),"save.nei.A/nei_",dist2,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    nei2 <- nei[[str]]
+    rm(nei)
+    comp <- paste0(dist1,"_",dist2)
+  }
+  
+  if(type==2){
+    load(file=paste0(get.dirstr(ifelse(k==1,2,1),rean),"save.nei.A/nei_",dist1,"_member",member,"_k",ifelse(k==1,2,1),"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    nei2 <- nei[[str]]
+    rm(nei)
+    comp <- dist1
+  }
+  
+  if(type==3){
+    desc1<-get.descriptor(descr[1],k,dist1,nbdays,start,end,standardize=T,rean)
+    desc2<-get.descriptor(descr[2],k,dist1,nbdays,start,end,standardize=T,rean)
+    desc<- cbind(desc1,desc2)
+    
+    nei2 <- nei1
+    precip <- get.precip(nbdays,start,end)
+    
+    for (i in 1:nrow(desc)){
+      if (i %%50==0) print(i)
+      if (!is.na(desc[i,1]) & !is.na(desc[i,2])){
+        nei2[[i]] <-get.closest(i = i,descr = desc,precip = precip,CV = T,nbdays = nbdays,radtype = paste0("nrn",str))$idx
+      }
+    }
+    comp <- paste0(dist1,"_",descr[1],"_",descr[2])
+  }
+  
+  # Traitement
+  comm <- vector(length = length(nei1))
+  
+  for(i in 1:length(comm)){
+    nei.1 <- setdiff(nei.dist1[[i]],(i-nbdays+1):(i+nbdays-1))
+    nei.2 <- setdiff(nei.dist2[[i]],(i-nbdays+1):(i+nbdays-1))
+    comm[i] <- round(length(intersect(nei.1,nei.2))/length(nei.1),2)
+  }
+  
+  if(type %in% c(1,3)){
+    save(comm,file = paste0(get.dirstr(k,rean),"compute_common/common_ana_",comp,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,"_nrn",str,".Rdata"))
+  }else{save(comm,file = paste0("2_Travail/",rean,"/Rresults/overall/compute_common/common_ana_",comp,"_member",member,"_k1_k2_mean",nbdays,"day_",start,"_",end,"_nrn",str,".Rdata"))}
+  
+}
+
 # Calcul des indicateurs
 compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FALSE,rean,threeday=FALSE){
   gc()
@@ -3061,6 +3119,11 @@ plot.cloud<-function(){
   
 }
 
+# plot le %age
+plot.common<-function(){
+  
+}
+
 # plot la comparaison des CRPS indicateurs, analogie classique et climato pour differents quantiles de pluie
 plot.crps<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",str="05",CV=TRUE){
   
@@ -3742,27 +3805,31 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
   tmp <- qua[ind[[i]],]
   tmp <- pivot_longer(data = as.data.frame(tmp),1:8,names_to = "dist",values_to = "quantile")
   tmp$geo <- substr(tmp$dist,nchar(tmp$dist),nchar(tmp$dist))
+  tmp$geo <- ifelse(tmp$geo==1,"500","1000")
+  tmp$geo <- factor(tmp$geo,levels = c("500","1000"))
   tmp$dist <- substr(tmp$dist,1,nchar(tmp$dist)-2)
   tmp$dist <- factor(tmp$dist,levels = dist)
   l[[i]] <- tmp
   }
   
+  names(l) <- c("annmax","monmax")
+  
   # Boxplot
-  ggplot(l[[1]], aes(x=dist, y=quantile, fill=geo)) + 
+  ggplot(l$annmax, aes(x=dist, y=quantile, fill=geo)) + 
     theme_bw()+
     theme(plot.margin = unit(c(2,3,2,2),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
           axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=10),
-          axis.text.y = element_text(size=10))+
-    stat_boxplot(geom = "errorbar", width = 0.2,col="darkblue",position = ) +
-    geom_boxplot(outlier.shape = NA)+
-    geom_vline(xintercept=c(1.5,2.5,3.5), linetype="dashed")
-  
-  ggplot(l[[2]], aes(x=dist, y=quantile, fill=geo)) + 
-    theme_bw()+
-    theme(plot.margin = unit(c(1.5,3,1.5,1.5),"cm"),legend.key.size = unit(2,"cm"))+
-    geom_boxplot(outlier.shape = NA)+
-    geom_vline(xintercept=c(1.5,2.5,3.5), linetype="dashed")
-  
+          axis.text.y = element_text(size=10),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14))+
+    stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
+    geom_boxplot(outlier.shape = NA,col="darkblue")+
+    scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
+    geom_vline(xintercept=c(1.5,2.5,3.5), linetype="dashed")+
+    xlab("Score d'analogie")+
+    ylab("Quantile (%)")+
+    labs(title = descr,fill="Geopotential (hPa)")
+    
+  ggsave(filename = paste0("2_Travail/20CR/Rresults/overall/plot.quant.descr/plot_",descr,"_",nbdays,"day_",start,"_",end,".png"),width = 20,height = 12,units="cm",dpi = 200)
+  graphics.off()
 }
 
 # Trace les hyétorgammes des 62 plus grosses séquences de pluie
