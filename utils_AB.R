@@ -1323,7 +1323,6 @@ compute_common<-function(type=1,dist1="TWS",dist2="RMSE",descr=c("celnei","singn
     load(file=paste0(get.dirstr(ifelse(k==1,2,1),rean),"save.nei.A/nei_",dist1,"_member",member,"_k",ifelse(k==1,2,1),"_mean",nbdays,"day_",start,"_",end,".Rdata"))
     nei2 <- nei[[str]]
     rm(nei)
-    comp <- dist1
   }
   
   if(type==3){
@@ -1347,14 +1346,14 @@ compute_common<-function(type=1,dist1="TWS",dist2="RMSE",descr=c("celnei","singn
   comm <- vector(length = length(nei1))
   
   for(i in 1:length(comm)){
-    nei.1 <- setdiff(nei.dist1[[i]],(i-nbdays+1):(i+nbdays-1))
-    nei.2 <- setdiff(nei.dist2[[i]],(i-nbdays+1):(i+nbdays-1))
+    nei.1 <- setdiff(nei1[[i]],(i-nbdays+1):(i+nbdays-1))
+    nei.2 <- setdiff(nei2[[i]],(i-nbdays+1):(i+nbdays-1))
     comm[i] <- round(length(intersect(nei.1,nei.2))/length(nei.1),2)
   }
   
   if(type %in% c(1,3)){
     save(comm,file = paste0(get.dirstr(k,rean),"compute_common/common_ana_",comp,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,"_nrn",str,".Rdata"))
-  }else{save(comm,file = paste0("2_Travail/",rean,"/Rresults/overall/compute_common/common_ana_",comp,"_member",member,"_k1_k2_mean",nbdays,"day_",start,"_",end,"_nrn",str,".Rdata"))}
+  }else{save(comm,file = paste0("2_Travail/",rean,"/Rresults/overall/compute_common/common_ana_",dist1,"_member",member,"_k1_k2_mean",nbdays,"day_",start,"_",end,"_nrn",str,".Rdata"))}
   
 }
 
@@ -2647,18 +2646,25 @@ image.cumul<-function(crue=FALSE){
     event  <- getdates()[ind]
   } else {# Events extremes de crues
     load("2_Travail/Rresults/image.cumul/crues_1969_2011_Isere_StGervais.Rdata")
-    crues <- as.data.frame(crues[crues[,4]>0.75,]) # on selectionne les events quadriennaux
-    crues <- crues[order(crues[,2],decreasing = T),]
+    crues <- as.data.frame(crues)
+    #crues <- as.data.frame(crues[crues[,4]>0.75,]) # on selectionne les events quadriennaux
     event <- as.character(crues[,1]-3) # on prend les pluies de j-3,j-2,j-1 de la crue (car 8hj a 7hj+1)
     ind   <- match(event,getdates())
     
     # Quantiles de pluie associes
     distrib <- ecdf(precip[precip>0])
     qua <- round(distrib(precip[ind]),4)
+    qua <- c(qua[1],NA,NA,qua[2:38],NA,qua[39:40]) # 1970,1971 et 2009 manquants
+    ann <- 1969:2011
+    tmp <- crues[,4]
+    rp <- c(tmp[1],NA,NA,tmp[2:38],NA,tmp[39:40])
+    pos <- which(rp>0.8)
     
     png(file = "2_Travail/Rresults/image.cumul/Quant_rain_flood.png",width = 517,height = 369,units = "px",res = 72)
-    plot(qua*100,ylim=c(60,100),col="royalblue",pch=19,xlab="10 largest flow rates 1969-2011",ylab="3-day positive rainfall quantile (%)")
-    abline(h=94,col="red",lty=2)
+    par(mar=c(5,5,1,1))
+    plot(ann,qua*100,ylim=c(0,100),col="cornflowerblue",pch=19,xlab="Year",ylab="3-day positive rainfall quantile (%) \n corresponding to max annual flow rate")
+    points(ann[pos],qua[pos]*100,col="red",pch=19)
+    abline(h=90,col="red",lty=2)
     graphics.off()
     
     prec_ete <- precip[substr(getdates(),6,7) %in% c("05","06","07")]
@@ -2668,7 +2674,7 @@ image.cumul<-function(crue=FALSE){
     # Histogramme des crues par mois
     png(file = "2_Travail/Rresults/image.cumul/Histogram_flood_month.png",width = 419,height = 322,units = "px",res = 72)
     tmp <- as.numeric(substr(crues[,1],6,7))
-    hist(tmp,0:12,axes = FALSE,xlab="Month",col = "royalblue",main="10 largest flow rates 1969 -2011",border = "white")
+    hist(tmp,0:12,axes = FALSE,xlab="Month",col="cornflowerblue",border = "royalblue",main="Annual max flow rate 1969 -2011")
     lines(c(0,12),c(0,0))
     axis(2)
     axis(1,at = 0.5:11.5,labels = 1:12,tick = FALSE,padj = -1)
@@ -3119,8 +3125,63 @@ plot.cloud<-function(){
   
 }
 
-# plot le %age
-plot.common<-function(){
+# plot le %age de dates analogues en commun pour les differents quantiles de precipitations
+plot.common.quant<-function(type=1,dist1="TWS",dist2="RMSE",descr=c("celnei","singnei"),k,nbdays=3,str="05",start="1950-01-01",end="2011-12-31",rean){
+  
+  # Import de compute_common
+  if(type==1) {
+    comp <- paste0(dist1,"_",dist2)
+    main <- paste0(dist1," / ",dist2,"  -  ",ifelse(k==1,"500 hPa","1000 hPa"))
+  }
+  
+  if(type==2) {
+    main <- paste0(dist1," 500 hPa / ",dist1," 1000 hPa")
+  }
+  
+  if(type==3) {
+    comp <- paste0(dist1,"_",descr[1],"_",descr[2])
+    main <- paste0(dist1," / ",descr[1],"-",descr[2],"  -  ",ifelse(k==1,"500 hPa","1000 hPa"))
+  }
+  
+  if(type %in% c(1,3)){
+    load(file = paste0(get.dirstr(k,rean),"compute_common/common_ana_",comp,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,"_nrn",str,".Rdata"))
+  }else{load(file = paste0("2_Travail/",rean,"/Rresults/overall/compute_common/common_ana_",dist1,"_member",member,"_k1_k2_mean",nbdays,"day_",start,"_",end,"_nrn",str,".Rdata"))}
+  
+  precip <- get.precip(nbdays,start,end)
+  
+  # Traitement
+  qua <- ecdf(precip)(precip)*10
+  qua[which.max(qua)] <- max(qua)-0.001 # -0.0001 car ecdf donne quantile 100% pour valeur max
+  qua <- as.integer(qua)+1
+  df <- as.data.frame(cbind(qua,comm))
+  
+  xlabel <- NULL
+  for(i in 1:10){
+    q1 <- round(quantile(precip,probs=(i-1)*0.1),1)
+    q2 <- round(quantile(precip,probs=i*0.1),1)
+    xlabel[i] <- paste0(i*10-10,"%-",i*10,"%\n",q1,"-",q2)
+  }
+  
+  # Graphique
+  ggplot(df, aes(x=qua, y=comm, group=qua)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(2,3,2,2),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=10),
+          axis.text.y = element_text(size=10),plot.title = element_text(hjust=0.5,vjust=4, size=14, face="bold"))+
+    stat_boxplot(geom = "errorbar", width = 0.2,col="darkblue") +
+    geom_boxplot(outlier.shape = NA,fill="cornflowerblue",color="darkblue")+
+    xlab(paste0("Isere catchment basin ",nbdays,"-day precipitation (mm/d)"))+
+    ylab(paste0("% of analog in common"))+
+    ggtitle(main)+
+    scale_x_discrete(limits = 1:10,labels=xlabel)
+  
+  if(type %in% c(1,3)){
+    ggsave(filename = paste0(get.dirstr(k,rean),"plot.common/plot_common_ana_",comp,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,"_nrn",str,".png"),
+           width = 28,height = 15,units = "cm")
+  }else{ggsave(filename = paste0("2_Travail/",rean,"/Rresults/overall/plot.common/plot_common_ana_",dist1,"_member",member,"_k1_k2_mean",nbdays,"day_",start,"_",end,"_nrn",str,".png"),
+               width = 28,height = 15,units = "cm")}
+  
+  graphics.off()
   
 }
 
@@ -3833,35 +3894,46 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
 }
 
 # Trace les hyétorgammes des 62 plus grosses séquences de pluie
-plot.rain <- function(nbdays=3,start="1950-01-01",end="2011-12-31"){
+plot.rain <- function(nbdays=3,ann.max=F,start="1950-01-01",end="2011-12-31"){
   
   precip <- get.precip(nbdays=1,start,end)
   dates <- seq(as.Date(start),as.Date(end),by="day")
   
-  ind <- get.ind.extr(nbre = 62, ref = start, nbdays, start, end, nei = TRUE)
-  pdf(file = paste0("2_Travail/Rresults/plot.rain/Hietograph","_",nbdays,"day.pdf"))
+  if(!ann.max){
+    n <- 62
+    ind <- get.ind.extr(nbre = n, ref = start, nbdays, start, end, nei = TRUE)
+    supp <- n
+  }else{
+    ind <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
+    supp <- "Annual"
+    }
+  
+  pdf(file = paste0("2_Travail/Rresults/plot.rain/Hietograph_",supp,"_max_",nbdays,"day_",start,"_",end,".pdf"))
   layout(matrix(1:20,4,5,byrow=TRUE))
   for(i in 1:length(ind)){
-    barplot(precip[ind[i]:(ind[i]+nbdays-1)],space=0,col = "royalblue",main = dates[ind[i]],names.arg = c("D1","D2","D3"),ylab="Precip (mm)",cex.names = 0.8)
+    barplot(precip[ind[i]:(ind[i]+nbdays-1)],space=0,col="cornflowerblue",main = dates[ind[i]],names.arg = c("D1","D2","D3"),ylab="Precip (mm)",cex.names = 0.8)
   }
   graphics.off()
   
   # Frequence d'occurence des sequences de pluie fortes dans l'annee
-  png(file = "2_Travail/Rresults/plot.rain/Histogram_month.png",width = 419,height = 322,units = "px",res = 72)
+  png(file = paste0("2_Travail/Rresults/plot.rain/Histogram_",supp,"_max_",nbdays,"day_",start,"_",end,".png"),width = 419,height = 322,units = "px",res = 72)
   tmp <- as.numeric(substr(dates[ind],6,7))
-  hist(tmp,0:12,axes = FALSE,xlab="Month",col = "royalblue",border = "white",main="62 largest 3-day precip 1950-2011")
+  hist(tmp,0:12,axes = FALSE,xlab="Month",col="cornflowerblue",border = "royalblue",
+       main=paste0(supp," max ",nbdays,"-day precip ",substr(start,1,4),"-",substr(end,1,4)))
   lines(c(0,12),c(0,0))
   axis(2)
   axis(1,at = 0.5:11.5,labels = 1:12,tick = FALSE,padj = -1)
   graphics.off()
   
   # Hyetogramme des cumuls de pluie sur l'annee
-  png(file = "2_Travail/Rresults/plot.rain/Hyetograph_month.png",width = 460,height = 322,units = "px",res = 72)
-  precip <- get.precip(1)
+  png(file = paste0("2_Travail/Rresults/plot.rain/Histogram_all_",nbdays,"day_",start,"_",end,".png"),width = 460,height = 322,units = "px",res = 72)
+  precip <- get.precip(1,start,end)
   dates <- getdates(start,end)
   month <- substr(dates,6,7)
-  barplot(aggregate(precip,by=list(month),FUN=function(x) sum(x)/62)[,2],ylim=c(0,130),cex.names = 0.8,
-          names.arg = month.abb,col="royalblue",xlab="Month",ylab="precip (mm)",main="Monthly precip accumulation")
+  nyr <- as.numeric(substr(end,1,4))-as.numeric(substr(start,1,4))+1
+  barplot(aggregate(precip,by=list(month),FUN=function(x) sum(x)/nyr)[,2],ylim=c(0,130),cex.names = 0.8,
+          names.arg = month.abb,col="cornflowerblue",border = "royalblue",xlab="Month",ylab="precip (mm)",
+          main=paste0(nbdays,"-day precip ",substr(start,1,4),"-",substr(end,1,4)))
   graphics.off()          
 
 }
@@ -3963,7 +4035,7 @@ plot.ratio.pluvios <- function(nbdays,seuil=0,start="1950-01-01",end="2011-12-31
           axis.text.y = element_text(size=10))+
     stat_boxplot(geom = "errorbar", width = 0.2,col="darkblue") +
     geom_boxplot(outlier.shape = NA,fill="cornflowerblue",color="darkblue")+
-    xlab(paste0("Isere catchment basin ",nbdays,"-day positive precipitation (mm/d)"))+
+    xlab(paste0("Isere catchment ",nbdays,"-day positive precipitation (mm/d)"))+
     ylab(paste0("% of stations with positive \n",nbdays,"-day precipitation"))+
     scale_x_discrete(limits = 1:10,labels=xlabel)
   
