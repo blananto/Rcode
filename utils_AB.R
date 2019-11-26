@@ -2662,7 +2662,7 @@ image.cumul<-function(crue=FALSE){
     
     png(file = "2_Travail/Rresults/image.cumul/Quant_rain_flood.png",width = 517,height = 369,units = "px",res = 72)
     par(mar=c(5,5,1,1))
-    plot(ann,qua*100,ylim=c(0,100),col="cornflowerblue",pch=19,xlab="Year",ylab="3-day positive rainfall quantile (%) \n corresponding to max annual flow rate")
+    plot(ann,qua*100,ylim=c(0,100),col="cornflowerblue",pch=19,xlab="Year",ylab="Quantile (%) of 3-day precip \n preceding annual maximum flow rate")
     points(ann[pos],qua[pos]*100,col="red",pch=19)
     abline(h=90,col="red",lty=2)
     graphics.off()
@@ -2674,7 +2674,7 @@ image.cumul<-function(crue=FALSE){
     # Histogramme des crues par mois
     png(file = "2_Travail/Rresults/image.cumul/Histogram_flood_month.png",width = 419,height = 322,units = "px",res = 72)
     tmp <- as.numeric(substr(crues[,1],6,7))
-    hist(tmp,0:12,axes = FALSE,xlab="Month",col="cornflowerblue",border = "royalblue",main="Annual max flow rate 1969 -2011")
+    hist(tmp,0:12,axes = FALSE,xlab="Month",col="cornflowerblue",border = "royalblue",main="Annual max flow rate 1969-2011")
     lines(c(0,12),c(0,0))
     axis(2)
     axis(1,at = 0.5:11.5,labels = 1:12,tick = FALSE,padj = -1)
@@ -2784,7 +2784,7 @@ make.precip1.isere<-function(start="1950-01-01",end="2011-12-31") {
 }
 
 # Carte de geopotentiel d'un jour donne
-map.geo <- function(date,rean,k,save=F){
+map.geo <- function(date,rean,k,nbdays,save=F){
   
   # Import des donnees
   load.nc(rean)
@@ -2795,20 +2795,28 @@ map.geo <- function(date,rean,k,save=F){
   lat <- nc$dim$lat$vals
   num0<-date_to_number(nc,date,rean)
   
-  geo <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),1))
+  geo <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),nbdays))
+  dim(geo) <- c(length(lon),length(lat),nbdays)
   title <- ifelse(k==1,"500 hPa","1000 hPa")
   zlim <- ifelse(rep(k==1,2),c(4800,6100),c(-400,500))
   
   # Carte
-  if(save) png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.geo/",date,"_k",k,".png"))
-  image.plot(lon,lat,geo,xlim=c(-20,25),ylim=c(25,70),asp=1,zlim=zlim,
-             col=rev(brewer.pal(n = 11, name = "RdBu")),
-             xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(date," - ",title),
-             legend.line=-2.3, cex.axis=1.3, cex.lab=1.3, cex.main=1.3)
-  
-  data(wrld_simpl)
-  plot(wrld_simpl, add = TRUE)
-  box()
+  if(save) png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.geo/",date,"_k",k,"_",nbdays,"day.png"),
+               width = ifelse(nbdays==3,900,350),height = ifelse(nbdays==3,280,350),units = "px")
+  layout(matrix(1:nbdays,1,nbdays))
+  for(i in 1:nbdays){
+    if(nbdays==3) par(mar=c(5,6,4,6))
+    cex <- ifelse(nbdays==3,1.8,1.3)
+    
+    image.plot(lon,lat,geo[,,i],xlim=c(-20,25),ylim=c(25,70),asp=1,zlim=zlim,
+               col=rev(brewer.pal(n = 11, name = "RdBu")),
+               xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(as.Date(date)+i-1," - ",title),
+               legend.line=-2.3, cex.axis=cex, cex.lab=cex, cex.main=cex)
+    
+    data(wrld_simpl)
+    plot(wrld_simpl, add = TRUE)
+    box()
+  }
   if(save) graphics.off()
   
 }
@@ -2958,19 +2966,22 @@ plot.bilan<-function(k,dist,val=c(5,5,5,5),type="fort"){
 # plot le bilan des valeurs des indicateurs pluies fortes & sequences seches QUANTITATIF
 plot.bilan.quant <- function(nbdays=3,start="1950-01-01",end="2011-12-31",rean){
   
-  comb  <- c("500hPa - TWS","500hPa - RMSE","500hPa - RMSE_I","500hPa - RMSE_II",
-             "1000hPa - TWS","1000hPa - RMSE","1000hPa - RMSE_I","1000hPa - RMSE_II")
-  descr <- c("celnei","persnei","singnei","rsingnei","accnei")
+  #comb  <- c("500hPa - TWS","500hPa - RMSE","500hPa - RMSE_I","500hPa - RMSE_II",
+  #           "1000hPa - TWS","1000hPa - RMSE","1000hPa - RMSE_I","1000hPa - RMSE_II")
+  #descr <- c("celnei","persnei","singnei","rsingnei","accnei")
+  comb <- c("500hPa - TWS","500hPa - RMSE")
+  descr <- c("celnei","singnei")
   
   precip <- get.precip(nbdays,start,end)
   
   ind_min <- which(precip==0)
   ind_max <- sort(precip,decreasing=T,index.return=T)$ix[1:62]
+  ind_max <- get.ind.max(type="year",nbdays = 3,start = start,end = end)
   #ind_max <- which(precip>quantile(precip[precip>0],probs=0.94))
   ind=list(ind_min,ind_max)
   
   for(i in 1:length(ind)){
-    png(filename = paste0("2_Travail/20CR/Rresults/overall/plot.bilan.quant/boxplot_",ifelse(i==1,"p0","pmax"),"_member",member,"_",nbdays,"day.png"),width = 1200,height = 800,units = "px")
+    png(filename = paste0("2_Travail/20CR/Rresults/overall/plot.bilan.quant/boxplot_",ifelse(i==1,"p0","pmax"),"_member",member,"_",nbdays,"day.png"),width = 600,height = 800,units = "px")
     layout(matrix(1:length(comb),2,length(comb)/2,byrow = T))
     
     for(j in comb){
@@ -2989,6 +3000,7 @@ plot.bilan.quant <- function(nbdays=3,start="1950-01-01",end="2011-12-31",rean){
                                         standardize = F,rean = rean)
       }
       tab.qua <- apply(tab.descr,2,function(x) y=(rank(x)-1)/(length(x)-1)*100)
+      colnames(tab.qua) <- c("Celerity","Singularity")
       
       #png(filename = paste0("2_Travail/20CR/Rresults/overall/plot.bilan.quant/boxplot_",ifelse(i==1,"p0_","pmax_"),dist,"_member",member,"_k",k,"_mean",nbdays,"day.png"),width = 400,height = 400,units = "px")
       boxplot(tab.qua[ind[[i]],],ylim=c(0,100),outline=F,col=ifelse(i==1,"mistyrose","lightsteelblue1"),ylab="Quantile (%)",type="n")
@@ -3841,7 +3853,7 @@ plot.p0.wp <- function(){
 plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",rean){
   
   # Import de l'indicateurs pour k1, k2, et les 4 distances
-  k <- c(1,2)
+  k <- c(1)
   dist <- c("TWS","RMSE","RMSE_I","RMSE_II")
   mat <- NULL
   
@@ -3864,7 +3876,7 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
   
   for(i in 1:length(ind)){
   tmp <- qua[ind[[i]],]
-  tmp <- pivot_longer(data = as.data.frame(tmp),1:8,names_to = "dist",values_to = "quantile")
+  tmp <- pivot_longer(data = as.data.frame(tmp),1:4,names_to = "dist",values_to = "quantile")
   tmp$geo <- substr(tmp$dist,nchar(tmp$dist),nchar(tmp$dist))
   tmp$geo <- ifelse(tmp$geo==1,"500","1000")
   tmp$geo <- factor(tmp$geo,levels = c("500","1000"))
@@ -4142,6 +4154,84 @@ plot.TWSgeo<-function(k,dist,nbdays,start,end,rean){
   boxplot(geo[ind[[2]]],at=2.5,add=T,col="lightsteelblue1")
   axis(side = 1,at = c(0.5,1.5,2.5),labels = c("all","monthly max","yearly max"))
   graphics.off()
+}
+
+# plot le wp des precip extremes
+plot.wp.extr<-function(start="1950-01-01",end="2011-12-31"){
+  
+  # Import
+  wp <- get.wp(start = start,end = end)
+  xlabel <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
+              "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
+  
+  # 62 max
+  ind.max <- get.ind.extr(nbre = 62,ref = start,nbdays = 3,start = start,end = end)
+  ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
+  hist(wp[ind.max],0:8,col="cornflowerblue",border = "royalblue",axes=F,xlab="Weather Type",main="")
+  axis(2)
+  axis(1,at = 0.5:7.5,labels = xlabel,hadj = 1)
+  
+  # max annuel
+  ind.max <- get.ind.max(type = "year",nbdays = 3,start = start,end = end)
+  ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
+  hist(wp[ind.max],0:8,col="cornflowerblue",border = "royalblue",axes=F,xlab="Weather Type",main="")
+  axis(2)
+  axis(1,at = 0.5:7.5,labels = xlabel,hadj = 1)
+  
+  # max mensuel
+  ind.max <- get.ind.max(type = "month",nbdays = 3,start = start,end = end)
+  ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
+  hist(wp[ind.max],0:8,col="cornflowerblue",border = "royalblue",axes=F,xlab="Weather Type",main="")
+  axis(2)
+  axis(1,at = 0.5:7.5,labels = xlabel,hadj = 1)
+
+  
+}
+
+# plot la frequence d'occurence des WP par saison
+plot.wp.occurence<-function(start="1950-01-01",end="2011-12-31"){
+  
+  # Import
+  wp <- get.wp(start = start,end = end)
+  dates <- getdates(start = start,end = end)
+  
+  # Traitement
+  sea <- list(c("12","01","02"),c("03","04","05"),c("06","07","08"),c("09","10","11"))
+  count <- list()
+  
+  for(i in 1:length(sea)){ # on compte les wp par saison
+  pos.i <- which(substr(dates,6,7) %in% sea[[i]])
+  wp.i <- wp[pos.i]
+  count[[i]] <- hist(wp.i,0:8,plot=F)$counts/sum(hist(wp.i,0:8,plot=F)$counts)*100
+  }
+  
+  count <- unlist(count)
+  Season <- c(rep("Winter",8),rep("Spring",8),rep("Summer",8),rep("Autumn",8))
+  wp <- rep(1:8,4)
+  
+  tab <- data.frame(wp,Season,count)
+  tab$Season <- factor(tab$Season,levels = c("Winter","Spring","Summer","Autumn"))
+  
+  # Plot des wp par saison
+  xlabel <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
+              "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
+  ggplot(tab, aes(fill=Season, y=count, x=wp)) + 
+    geom_bar(position="dodge", stat="identity")+
+    theme_bw()+
+    theme(plot.margin = unit(c(2,3,2,2),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=10),
+          axis.text.y = element_text(size=10),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
+          legend.title = element_text(hjust=0.5,vjust=4,size = 12,face = "bold"),
+          legend.text = element_text(face = "bold"))+
+    scale_fill_manual(values=c("royalblue","palegreen3","red","sienna3"))+
+    geom_vline(xintercept=seq(0.5,8.5,1), linetype="dashed",col="azure3")+
+    xlab("Weather Pattern")+
+    ylab("Percentage (%)")+
+    scale_x_discrete(limits = 1:8,labels=xlabel)
+  
+  ggsave(filename = paste0("2_Travail/Rresults/plot.wp.occurence/plot_wp_occurence_",start,"_",end,".png"),width = 28,height = 14,units="cm",dpi = 200)
+  graphics.off()
+  
 }
 
 # Concatenation et aggregation de netcdf sous R
