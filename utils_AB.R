@@ -4165,26 +4165,31 @@ plot.wp.extr<-function(start="1950-01-01",end="2011-12-31"){
               "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
   
   # 62 max
+  png(filename = "2_Travail/Rresults/plot.wp.extr/plot_wp_extr_62_max.png",width = 800,height = 400,units = "px")
   ind.max <- get.ind.extr(nbre = 62,ref = start,nbdays = 3,start = start,end = end)
   ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
-  hist(wp[ind.max],0:8,col="cornflowerblue",border = "royalblue",axes=F,xlab="Weather Type",main="")
+  hist(wp[ind.max],0:8,freq = F,col="cornflowerblue",border = "royalblue",axes=F,xlab="Weather Pattern",main="")
   axis(2)
-  axis(1,at = 0.5:7.5,labels = xlabel,hadj = 1)
+  axis(1,at = 0.5:7.5,labels = xlabel,tick = F)
+  graphics.off()
   
   # max annuel
+  png(filename = "2_Travail/Rresults/plot.wp.extr/plot_wp_extr_annual_max.png",width = 800,height = 400,units = "px")
   ind.max <- get.ind.max(type = "year",nbdays = 3,start = start,end = end)
   ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
-  hist(wp[ind.max],0:8,col="cornflowerblue",border = "royalblue",axes=F,xlab="Weather Type",main="")
+  hist(wp[ind.max],0:8,freq = F,col="cornflowerblue",border = "royalblue",axes=F,xlab="Weather Pattern",main="")
   axis(2)
-  axis(1,at = 0.5:7.5,labels = xlabel,hadj = 1)
+  axis(1,at = 0.5:7.5,labels = xlabel,tick = F)
+  graphics.off()
   
   # max mensuel
+  png(filename = "2_Travail/Rresults/plot.wp.extr/plot_wp_extr_monthly_max.png",width = 800,height = 400,units = "px")
   ind.max <- get.ind.max(type = "month",nbdays = 3,start = start,end = end)
   ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
-  hist(wp[ind.max],0:8,col="cornflowerblue",border = "royalblue",axes=F,xlab="Weather Type",main="")
+  hist(wp[ind.max],0:8,freq = F,col="cornflowerblue",border = "royalblue",axes=F,xlab="Weather Pattern",main="")
   axis(2)
-  axis(1,at = 0.5:7.5,labels = xlabel,hadj = 1)
-
+  axis(1,at = 0.5:7.5,labels = xlabel,tick = F)
+  graphics.off()
   
 }
 
