@@ -35,7 +35,7 @@ addscale<-function(vec,r=2,legend="",centered=FALSE,rev=FALSE){
   usr<-par("usr")
   insetx <- 0.05 * (usr[2L] - usr[1L])
   insety <- 0.1 * (usr[4L] - usr[3L])
-  xmin<-usr[1L]*1.05 + insetx
+  xmin<-usr[1L] + insetx
   ymin<-usr[4L] - insety
   width <- 0.4 * (usr[2L] - usr[1L])
   heigh <- 0.05 * (usr[4L] - usr[3L])
@@ -1747,11 +1747,12 @@ compute.crps.wp <- function(start="1950-01-01",end="2011-12-31"){
 # Calcul des distances de maniere generique
 compute_dist.gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean){
   if (k %in% 1:2) {
-    if (dist %in% c("TWS","RMSE","RMSE_I","RMSE_II")){
+    if (dist %in% c("TWS","RMSE","RMSE_I","RMSE_II","Mahalanobis")){
       if (dist=="TWS") dist.list<-compute_TWS(k,start,end,rean)
       if (dist=="RMSE") dist.list<-compute_RMSE(k,start,end,rean)
       if (dist=="RMSE_I") dist.list<-compute_RMSE_I(k,start,end,rean)
       if (dist=="RMSE_II") dist.list<-compute_RMSE_II(k,start,end,rean)
+      if (dist=="Mahalanobis") dist.list<-compute_mahalanobis(k,start,end,rean)
       save(dist.list,file=paste0("2_Travail/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
     }
     else{ # si on demande un nTWS, sTWS, nRMSE ou sRMSE, les distances sont normalisees par la moyenne ou l'ecart type des distances
@@ -1778,6 +1779,38 @@ compute_dist.gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean){
     rm(dist1.list);gc(TRUE)
     save(dist.list,file=paste0("2_Travail/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
   }
+}
+
+# Calcul de la distance Mahalanobis
+compute_mahalanobis<-function(k,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Import
+  dat<-getdata(k,start,end,rean)
+  N<-dim(dat)[3]
+  
+  # Calcul de l'inverse de la matrice de covariance
+  mat <- aperm(dat,c(3,1,2))
+  dim(mat) <- c(dim(dat)[3],dim(dat)[1]*dim(dat)[2]) # 1 ligne = 1 pdt; une colonne = 1 point de grille (de en haut à gauche a en bas a droite par colonne dans la matrice (par ligne sur une carte))
+  co <- cov(mat)
+  co <- inv(co)
+  
+  # Calcul de la distance
+  dist.list<-list()
+
+  for (i in 1:(N-1)){#1:
+    if (i%%10==0) print(i)
+    j<-(i+1):N
+    
+    datj<-dat[,,j]
+    if (is.matrix(datj)) datj<-array(datj,c(dim(datj),1)) # si derniere date, on force le format de la matrice en array
+    dati<-array(dat[,,i],dim(datj)) # on repete le geopotentiel du jour le meme nombre de fois que le nombre de dates ulterieures
+    
+    diff <- dati - datj
+    dim(diff) <- c(dim(diff)[1]*dim(diff)[2],dim(diff)[3]) # difference entre les journees de en haut a gauche a en bas a droite de la mtrice par colonne
+    dist.list[[i]]<-apply(diff,2,function(v) sqrt((t(v) %*% co %*% v))) # transposee de la difference * matrice de covariance inverse * difference; le tout a la racine; si co est matrice identite, on retombe sur distance euclidienne classique
+    }
+  dist.list
+  
 }
 
 # Calcul des CRPS climato: performance des differentes distributions sachant les autres jours (pas de selection par analogie)
@@ -2784,7 +2817,7 @@ make.precip1.isere<-function(start="1950-01-01",end="2011-12-31") {
 }
 
 # Carte de geopotentiel d'un jour donne
-map.geo <- function(date,rean,k,nbdays,save=F){
+map.geo <- function(date,rean,k,nbdays=1,save=F){
   
   # Import des donnees
   load.nc(rean)
@@ -2801,9 +2834,12 @@ map.geo <- function(date,rean,k,nbdays,save=F){
   zlim <- ifelse(rep(k==1,2),c(4800,6100),c(-400,500))
   
   # Carte
-  if(save) png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.geo/",date,"_k",k,"_",nbdays,"day.png"),
+  if(save) {
+    png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.geo/",date,"_k",k,"_",nbdays,"day.png"),
                width = ifelse(nbdays==3,900,350),height = ifelse(nbdays==3,280,350),units = "px")
-  layout(matrix(1:nbdays,1,nbdays))
+    layout(matrix(1:nbdays,1,nbdays))
+  }
+  
   for(i in 1:nbdays){
     if(nbdays==3) par(mar=c(5,6,4,6))
     cex <- ifelse(nbdays==3,1.8,1.3)
@@ -2822,13 +2858,13 @@ map.geo <- function(date,rean,k,nbdays,save=F){
 }
 
 # Carte de geopotentiels des sequences de plus fortes precipitations, avec distribution des analogues
-map.extr <- function(k,N="02",start,end,rean){
+map.extr <- function(k,N="02",start="1950-01-01",end="2011-12-31",rean,bv="all"){
   
   if(N=="02") n <- "0.2"
   if(N=="05") n <- "0.5"
   
   # Import des donnees
-  precip <- get.precip(3,start,end)
+  precip <- get.precip(3,start,end,bv)
   dates <- as.Date(getdates(start,end))
   
   load(file=paste0(get.dirstr(k,rean),"save.nei.A/nei_TWS_member",member,"_k",k,"_mean",3,"day_",start,"_",end,".Rdata"))
@@ -2843,11 +2879,11 @@ map.extr <- function(k,N="02",start,end,rean){
   
   for(j in 1:length(config)){
     
-    if(j==1) ind <- sort(precip,decreasing = T,index.return=T)$ix[1:62]
-    if(j==2) ind <- get.ind.max(type = "year",start = start,end = end)
+    if(j==1) ind <- get.ind.extr(nbre = 62,ref = start,nbdays = 3,start = start,end = end,bv = bv)
+    if(j==2) ind <- get.ind.max(type = "year",nbdays = 3,start = start,end = end,bv = bv)
     dates.extr <- dates[ind]
     
-    pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.extr/map_",config[j],"_k",k,"_",N,"_",start,"_",end,".pdf"),width = 13,height = 8)
+    pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.extr/map_",config[j],"_k",k,"_",N,"_",start,"_",end,"_",bv,".pdf"),width = 13,height = 8)
     layout(matrix(1:12,3,4,byrow = T))
     par(mar=c(4.5,5,4,6.5))
     print(paste0(length(dates.extr)," max"))
@@ -3165,6 +3201,7 @@ plot.common.quant<-function(type=1,dist1="TWS",dist2="RMSE",descr=c("celnei","si
   qua <- ecdf(precip)(precip)*10
   qua[which.max(qua)] <- max(qua)-0.001 # -0.0001 car ecdf donne quantile 100% pour valeur max
   qua <- as.integer(qua)+1
+  comm <- comm*100
   df <- as.data.frame(cbind(qua,comm))
   
   xlabel <- NULL
@@ -3183,7 +3220,7 @@ plot.common.quant<-function(type=1,dist1="TWS",dist2="RMSE",descr=c("celnei","si
     stat_boxplot(geom = "errorbar", width = 0.2,col="darkblue") +
     geom_boxplot(outlier.shape = NA,fill="cornflowerblue",color="darkblue")+
     xlab(paste0("Isere catchment basin ",nbdays,"-day precipitation (mm/d)"))+
-    ylab(paste0("% of analog in common"))+
+    ylab(paste0("% of common analog"))+
     ggtitle(main)+
     scale_x_discrete(limits = 1:10,labels=xlabel)
   
@@ -3625,10 +3662,8 @@ plot.empir.clean.obs<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
   
   plot(descr1,descr2,
        col=getcol(param,range = gamme),
-       #xlab=namdescr[1],
-       #ylab=namdescr[2],
-       xlab="Célérité",
-       ylab="Singularité",
+       xlab=paste0(namdescr[1]," ",dist[1]),
+       ylab=paste0(namdescr[2]," ",dist[2]),
        ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2))
   addscale(vec = c(param,gamme))
   text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T))*0.8,
@@ -3638,20 +3673,18 @@ plot.empir.clean.obs<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
   
   plot(descr1,descr2,
        col=getcol(param,range = gamme),
-       #xlab=namdescr[1],
-       #ylab=namdescr[2],
-       xlab="Célérité",
-       ylab="Singularité",
+       xlab=paste0(namdescr[1]," ",dist[1]),
+       ylab=paste0(namdescr[2]," ",dist[2]),
        ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2))
   addscale(vec = c(param,gamme))
   text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T))*0.8,
        y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2*0.95,
        paste0(round(min(param,na.rm=T),2),"-",round(max(param,na.rm=T),2)))
-  ind.extr <- get.ind.extr(nbre = 250,nbdays = nbdays)
+  ind.extr <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
   points(descr1[ind.extr],descr2[ind.extr],pch=19,cex=0.5)
   title(names(param))
   
-graphics.off()
+  graphics.off()
 
 }
 
@@ -3850,10 +3883,10 @@ plot.p0.wp <- function(){
 }
 
 # Trace le boxplot des quantiles d'un indicateur, pour 500 & 1000, pour les 4 distances
-plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",rean){
+plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",rean,bv="all"){
   
   # Import de l'indicateurs pour k1, k2, et les 4 distances
-  k <- c(1)
+  k <- c(1,2)
   dist <- c("TWS","RMSE","RMSE_I","RMSE_II")
   mat <- NULL
   
@@ -3867,8 +3900,8 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
   }
   
   # Traitement
-  ind.year <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
-  ind.mon <- get.ind.max(type = "month",nbdays = nbdays,start = start,end = end)
+  ind.year <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end,bv = bv)
+  ind.mon <- get.ind.max(type = "month",nbdays = nbdays,start = start,end = end,bv = bv)
   ind <- list(ind.year,ind.mon)
   
   qua <- apply(mat,2,function(v) ecdf(v)(v)*100)
@@ -3876,7 +3909,7 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
   
   for(i in 1:length(ind)){
   tmp <- qua[ind[[i]],]
-  tmp <- pivot_longer(data = as.data.frame(tmp),1:4,names_to = "dist",values_to = "quantile")
+  tmp <- pivot_longer(data = as.data.frame(tmp),1:8,names_to = "dist",values_to = "quantile")
   tmp$geo <- substr(tmp$dist,nchar(tmp$dist),nchar(tmp$dist))
   tmp$geo <- ifelse(tmp$geo==1,"500","1000")
   tmp$geo <- factor(tmp$geo,levels = c("500","1000"))
@@ -3901,7 +3934,7 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
     ylab("Quantile (%)")+
     labs(title = descr,fill="Geopotential (hPa)")
     
-  ggsave(filename = paste0("2_Travail/20CR/Rresults/overall/plot.quant.descr/plot_",descr,"_",nbdays,"day_",start,"_",end,".png"),width = 20,height = 12,units="cm",dpi = 200)
+  ggsave(filename = paste0("2_Travail/20CR/Rresults/overall/plot.quant.descr/plot_",descr,"_",nbdays,"day_",start,"_",end,"_",bv,".png"),width = 20,height = 12,units="cm",dpi = 200)
   graphics.off()
 }
 
@@ -4056,6 +4089,50 @@ plot.ratio.pluvios <- function(nbdays,seuil=0,start="1950-01-01",end="2011-12-31
   graphics.off()
 }
   
+# plot la saisonnalite d'un indicateur en TWS et RMSE
+plot.sais.descr <- function(descr,k,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Import
+  descr1 <- get.descriptor(descr,k,"TWS",nbdays,start,end,F,rean)
+  descr2 <- get.descriptor(descr,k,"RMSE",nbdays,start,end,F,rean)
+  precip <- get.precip(nbdays,start,end)
+  dates <- as.Date(getdates(start,end))
+  
+  # Traitement
+  pos <- which(substr(dates,6,10)=="01-01")
+  pos <- c(pos[seq(1,length(pos),5)],length(dates)+1) # tous les 5 ans
+  
+  descr1_liss <- rollapply(descr1,50,mean)
+  descr2_liss <- rollapply(descr2,50,mean)
+  
+  extr <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
+  
+  # Export pdf
+  pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/plot.sais.descr/plot_sais_",descr,"_k",k,"_",nbdays,"day_",
+                    start,"_",end,".pdf"),width = 8,height = 8)
+  par(mar=c(5,4,5,4))
+  layout(matrix(1:6,3,2,byrow = T))
+  
+  for(i in 1:(length(pos)-1)){
+    
+    ind.all  <- pos[i]:(pos[i+1]-1)
+    ind.extr <- extr[((i-1)*5+1):((i-1)*5+5)]
+    yea <- c(substr(dates[ind.all[1]],1,4),substr(dates[ind.all[length(ind.all)]],1,4))
+    
+    plot(dates[ind.all],descr1[ind.all],type="l",xlab="Year",ylab=paste0(descr," TWS"),main=paste0(yea[1]," - ",yea[2]))
+    lines(dates[ind.all],descr1_liss[ind.all],col="blue",lwd=2)
+    points(dates[ind.extr],descr1[ind.extr],col="red",pch=19)
+    
+    plot(dates[ind.all],descr2[ind.all],type="l",xlab="Year",ylab=paste0(descr," RMSE"),main=paste0(yea[1]," - ",yea[2]))
+    lines(dates[ind.all],descr2_liss[ind.all],col="blue",lwd=2)
+    points(dates[ind.extr],descr2[ind.extr],col="red",pch=19)
+    
+  }
+  
+  graphics.off()
+  
+}
+
 # Trace la fonction de repartition des scores
 plot.score <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean,rsing=FALSE,sing=FALSE){
   
@@ -4157,7 +4234,7 @@ plot.TWSgeo<-function(k,dist,nbdays,start,end,rean){
 }
 
 # plot le wp des precip extremes
-plot.wp.extr<-function(start="1950-01-01",end="2011-12-31"){
+plot.wp.extr<-function(start="1950-01-01",end="2011-12-31",bv="all"){
   
   # Import
   wp <- get.wp(start = start,end = end)
@@ -4165,30 +4242,33 @@ plot.wp.extr<-function(start="1950-01-01",end="2011-12-31"){
               "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
   
   # 62 max
-  png(filename = "2_Travail/Rresults/plot.wp.extr/plot_wp_extr_62_max.png",width = 800,height = 400,units = "px")
-  ind.max <- get.ind.extr(nbre = 62,ref = start,nbdays = 3,start = start,end = end)
+  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_62_max_",bv,".png"),width = 800,height = 400,units = "px")
+  ind.max <- get.ind.extr(nbre = 62,ref = start,nbdays = 3,start = start,end = end,bv = bv)
   ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
-  hist(wp[ind.max],0:8,freq = F,col="cornflowerblue",border = "royalblue",axes=F,xlab="Weather Pattern",main="")
-  axis(2)
-  axis(1,at = 0.5:7.5,labels = xlabel,tick = F)
+  tmp <- hist(wp[ind.max],0:8,plot=F)$counts
+  tmp <- tmp/sum(tmp)*100 # pourcentage
+  barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
+          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
   graphics.off()
   
   # max annuel
-  png(filename = "2_Travail/Rresults/plot.wp.extr/plot_wp_extr_annual_max.png",width = 800,height = 400,units = "px")
-  ind.max <- get.ind.max(type = "year",nbdays = 3,start = start,end = end)
+  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_annual_max_",bv,".png"),width = 800,height = 400,units = "px")
+  ind.max <- get.ind.max(type = "year",nbdays = 3,start = start,end = end,bv = bv)
   ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
-  hist(wp[ind.max],0:8,freq = F,col="cornflowerblue",border = "royalblue",axes=F,xlab="Weather Pattern",main="")
-  axis(2)
-  axis(1,at = 0.5:7.5,labels = xlabel,tick = F)
+  tmp <- hist(wp[ind.max],0:8,plot=F)$counts
+  tmp <- tmp/sum(tmp)*100 # pourcentage
+  barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
+          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
   graphics.off()
   
   # max mensuel
-  png(filename = "2_Travail/Rresults/plot.wp.extr/plot_wp_extr_monthly_max.png",width = 800,height = 400,units = "px")
-  ind.max <- get.ind.max(type = "month",nbdays = 3,start = start,end = end)
+  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_monthly_max_",bv,".png"),width = 800,height = 400,units = "px")
+  ind.max <- get.ind.max(type = "month",nbdays = 3,start = start,end = end,bv = bv)
   ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
-  hist(wp[ind.max],0:8,freq = F,col="cornflowerblue",border = "royalblue",axes=F,xlab="Weather Pattern",main="")
-  axis(2)
-  axis(1,at = 0.5:7.5,labels = xlabel,tick = F)
+  tmp <- hist(wp[ind.max],0:8,plot=F)$counts
+  tmp <- tmp/sum(tmp)*100 # pourcentage
+  barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
+          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
   graphics.off()
   
 }
