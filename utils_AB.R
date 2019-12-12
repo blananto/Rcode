@@ -1435,7 +1435,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
     for (cc in coln.new){
       
       # Celerite
-      #if (cc=="cel") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i-1])} # score de la journee avec la veille
+      if (cc=="cel") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i-1])} # score de la journee avec la veille
       #if (cc=="cel+1") {if (i==N) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i+1])} # score de la journee avec le lendemain
       
       #if(cc=="celAv"){if(1 %in% idi05) idi05 <- idi05[idi05!=1]; tmp <- c(tmp,mean(di[idi05-1]))} # score entre jour J et veille des voisins
@@ -1466,7 +1466,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="mind") tmp<-c(tmp,di[soso$ix[2]]) # score minimum obtenu avec la meilleure journee analogue
       #
       ## Singularite
-      #if (cc=="sing05") tmp<-c(tmp,mean(di[idi05])) # moyenne des distances (scores) des 0.5% les plus proches
+      if (cc=="sing05") tmp<-c(tmp,mean(di[idi05])) # moyenne des distances (scores) des 0.5% les plus proches
       #if (cc=="sing1") tmp<-c(tmp,mean(di[idi1]))   # des 1% les plus proches
       #if (cc=="sing2") tmp<-c(tmp,mean(di[idi2]))   # des 2% les plus proches
       #if (cc=="sing5") tmp<-c(tmp,mean(di[idi5]))   # des 5% les plus proches
@@ -1489,7 +1489,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="pers10") tmp<-c(tmp,mean(ri10$lengths[ri10$values==1])) # du quantile 10%
       #
       ## Quantiles
-      #if (cc=="q05") tmp<-c(tmp,qi05) # Quantile 0.5%
+      if (cc=="q05") tmp<-c(tmp,qi05) # Quantile 0.5%
       #if (cc=="q1") tmp<-c(tmp,qi1)   # Quantile 1%
       #if (cc=="q2") tmp<-c(tmp,qi2)   # Quantile 2%
       #if (cc=="q5") tmp<-c(tmp,qi5)   # Quantile 5%
@@ -1506,7 +1506,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="pnei10") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi10-1) %in% idi10m1))} # dans les 10% les plus proches
       #
       ## Persistence neighbour: probabilite qu'un jour du voisinage soit deja dans le voisinage le jour precedent
-      #if (cc=="snei05") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi05-1) %in% idi05))} # moyenne de la condition: les veilles des journees analogues sont deja dans les 0.5% les plus proches de la journee cible
+      if (cc=="snei05") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi05-1) %in% idi05))} # moyenne de la condition: les veilles des journees analogues sont deja dans les 0.5% les plus proches de la journee cible
       #if (cc=="snei1") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi1-1) %in% idi1))}    # dans les 1% les plus proches
       #if (cc=="snei2") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi2-1) %in% idi2))}    # dans les 2% les plus proches
       #if (cc=="snei5") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi5-1) %in% idi5))}    # dans les 5% les plus proches
@@ -3377,6 +3377,42 @@ plot.crps.ana<-function(rean,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31"
   graphics.off()
 }
 
+# plot la correlation entre le gradient de pression et un indicateur
+plot.deltaP <- function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Import
+  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean)
+  descr <- get.descriptor(descriptor = descriptor,k = k,dist = dist,nbdays = nbdays,
+                          start = start,end = end,standardize = F,rean = rean)
+  dates <- getdates(start,end)
+  
+  # Traitement
+  deltaP <- apply(geo,3,function(x) max(x)-min(x))
+  deltaP <- rollapply(deltaP,nbdays,mean)
+  cor <- round(cor(deltaP,descr)^2,2)
+  lm <- lm(descr~deltaP)
+  summ <- which(substr(dates,6,7) %in% c("06","07","08"))
+  aut <- which(substr(dates,6,7) %in% c("09","10","11"))
+  win <- which(substr(dates,6,7) %in% c("12","01","02"))
+  spr <- which(substr(dates,6,7) %in% c("03","04","05"))
+  
+  # Graphique
+  png(filename = paste0(get.dirstr(k,rean),"plot.deltaP/plot_deltaP_",descriptor,"_",dist,"_member",member,
+                        "_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 400,height = 400,units = "px")
+  par(pty="s")
+  plot(deltaP,descr,type="n",xlab="Range of geopotential height (m)",ylab=paste0(descriptor," ",dist))
+  points(deltaP[summ],descr[summ],pch=19,col="red",cex=0.2)
+  points(deltaP[aut],descr[aut],pch=19,col="darkorange",cex=0.2)
+  points(deltaP[win],descr[win],pch=19,col="blue",cex=0.2)
+  points(deltaP[spr],descr[spr],pch=19,col="olivedrab3",cex=0.2)
+  abline(lm$coefficients[1],lm$coefficients[2],lwd=1.5)
+  text(quantile(deltaP,0.05),quantile(descr,0.98,na.rm=T),paste0("R² = ",cor))
+  legend("bottomright",c("summer","autumn","winter","spring"),col=c("red","darkorange","blue","olivedrab3"),
+         pch=19,bty="n")
+  graphics.off()
+  
+}
+
 # plot la distribution modelisee et observee de certaines sequences de pluie
 plot.distrib<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE){
   
@@ -3621,7 +3657,7 @@ plot.empir.clean<-function(sel=c("p0","mean"),rean,k,descriptors,dist,nbdays=3,s
 }
 
 # plot.empir pour presentations, avec obs
-plot.empir.clean.obs<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F)){
+plot.empir.clean.obs<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),dP=F,noise=F){
   
   # Definition du repertoire de travail (lecture et ecriture)
   if(rean[1] != rean[2]){ 
@@ -3683,6 +3719,41 @@ plot.empir.clean.obs<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
   ind.extr <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
   points(descr1[ind.extr],descr2[ind.extr],pch=19,cex=0.5)
   title(names(param))
+  
+  if(dP) {
+    geo <- getdata(k = k[1],day0 = start,day1 = end,rean = rean[1]) 
+    deltaP <- apply(geo,3,function(x) max(x)-min(x))
+    deltaP <- rollapply(deltaP,nbdays,mean)
+    
+    plot(descr1,descr2,
+         col=getcol(deltaP),
+         xlab=paste0(namdescr[1]," ",dist[1]),
+         ylab=paste0(namdescr[2]," ",dist[2]),
+         ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2))
+    addscale(vec = round(deltaP,0))
+    ind.extr <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
+    points(descr1[ind.extr],descr2[ind.extr],pch=19,cex=0.5)
+    title(names(param))
+  }
+  
+  if(noise) {
+    geo <- getdata(k = k[1],day0 = start,day1 = end,rean = rean[1]) 
+    deltaP <- apply(geo,3,function(x) max(x)-min(x))
+    deltaP <- rollapply(deltaP,nbdays,mean)
+    va <- apply(geo,3,function(x) sd(as.vector(x)))
+    va <- rollapply(va,nbdays,mean)
+    noise <- va/deltaP
+    
+    plot(descr1,descr2,
+         col=getcol(noise),
+         xlab=paste0(namdescr[1]," ",dist[1]),
+         ylab=paste0(namdescr[2]," ",dist[2]),
+         ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2))
+    addscale(vec = round(deltaP,0))
+    ind.extr <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
+    points(descr1[ind.extr],descr2[ind.extr],pch=19,cex=0.5)
+    title(names(param))
+  }
   
   graphics.off()
 
@@ -4107,7 +4178,7 @@ plot.sais.descr <- function(descr,k,nbdays=3,start="1950-01-01",end="2011-12-31"
   
   extr <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
   
-  # Export pdf
+  # Export pdf chronique
   pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/plot.sais.descr/plot_sais_",descr,"_k",k,"_",nbdays,"day_",
                     start,"_",end,".pdf"),width = 8,height = 8)
   par(mar=c(5,4,5,4))
@@ -4128,6 +4199,65 @@ plot.sais.descr <- function(descr,k,nbdays=3,start="1950-01-01",end="2011-12-31"
     points(dates[ind.extr],descr2[ind.extr],col="red",pch=19)
     
   }
+  
+  graphics.off()
+  
+  # Export png saisonnalite
+  sais1 <- aggregate(descr1,by=list(substr(dates[-c(length(dates)-1,length(dates))],6,10)),mean)
+  sais2 <- aggregate(descr2,by=list(substr(dates[-c(length(dates)-1,length(dates))],6,10)),mean)
+  
+  png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/plot.sais.descr/plot_sais_",descr,"_k",k,"_",nbdays,"day_",
+                        start,"_",end,".png"),width = 1000,height = 400,units = "px")
+  par(mfrow=c(1,2))
+  
+  plot(sais1[,2],type="l",axes=F,col="blue",lwd=2,xlab="Day",ylab=paste0(descr," TWS"))
+  axis(2)
+  axis(1,at = match(unique(substr(dates,6,7)),substr(dates,6,7)),labels = paste0("01/",unique(substr(dates,6,7))))
+  box()
+  
+  plot(sais2[,2],type="l",axes=F,col="blue",lwd=2,xlab="Day",ylab=paste0(descr," RMSE"))
+  axis(2)
+  axis(1,at = match(unique(substr(dates,6,7)),substr(dates,6,7)),labels = paste0("01/",unique(substr(dates,6,7))))
+  box()
+  
+  
+  graphics.off()
+  
+}
+
+# plot la saisonnalite du delta de pression et du bruit des geopotentiels
+plot.sais.P <- function(k,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Import
+  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean)
+  dates <- getdates(start,end)
+  
+  # delta P: force globale du vent
+  deltaP <- apply(geo,3,function(x) max(x)-min(x))
+  deltaP <- rollapply(deltaP,nbdays,mean)
+  sais1 <- aggregate(deltaP,by=list(substr(dates[-c(length(dates)-1,length(dates))],6,10)),mean)
+  
+  # var P / delta P: bruit (variations locales de la direction et de l'intensite du vent)
+  va <- apply(geo,3,function(x) sd(as.vector(x)))
+  va <- rollapply(va,nbdays,mean)
+  noise <- va/deltaP
+  sais2 <- aggregate(noise,by=list(substr(dates[-c(length(dates)-1,length(dates))],6,10)),mean)
+  
+  # Graphique de saisonnalite
+  png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/plot.sais.P/plot_sais_P_k",k,"_",nbdays,"day_",
+                        start,"_",end,".png"),width = 1000,height = 400,units = "px")
+  par(mfrow=c(1,2))
+  
+  plot(sais1[,2],type="l",axes=F,col="blue",lwd=2,xlab="Day",ylab=paste0("Delta P"))
+  axis(2)
+  axis(1,at = match(unique(substr(dates,6,7)),substr(dates,6,7)),labels = paste0("01/",unique(substr(dates,6,7))))
+  box()
+  
+  plot(sais2[,2],type="l",axes=F,col="blue",lwd=2,xlab="Day",ylab=paste0("Noise"))
+  axis(2)
+  axis(1,at = match(unique(substr(dates,6,7)),substr(dates,6,7)),labels = paste0("01/",unique(substr(dates,6,7))))
+  box()
+  
   
   graphics.off()
   

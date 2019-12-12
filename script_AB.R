@@ -42,8 +42,8 @@ plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start 
 # Version generique
 fit.empir(rean = c("20CR","20CR"), k = c(2,2), descriptors = c("celnei","accnei"), dist = c("RMSE","RMSE"),
           nbdays = 3, start = start, end = end, radtype = M)
-plot.empir.clean.obs(rean = c("20CR","20CR"), k = c(2,2), descriptors = c("rsingnei","rsingnei"), dist = c("TWS","RMSE"),
-           nbdays = 3, start = start, end = end, radtype = M)
+plot.empir.clean.obs(rean = c("20CR","20CR"), k = c(2,2), descriptors = c("singnei","singnei"), dist = c("TWS","RMSE"),
+           nbdays = 3, start = start, end = end, radtype = M,dP=T,noise=F)
 compute_crps(descriptors = c("celnei","singnei"), k = 1, dist = "TWS", nbdays = 1,
              start = start, end = end, radtype = M, rean = rean)
 compare.crps(which = "", k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
