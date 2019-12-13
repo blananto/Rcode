@@ -3378,39 +3378,77 @@ plot.crps.ana<-function(rean,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31"
 }
 
 # plot la correlation entre le gradient de pression et un indicateur
-plot.deltaP <- function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
+plot.dP.noise <- function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
   
   # Import
+  load.nc(rean)
   geo <- getdata(k = k,day0 = start,day1 = end,rean = rean)
   descr <- get.descriptor(descriptor = descriptor,k = k,dist = dist,nbdays = nbdays,
                           start = start,end = end,standardize = F,rean = rean)
   dates <- getdates(start,end)
   
-  # Traitement
-  deltaP <- apply(geo,3,function(x) max(x)-min(x))
-  deltaP <- rollapply(deltaP,nbdays,mean)
-  cor <- round(cor(deltaP,descr)^2,2)
-  lm <- lm(descr~deltaP)
+  # dP
+  dP <- apply(geo,3,function(x) max(x)-min(x))
+  dP <- rollapply(dP,nbdays,mean)
+  cor.dP <- round(cor(dP,descr),2)
+  lm.dP <- lm(descr~dP)
   summ <- which(substr(dates,6,7) %in% c("06","07","08"))
   aut <- which(substr(dates,6,7) %in% c("09","10","11"))
   win <- which(substr(dates,6,7) %in% c("12","01","02"))
   spr <- which(substr(dates,6,7) %in% c("03","04","05"))
   
-  # Graphique
-  png(filename = paste0(get.dirstr(k,rean),"plot.deltaP/plot_deltaP_",descriptor,"_",dist,"_member",member,
+  # noise
+  noise <- apply(geo,3,function(x) sd(as.vector(x)))
+  noise <- rollapply(noise,nbdays,mean)
+  noise <- noise/dP
+  cor.no <- round(cor(noise,descr),2)
+  lm.no <- lm(descr~noise)
+  
+  # Graphique dP
+  png(filename = paste0(get.dirstr(k,rean),"plot.dP.noise/plot_dP_",descriptor,"_",dist,"_member",member,
                         "_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 400,height = 400,units = "px")
   par(pty="s")
-  plot(deltaP,descr,type="n",xlab="Range of geopotential height (m)",ylab=paste0(descriptor," ",dist))
-  points(deltaP[summ],descr[summ],pch=19,col="red",cex=0.2)
-  points(deltaP[aut],descr[aut],pch=19,col="darkorange",cex=0.2)
-  points(deltaP[win],descr[win],pch=19,col="blue",cex=0.2)
-  points(deltaP[spr],descr[spr],pch=19,col="olivedrab3",cex=0.2)
-  abline(lm$coefficients[1],lm$coefficients[2],lwd=1.5)
-  text(quantile(deltaP,0.05),quantile(descr,0.98,na.rm=T),paste0("R² = ",cor))
-  legend("bottomright",c("summer","autumn","winter","spring"),col=c("red","darkorange","blue","olivedrab3"),
-         pch=19,bty="n")
+  plot(dP,descr,type="n",xlab="Max pressure gradient (m)",ylab=paste0(descriptor," ",dist))
+  points(dP[summ],descr[summ],pch=19,col="red",cex=0.2)
+  points(dP[aut],descr[aut],pch=19,col="darkorange",cex=0.2)
+  points(dP[win],descr[win],pch=19,col="blue",cex=0.2)
+  points(dP[spr],descr[spr],pch=19,col="olivedrab3",cex=0.2)
+  abline(lm.dP$coefficients[1],lm.dP$coefficients[2],lwd=1.5)
+  title(paste0("R = ",cor.dP))
+  legend(ifelse(dist=="RMSE","bottomright","topright"),c("summer","autumn","winter","spring"),
+         col=c("red","darkorange","blue","olivedrab3"),pch=19,bty="n")
   graphics.off()
   
+  # Graphique noise
+  png(filename = paste0(get.dirstr(k,rean),"plot.dP.noise/plot_noise_",descriptor,"_",dist,"_member",member,
+                        "_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 400,height = 400,units = "px")
+  par(pty="s")
+  plot(noise,descr,type="n",xlab="Noise (-)",ylab=paste0(descriptor," ",dist))
+  points(noise[summ],descr[summ],pch=19,col="red",cex=0.2)
+  points(noise[aut],descr[aut],pch=19,col="darkorange",cex=0.2)
+  points(noise[win],descr[win],pch=19,col="blue",cex=0.2)
+  points(noise[spr],descr[spr],pch=19,col="olivedrab3",cex=0.2)
+  abline(lm.no$coefficients[1],lm.no$coefficients[2],lwd=1.5)
+  title(paste0("R = ",cor.no))
+  legend(ifelse(dist=="RMSE","bottomright","topright"),c("summer","autumn","winter","spring"),
+         col=c("red","darkorange","blue","olivedrab3"),pch=19,bty="n")
+  graphics.off()
+  
+  # Graphique dP - noise
+  cor.b <- round(cor(dP,noise),2)
+  lm.b <- lm(noise~dP)
+  
+  png(filename = paste0(get.dirstr(k,rean),"plot.dP.noise/plot_dP_noise_member",member,
+                        "_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 400,height = 400,units = "px")
+  par(pty="s")
+  plot(dP,noise,type="n",xlab="Max pressure gradient (m)",ylab="Noise (-)")
+  points(dP[summ],noise[summ],pch=19,col="red",cex=0.2)
+  points(dP[aut],noise[aut],pch=19,col="darkorange",cex=0.2)
+  points(dP[win],noise[win],pch=19,col="blue",cex=0.2)
+  points(dP[spr],noise[spr],pch=19,col="olivedrab3",cex=0.2)
+  abline(lm.b$coefficients[1],lm.b$coefficients[2],lwd=1.5)
+  title(paste0("R = ",cor.b))
+  graphics.off()
 }
 
 # plot la distribution modelisee et observee de certaines sequences de pluie
@@ -4226,34 +4264,34 @@ plot.sais.descr <- function(descr,k,nbdays=3,start="1950-01-01",end="2011-12-31"
 }
 
 # plot la saisonnalite du delta de pression et du bruit des geopotentiels
-plot.sais.P <- function(k,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
+plot.sais.dP.noise <- function(k,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
   
   # Import
   geo <- getdata(k = k,day0 = start,day1 = end,rean = rean)
   dates <- getdates(start,end)
   
   # delta P: force globale du vent
-  deltaP <- apply(geo,3,function(x) max(x)-min(x))
-  deltaP <- rollapply(deltaP,nbdays,mean)
-  sais1 <- aggregate(deltaP,by=list(substr(dates[-c(length(dates)-1,length(dates))],6,10)),mean)
+  dP <- apply(geo,3,function(x) max(x)-min(x))
+  dP <- rollapply(dP,nbdays,mean)
+  sais1 <- aggregate(dP,by=list(substr(dates[-c(length(dates)-1,length(dates))],6,10)),mean)
   
   # var P / delta P: bruit (variations locales de la direction et de l'intensite du vent)
-  va <- apply(geo,3,function(x) sd(as.vector(x)))
-  va <- rollapply(va,nbdays,mean)
-  noise <- va/deltaP
+  noise <- apply(geo,3,function(x) sd(as.vector(x)))
+  noise <- rollapply(noise,nbdays,mean)
+  noise <- noise/dP
   sais2 <- aggregate(noise,by=list(substr(dates[-c(length(dates)-1,length(dates))],6,10)),mean)
   
   # Graphique de saisonnalite
-  png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/plot.sais.P/plot_sais_P_k",k,"_",nbdays,"day_",
+  png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/plot.sais.dP.noise/plot_sais_dP_noise_k",k,"_",nbdays,"day_",
                         start,"_",end,".png"),width = 1000,height = 400,units = "px")
   par(mfrow=c(1,2))
   
-  plot(sais1[,2],type="l",axes=F,col="blue",lwd=2,xlab="Day",ylab=paste0("Delta P"))
+  plot(sais1[,2],type="l",axes=F,col="blue",lwd=2,xlab="Day",ylab="Max pressure gradient (m)")
   axis(2)
   axis(1,at = match(unique(substr(dates,6,7)),substr(dates,6,7)),labels = paste0("01/",unique(substr(dates,6,7))))
   box()
   
-  plot(sais2[,2],type="l",axes=F,col="blue",lwd=2,xlab="Day",ylab=paste0("Noise"))
+  plot(sais2[,2],type="l",axes=F,col="blue",lwd=2,xlab="Day",ylab="Noise (-)")
   axis(2)
   axis(1,at = match(unique(substr(dates,6,7)),substr(dates,6,7)),labels = paste0("01/",unique(substr(dates,6,7))))
   box()
