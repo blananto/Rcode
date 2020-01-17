@@ -44,7 +44,7 @@ fit.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("rsingnei","rsing
           nbdays = 3, start = start, end = end, radtype = M)
 plot.empir.clean.obs(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("celnei","celnei_rev"), dist = c("TWS","RMSE"),
            nbdays = 3, start = start, end = end, radtype = M,dP = T,coin = T)
-compute_crps(descriptors = c("celnei","singnei"), k = 1, dist = "TWS", nbdays = 1,
+compute_crps(descriptors = c("celnei","celnei"), k = 1, dist = "TWS", nbdays = 3,
              start = start, end = end, radtype = M, rean = rean)
 compare.crps(which = "", k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
 

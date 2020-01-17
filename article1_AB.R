@@ -167,3 +167,58 @@ plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
   graphics.off()
   
 }
+
+# Desaisonalisation de dP et d'un indicateur
+plot.desais.dP.descr <- function(descr,k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean){
+  
+  dates <- getdates(start,end)
+  if(nbdays!=1) dates <- dates[-((length(dates)-nbdays+2):(length(dates)))]
+  
+  # Calcul de dP
+  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
+  deltaP <- apply(geo,3,function(x) max(x)-min(x))
+  deltaP <- rollapply(deltaP,nbdays,mean)
+  
+  # Import de l'indicateur
+  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = nbdays,start = start,end = end,standardize = F,rean = rean)
+  
+  # Traitement: desaisonalisation et quantiles
+  tab <- cbind(deltaP,des)
+  qua <- as.data.frame(matrix(NA,nrow(tab),4))
+  
+  for(i in 1:2){
+  sais <- aggregate(tab[,i],by=list(substr(dates,6,10)),mean)
+  pos <- match(substr(dates,6,10),sais[,1])
+  sais.chro <- sais[pos,2]
+  desais <- tab[,i]-sais.chro
+  qua[,i] <- ecdf(tab[,i])(tab[,i])*100
+  qua[,i+2] <- ecdf(desais)(desais)*100
+  }
+  qua <- qua[,c(1,3,2,4)]
+  colnames(qua) <- c("deltaP","desais deltaP",descr,paste0("desais ",descr))
+  
+  # Mise en forme
+  ind.extr <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
+  tab.final <- pivot_longer(data = qua[ind.extr,],1:4,names_to = "name",values_to = "quantile")
+  tab.final$name <- factor(tab.final$name,colnames(qua))
+  
+  # Boxplot
+  ggplot(tab.final, aes(x=name, y=quantile, fill=name)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0,0,0,1),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=10),
+          axis.text.y = element_text(size=10),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
+          legend.position = "none")+
+    stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
+    geom_boxplot(outlier.shape = NA,col="darkblue")+
+    scale_x_discrete(labels=c(expression(paste(Delta,"p")),expression(paste("Sea. adj. ",Delta,"p")),descr,paste("Sea. adj. ",descr)))+
+    scale_fill_manual(values=c("purple","purple","cornflowerblue","cornflowerblue"))+
+    geom_vline(xintercept=2.5, linetype="dashed")+
+    xlab("")+
+    ylab("Percentile (%)")
+  
+  ggsave(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/plot.desais.dP.descr/plot_desais_dP",descr,"_",nbdays,"day_",start,"_",end,"_",bv,".png"),width = 12,height = 6,units="cm",dpi = 200)
+  graphics.off()
+}
+
+

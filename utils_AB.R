@@ -2042,11 +2042,6 @@ fit.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="201
   descr2<-get.descriptor(descriptors[2],k[2],dist[2],nbdays,start,end,standardize,rean[2],threeday[2])
   descr<- cbind(descr1,descr2)
   
-  descr1<-get.descriptor(descriptors[1],k[1],dist[1],nbdays,start,end,standardize=FALSE,rean[1],threeday[1]) # pas de standardisation pour la densite de pts dans le plan
-  descr2<-get.descriptor(descriptors[2],k[2],dist[2],nbdays,start,end,standardize=FALSE,rean[2],threeday[2])
-  descrBis<- cbind(descr1,descr2)
-  rad <- mean(c(sd(descrBis[,1],na.rm=TRUE),sd(descrBis[,2],na.rm=TRUE)))/2
-  
   if (nrow(descr) != length(precip)) stop("Probleme taille des donnees")
   
   N<-length(precip)
@@ -3098,6 +3093,23 @@ plot.bilan.quant <- function(nbdays=3,start="1950-01-01",end="2011-12-31",rean){
   }
 }
   
+# plot la chronique d'un vecteur sur une periode souhaitee (extr correspond au max annuel de precip sur 3j)
+plot.chronique <- function(dates,vec,label,liss=T,extr=T){
+  
+  plot(vec,type="n",xlab="Year",ylab=label,xaxt="n")
+  abline(v=match(unique(substr(dates,1,4)),substr(dates,1,4)),lty=3,col="grey")
+  grid(NA,NULL)
+  lines(vec)
+  axis(1,at = match(unique(substr(dates,1,4)),substr(dates,1,4)),labels = unique(substr(dates,1,4)))
+  
+  if(liss) vec.liss <- rollapply(vec,50,mean)
+  lines(vec.liss,col="blue",lwd=2)
+  
+  if(extr) ind.extr <- get.ind.max(type = "year",nbdays = 3,start = dates[1],end = dates[length(dates)])
+  points(ind.extr,vec[ind.extr],col="red",pch=19)
+  
+}
+
 # plot la comparaison des p0 et mean(p>0) par mois entre la climato, l'analogie classique et les indicateurs
 plot.clim<-function(rean,k,descriptorsPos,descriptorsp0,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",str="05",CV=TRUE){
   
@@ -3518,23 +3530,6 @@ plot.dP.noise <- function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="201
   abline(lm.b$coefficients[1],lm.b$coefficients[2],lwd=1.5)
   title(paste0("R² = ",cor.b))
   graphics.off()
-}
-
-# plot la chronique d'un vecteur sur une periode souhaitee (extr correspond au max annuel de precip sur 3j)
-plot.chronique <- function(dates,vec,label,liss=T,extr=T){
-  
-  plot(vec,type="n",xlab="Year",ylab=label,xaxt="n")
-  abline(v=match(unique(substr(dates,1,4)),substr(dates,1,4)),lty=3,col="grey")
-  grid(NA,NULL)
-  lines(vec)
-  axis(1,at = match(unique(substr(dates,1,4)),substr(dates,1,4)),labels = unique(substr(dates,1,4)))
-  
-  if(liss) vec.liss <- rollapply(vec,50,mean)
-  lines(vec.liss,col="blue",lwd=2)
-  
-  if(extr) ind.extr <- get.ind.max(type = "year",nbdays = 3,start = dates[1],end = dates[length(dates)])
-  points(ind.extr,vec[ind.extr],col="red",pch=19)
-  
 }
 
 # plot la distribution modelisee et observee de certaines sequences de pluie
@@ -4144,7 +4139,7 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
     stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
     geom_boxplot(outlier.shape = NA,col="darkblue")+
     scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
-    geom_vline(xintercept=c(1.5,2.5,3.5), linetype="dashed")+
+    geom_vline(xintercept=1.5, linetype="dashed")+
     xlab("")+
     ylab("Percentile (%)")+
     labs(fill="Geopotential (hPa)")#,title = namdescr
