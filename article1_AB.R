@@ -1,5 +1,6 @@
 source('~/2_Travail/Rcode/utils_AB.R', encoding = 'UTF-8')
 
+
 # Carte des geopotentiels aux 4 coins du plan celnei TWS - celnei RMSE
 map.corner <- function(k, rean){
   
@@ -9,6 +10,28 @@ map.corner <- function(k, rean){
   
   # Cartes
   pdf(file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.corner/map_corner_celnei.pdf"),width = 10,height = 10)
+  par(mfcol=c(4,3),mar=c(3,2,3,2))
+  for(i in 1:4){
+    map.geo(date = dates[i],rean = rean,k = k,nbdays = 3,save = F,win = T)
+  }
+  graphics.off()
+  
+}
+
+# Carte des geopotentiels de l'extreme et d'une sequence seche avec leur 100e analogue
+map.extr.dry <- function(k, rean){
+  
+  # Recherche des dates
+  dates <- NULL
+  
+  dates[1] <- getdates()[get.ind.extr(1)]
+  dates[2] <- getdates()[get.ana(date = dates[1],rank = 100,ref = "1950-01-01",k = k,dist = "TWS",nbdays = 3,rean=rean)$ind]
+  tmp <- which(get.precip(3)==0)
+  dates[3] <- getdates()[sample(tmp,1)]
+  dates[4] <- getdates()[get.ana(date = dates[3],rank = 100,ref = "1950-01-01",k = k,dist = "TWS",nbdays = 3,rean=rean)$ind]
+  
+  # Cartes
+  pdf(file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.extr.dry/map_extr_dry.pdf"),width = 10,height = 10)
   par(mfcol=c(4,3),mar=c(3,2,3,2))
   for(i in 1:4){
     map.geo(date = dates[i],rean = rean,k = k,nbdays = 3,save = F,win = T)
@@ -33,7 +56,7 @@ plot.sais.all <- function(descr,k,nbdays=3,start="1950-01-01",end="2011-12-31",r
   
   # dates
   dates.all <- dates[-((length(dates)-nbdays+2):length(dates))]
-  dates.chro <- getdates(start = "1950-01-01",end = "1956-01-01")
+  dates.chro <- getdates(start = "1950-01-01",end = "1955-01-01")
   ind.chro <- match(dates.chro,dates)
   
   # Figure
@@ -168,57 +191,67 @@ plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
   
 }
 
-# Desaisonalisation de dP et d'un indicateur
-plot.desais.dP.descr <- function(descr,k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean){
+# Desaisonnalisation d'un indicateur (dP possible)
+plot.desais.descr <- function(descr,k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean){
   
   dates <- getdates(start,end)
   if(nbdays!=1) dates <- dates[-((length(dates)-nbdays+2):(length(dates)))]
   
+  if(descr=="dP"){
   # Calcul de dP
   geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
-  deltaP <- apply(geo,3,function(x) max(x)-min(x))
-  deltaP <- rollapply(deltaP,nbdays,mean)
-  
+  des <- apply(geo,3,function(x) max(x)-min(x))
+  des <- rollapply(des,nbdays,mean)
+  }else{
   # Import de l'indicateur
   des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = nbdays,start = start,end = end,standardize = F,rean = rean)
+  }
   
   # Traitement: desaisonalisation et quantiles
-  tab <- cbind(deltaP,des)
-  qua <- as.data.frame(matrix(NA,nrow(tab),4))
+  desais <- compute.desais(des,dates)
   
-  for(i in 1:2){
-  sais <- aggregate(tab[,i],by=list(substr(dates,6,10)),mean)
-  pos <- match(substr(dates,6,10),sais[,1])
-  sais.chro <- sais[pos,2]
-  desais <- tab[,i]-sais.chro
-  qua[,i] <- ecdf(tab[,i])(tab[,i])*100
-  qua[,i+2] <- ecdf(desais)(desais)*100
-  }
-  qua <- qua[,c(1,3,2,4)]
-  colnames(qua) <- c("deltaP","desais deltaP",descr,paste0("desais ",descr))
+  qua <- as.data.frame(matrix(NA,length(des),2))
+  qua[,1] <- ecdf(des)(des)*100
+  qua[,2] <- ecdf(desais)(desais)*100
+  colnames(qua) <- c("Original","Seasonal adjusted")
   
   # Mise en forme
   ind.extr <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
-  tab.final <- pivot_longer(data = qua[ind.extr,],1:4,names_to = "name",values_to = "quantile")
+  tab.final <- pivot_longer(data = qua[ind.extr,],1:2,names_to = "name",values_to = "quantile")
   tab.final$name <- factor(tab.final$name,colnames(qua))
   
   # Boxplot
-  ggplot(tab.final, aes(x=name, y=quantile, fill=name)) + 
+  colo <- ifelse(rep(descr=="dP",2),rep("grey",2),rep("cornflowerblue",2))
+  main <- ifelse(descr=="dP","Maximum pressure difference",paste0(descr," ",dist))
+  
+  plot.desais.descr <- ggplot(tab.final, aes(x=name, y=quantile, fill=name)) + 
     theme_bw()+
-    theme(plot.margin = unit(c(0,0,0,1),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
-          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=10),
+    theme(plot.margin = unit(c(1,1,0,1),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12),
           axis.text.y = element_text(size=10),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
           legend.position = "none")+
     stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
     geom_boxplot(outlier.shape = NA,col="darkblue")+
-    scale_x_discrete(labels=c(expression(paste(Delta,"p")),expression(paste("Sea. adj. ",Delta,"p")),descr,paste("Sea. adj. ",descr)))+
-    scale_fill_manual(values=c("purple","purple","cornflowerblue","cornflowerblue"))+
-    geom_vline(xintercept=2.5, linetype="dashed")+
+    scale_fill_manual(values=colo)+
     xlab("")+
-    ylab("Percentile (%)")
+    ylab("Percentile (%)")+
+    ggtitle(main)
   
-  ggsave(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/plot.desais.dP.descr/plot_desais_dP",descr,"_",nbdays,"day_",start,"_",end,"_",bv,".png"),width = 12,height = 6,units="cm",dpi = 200)
-  graphics.off()
+  plot.desais.descr
+}
+
+# Combine deux fonctions en une
+combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean){
+  
+  # plot.desais.descr
+  if(fun==1){
+    png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.desais.descr/plot_desais_",descr[1],"_",descr[2],"_",
+                          dist,"_member",member,"_k",k,"mean",nbdays,"day_",start,"_",end,".png"),width = 550,height = 250,units = "px")
+    plot.desais.1 <- plot.desais.descr(descr[1],k,dist,nbdays,start,end,rean)
+    plot.desais.2 <- plot.desais.descr(descr[2],k,dist,nbdays,start,end,rean)
+    grid.arrange(plot.desais.1,plot.desais.2,nrow=1,ncol=2)
+    graphics.off()
+  }
 }
 
 

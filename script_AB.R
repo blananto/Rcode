@@ -40,12 +40,12 @@ plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start 
                 radtype = M, rean = rean, ref="1900-01-01")
 
 # Version generique
-fit.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("rsingnei","rsingnei_rev"), dist = c("TWS","RMSE"),
+fit.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("rsing05","rsing05"), dist = c("TWS","RMSE"),
           nbdays = 3, start = start, end = end, radtype = M)
-plot.empir.clean.obs(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("celnei","celnei_rev"), dist = c("TWS","RMSE"),
+plot.empir.clean.obs(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("sing05","sing05"), dist = c("TWS","RMSE"),
            nbdays = 3, start = start, end = end, radtype = M,dP = T,coin = T)
-compute_crps(descriptors = c("celnei","celnei"), k = 1, dist = "TWS", nbdays = 3,
-             start = start, end = end, radtype = M, rean = rean)
+compute_crps(descriptors = c("rsing05","rsing05"), k = c(1,1), dist = c("TWS","RMSE"), nbdays = 3,
+             start = start, end = end, radtype = M, rean = c("20CR","20CR"))
 compare.crps(which = "", k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
 
 # Analogie en deux etapes: selection analogie classique puis sous selection indicateurs ----
