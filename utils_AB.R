@@ -23,6 +23,7 @@ library("rgeos") # pour maptools
 library("maptools") # wrld_simpl
 library("RColorBrewer") # brewer.pal
 library("gridExtra") # several ggplot on the same page
+library("corrplot") # colorlegend
 
 # Fonctions graphiques
 addcircle<-function(radius){
@@ -1391,7 +1392,7 @@ compare.crps.wp <- function(k,dist,nbdays=1,start="1950-01-01",end="2011-12-31",
   }
 }
 
-# Calcul de la relative sinfularite pour tous les rayons possibles
+# Calcul de la relative singularite pour tous les rayons possibles
 compute.rsing<- function(vec,sing=F){
   som <- cumsum(vec)
   pos <- 1:length(vec)
@@ -2992,7 +2993,7 @@ make.precip1.isere<-function(start="1950-01-01",end="2011-12-31") {
 }
 
 # Carte de geopotentiel d'un jour donne
-map.geo <- function(date,rean,k,nbdays=1,save=F,win=F){
+map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T){
   
   # Import des donnees
   load.nc(rean)
@@ -3007,30 +3008,52 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F){
   
   geo <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),nbdays))
   dim(geo) <- c(length(lon),length(lat),nbdays)
-  title <- ifelse(k==1,"500 hPa","1000 hPa")
-  zlim <- ifelse(rep(k==1,2),c(4800,6100),c(-400,500))
+  
+  # Parametres graphiques
+  if(k==1){ 
+    breaks <- seq(4900,6100,length.out = 12)
+    N <- 11
+    lab <- seq(4900,6100,200)
+  }else{
+    breaks <- seq(-300,400,length.out = 8)
+    N <- 7
+    lab <- seq(-300,400,100)
+    }
   
   # Carte
   if(save) {
     png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.geo/",date,"_k",k,"_",nbdays,"day.png"),
-               width = ifelse(nbdays==3,900,350),height = ifelse(nbdays==3,280,350),units = "px")
+        width = ifelse(nbdays==3,1050,350),height = 350,units = "px")
     layout(matrix(1:nbdays,1,nbdays))
   }
   
+  par(pty="s")
+  if(nbdays==3) par(mar=c(6,4,6,4))
+  cex <- ifelse(nbdays==3,1.8,1.5)
+  
   for(i in 1:nbdays){
-    if(nbdays==3) par(mar=c(5,6,4,6))
-    cex <- ifelse(nbdays==3,1.8,1.3)
     
-    image.plot(lon,lat,geo[,,i],xlim=c(-20,25),ylim=c(25,70),asp=1,zlim=zlim,
-               col=rev(brewer.pal(n = 11, name = "RdBu")),
-               xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(as.Date(date)+i-1," - ",title),
-               legend.line=-2.3, cex.axis=cex, cex.lab=cex, cex.main=cex)
+    if(leg){
+      image.plot(lon,lat,geo[,,i],xlim=c(-20,25),ylim=c(25,70),
+                 col=rev(brewer.pal(n = N, name = "RdBu")),
+                 xlab="Longitude (°)",ylab="Latitude (°)",main=as.Date(date)+i-1,
+                 legend.line=-2.3, cex.axis=cex, cex.lab=cex, cex.main=cex,
+                 breaks = breaks,axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
+    }else{
+      image(lon,lat,geo[,,i],xlim=c(-20,25),ylim=c(25,70),
+            col=rev(brewer.pal(n = N, name = "RdBu")),
+            xlab="Longitude (°)",ylab="Latitude (°)",main=as.Date(date)+i-1,
+            cex.axis=cex, cex.lab=cex, cex.main=cex,
+            breaks = breaks)
+    }
     
     data(wrld_simpl)
     plot(wrld_simpl, add = TRUE)
     if(win) rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
+    if(i==1 & let!=F) mtext(let, side=3, at=-30,line = 2,cex=1.5)
     box()
   }
+  
   if(save) graphics.off()
   
 }
@@ -3052,26 +3075,31 @@ map.extr <- function(k,N="02",start="1950-01-01",end="2011-12-31",rean,bv="all")
   neiRMSE<-nei[[N]]
   
   # Cartes
-  config <- c("62_max","annual_max")
+  config <- c("62_max","annual_max","dP_max")
   q90 <- quantile(precip[precip>0],probs=0.9)
   
   for(j in 1:length(config)){
     
     if(j==1) ind <- get.ind.extr(nbre = 62,ref = start,nbdays = 3,start = start,end = end,bv = bv)
     if(j==2) ind <- get.ind.max(type = "year",nbdays = 3,start = start,end = end,bv = bv)
+    if(j==3) {
+      dP <- get.dP(k,nbdays,start,end,rean)
+      ind <- sort(dP,decreasing=T,index.return=T)$ix[1:62]
+    }
+    
     dates.extr <- dates[ind]
     
     pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.extr/map_",config[j],"_k",k,"_",N,"_",start,"_",end,"_",bv,".pdf"),width = 13,height = 8)
     layout(matrix(1:12,3,4,byrow = T))
     par(mar=c(4.5,5,4,6.5))
-    print(paste0(length(dates.extr)," max"))
+    print(config[j])
     
     for(i in 1:length(dates.extr)){
       
       print(paste0(i,"/",length(dates.extr)))
       
       # les 3 cartes
-      map.geo(dates.extr[i],rean,k); map.geo(dates.extr[i]+1,rean,k); map.geo(dates.extr[i]+2,rean,k)
+      map.geo(dates.extr[i],rean,k,win=T); map.geo(dates.extr[i]+1,rean,k,win=T); map.geo(dates.extr[i]+2,rean,k,win=T)
       
       # la distribution des analogues
       precip.i <- precip[ind[i]]
@@ -3573,123 +3601,6 @@ plot.crps.ana<-function(rean,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31"
   graphics.off()
 }
 
-# plot la correlation entre le gradient de pression et un indicateur
-plot.dP.descr <- function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
-  
-  # Import
-  load.nc(rean)
-  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean)
-  descr <- get.descriptor(descriptor = descriptor,k = k,dist = dist,nbdays = nbdays,
-                          start = start,end = end,standardize = F,rean = rean)
-  dates <- getdates(start,end)
-  length(dates) <- length(descr)
-  sais.descr <- aggregate(descr,by=list(substr(dates,6,10)),mean)[,2]
-  desais.descr <- compute.desais(descr,dates)
-  
-  # dP
-  dP <- apply(geo,3,function(x) max(x)-min(x))
-  dP <- rollapply(dP,nbdays,mean)
-  sais.dP <- aggregate(dP,by=list(substr(dates,6,10)),mean)[,2]
-  desais.dP <- compute.desais(dP,dates)
-  
-  # Correlation
-  cor <- round(cor(dP,descr)^2,2)
-  lm  <- lm(descr~dP)
-  
-  cor.sais <- round(cor(sais.dP,sais.descr)^2,2)
-  lm.sais  <- lm(sais.descr~sais.dP)
-  
-  cor.desais <- round(cor(desais.dP,desais.descr)^2,2)
-  lm.desais  <- lm(desais.descr~desais.dP)
-  
-  # Graphiques
-  pdf(file = paste0(get.dirstr(k,rean),"plot.dP.descr/plot_dP_",descriptor,"_",dist,"_member",member,
-                        "_k",k,"_mean",nbdays,"day_",start,"_",end,".pdf"),width = 8,height = 3.5)
-  par(pty="s",mfrow=c(1,3))
-  
-  # Brut
-  sea <- dates
-  sea[which(substr(sea,6,7) %in% c("06","07","08"))] <- 1
-  sea[which(substr(sea,6,7) %in% c("09","10","11"))] <- 2
-  sea[which(substr(sea,6,7) %in% c("12","01","02"))] <- 3
-  sea[which(substr(sea,6,7) %in% c("03","04","05"))] <- 4
-  sea <- as.numeric(sea)
-  colo <- c("red","darkorange","blue","olivedrab3")
-  
-  plot(dP,descr,col=colo[sea],xlab="Max pressure gradient (m)",ylab=paste0(descriptor," ",dist),main="Original")
-  abline(lm$coefficients[1],lm$coefficients[2],lwd=2)
-  text(quantile(dP,0.1),quantile(descr,0.001),paste0("R² = ",cor),font=2)
-  legend("topright",c("summer","autumn","winter","spring"),col=colo,pch=1,bty="n",ncol=2,cex=0.9)
-  
-  
-  # Sais
-  sea <- sort(unique(substr(dates,6,10)))
-  sea[which(substr(sea,1,2) %in% c("06","07","08"))] <- 1
-  sea[which(substr(sea,1,2) %in% c("09","10","11"))] <- 2
-  sea[which(substr(sea,1,2) %in% c("12","01","02"))] <- 3
-  sea[which(substr(sea,1,2) %in% c("03","04","05"))] <- 4
-  sea <- as.numeric(sea)
-  colo <- c("red","darkorange","blue","olivedrab3")
-  
-  plot(sais.dP,sais.descr,col=colo[sea],xlab="Max pressure gradient (m)",ylab=paste0(descriptor," ",dist),main="Interannual")
-  abline(lm.sais$coefficients[1],lm.sais$coefficients[2],lwd=2)
-  text(quantile(sais.dP,0.3),quantile(sais.descr,0.05),paste0("R² = ",cor.sais),font=2)
-  legend("topright",c("summer","autumn","winter","spring"),col=colo,pch=1,bty="n",ncol=2,cex=0.9)
-  
-  # Desais
-  plot(desais.dP,desais.descr,col="darkgray",xlab="Max pressure gradient (m)",ylab=paste0(descriptor," ",dist),main="Seasonal adjusted")
-  abline(lm.desais$coefficients[1],lm.desais$coefficients[2],lwd=2)
-  text(quantile(desais.dP,0.01),quantile(desais.descr,0.001),paste0("R² = ",cor.desais),font=2)
-  
-  graphics.off()
-  
-  # noise
-  #noise <- apply(geo,3,function(x) sd(as.vector(x)))
-  #noise <- rollapply(noise,nbdays,mean)
-  #noise <- noise/dP
-  #cor.no <- round(cor(noise,descr)^2,2)
-  #lm.no <- lm(descr~noise)
-  #sais.noise <- aggregate(noise,by=list(substr(dates[-c(length(dates)-1,length(dates))],6,10)),mean)[,2]
-  
-  # Graphique noise
-  #png(filename = paste0(get.dirstr(k,rean),"plot.dP.noise/plot_noise_",descriptor,"_",dist,"_member",member,
-  #                      "_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 800,height = 400,units = "px")
-  #par(pty="s")
-  #par(mfrow=c(1,2))
-  #plot(noise,descr,type="n",xlab="Noise (-)",ylab=paste0(descriptor," ",dist))
-  #points(noise[summ],descr[summ],pch=19,col="red",cex=0.2)
-  #points(noise[aut],descr[aut],pch=19,col="darkorange",cex=0.2)
-  #points(noise[win],descr[win],pch=19,col="blue",cex=0.2)
-  #points(noise[spr],descr[spr],pch=19,col="olivedrab3",cex=0.2)
-  #abline(lm.no$coefficients[1],lm.no$coefficients[2],lwd=1.5)
-  #title(paste0("R² = ",cor.no))
-  #legend(ifelse(dist=="RMSE","bottomright","topright"),c("summer","autumn","winter","spring"),
-  #       col=c("red","darkorange","blue","olivedrab3"),pch=19,bty="n")
-  #
-  #plot(sais.noise,sais.descr,pch=19,cex=0.5,
-  #     xlab="Interannual Noise (-)",ylab=paste0("Interannual ",descriptor," ",dist))
-  #abline(lm(sais.descr~sais.noise),lwd=1.5)
-  #title(paste0("R² = ",round(cor(sais.noise,sais.descr)^2,2)))
-  #
-  #graphics.off()
-  
-  # Graphique dP - noise
-  #cor.b <- round(cor(dP,noise)^2,2)
-  #lm.b <- lm(noise~dP)
-  #
-  #png(filename = paste0(get.dirstr(k,rean),"plot.dP.noise/plot_dP_noise_member",member,
-  #                      "_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 400,height = 400,units = "px")
-  #par(pty="s")
-  #plot(dP,noise,type="n",xlab="Max pressure gradient (m)",ylab="Noise (-)")
-  #points(dP[summ],noise[summ],pch=19,col="red",cex=0.2)
-  #points(dP[aut],noise[aut],pch=19,col="darkorange",cex=0.2)
-  #points(dP[win],noise[win],pch=19,col="blue",cex=0.2)
-  #points(dP[spr],noise[spr],pch=19,col="olivedrab3",cex=0.2)
-  #abline(lm.b$coefficients[1],lm.b$coefficients[2],lwd=1.5)
-  #title(paste0("R² = ",cor.b))
-  #graphics.off()
-}
-
 # plot la distribution modelisee et observee de certaines sequences de pluie
 plot.distrib<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE){
   
@@ -4011,9 +3922,7 @@ plot.empir.clean.obs<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
   title(names(param))
   
   if(dP) {
-    geo <- getdata(k = k[1],day0 = start,day1 = end,rean = rean[1]) 
-    deltaP <- apply(geo,3,function(x) max(x)-min(x))
-    deltaP <- rollapply(deltaP,nbdays,mean)
+    deltaP <- get.dP(k,nbdays,start,end,rean)
     
     plot(descr1,descr2,
          col=getcol(deltaP),
@@ -4594,8 +4503,7 @@ plot.sais.dP.noise <- function(k,nbdays=3,start="1950-01-01",end="2011-12-31",re
   dates <- getdates(start,end)
   
   # delta P: force globale du vent
-  dP <- apply(geo,3,function(x) max(x)-min(x))
-  dP <- rollapply(dP,nbdays,mean)
+  dP <- get.dP(k,nbdays,start,end,rean)
   sais1 <- aggregate(dP,by=list(substr(dates[-c(length(dates)-1,length(dates))],6,10)),mean)
   min1 <- aggregate(dP,by=list(substr(dates[-c(length(dates)-1,length(dates))],6,10)),min)
   max1 <- aggregate(dP,by=list(substr(dates[-c(length(dates)-1,length(dates))],6,10)),max)
@@ -4766,6 +4674,35 @@ plot.wp.extr<-function(start="1950-01-01",end="2011-12-31",bv="all"){
   ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
   tmp <- hist(wp[ind.max],0:8,plot=F)$counts
   tmp <- tmp/sum(tmp)*100 # pourcentage
+  barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
+          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
+  graphics.off()
+  
+  # 62 max dP
+  dP <- get.dP(1,3,start,end,"20CR")
+  
+  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_dP_max_",bv,".png"),width = 800,height = 400,units = "px")
+  ind.max <- sort(dP,decreasing=T,index.return=T)$ix[1:62]
+  ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
+  tmp <- hist(wp[ind.max],0:8,plot=F)$counts
+  tmp <- tmp/sum(tmp)*100 # pourcentage
+  barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
+          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
+  graphics.off()
+  
+  # max dP: < q0.02 de rsingnei TWS et rsingnei RMSE
+  dP <- get.dP(1,3,start,end,"20CR")
+  
+  rsingnei.tws <- get.descriptor(descriptor = "rsingnei",k = 1,dist = "TWS",nbdays = 3,start = start,end = end,standardize = F,"20CR")
+  rsingnei.rmse <- get.descriptor(descriptor = "rsingnei",k = 1,dist = "RMSE",nbdays = 3,start = start,end = end,standardize = F,"20CR")
+  
+  
+  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_dP_max_rsingnei_",bv,".png"),width = 800,height = 400,units = "px")
+  ind.max <- which(rsingnei.tws < quantile(rsingnei.tws,0.02) & rsingnei.rmse < quantile(rsingnei.rmse,0.02))
+  ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
+  tmp <- hist(wp[ind.max],0:8,plot=F)$counts
+  tmp <- tmp/sum(tmp)*100 # pourcentage
+  print(tmp)
   barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
           col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
   graphics.off()
@@ -5090,7 +5027,7 @@ score.to.mat <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rea
   dist.list <- dist.list + dist.list2
 }
 
-# Trace le boxplot des max max annuels par mois de precipitation journaliere
+# Trace le boxplot des max annuels par mois de precipitation journaliere
 season.at.risk <- function(start="1950-01-01",end="2011-12-31"){
   
   precip <- get.precip(1,start,end)
