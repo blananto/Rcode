@@ -894,6 +894,41 @@ scatterplot.criteria<-function(neistr,k,dist,nbdays=3,start="1950-01-01",end="20
   
 }
 
+# Amelioration possible de l'analogie classique pour modeliser les precipitations
+test.ana <- function(){
+  
+  # Import precip et jour d'interet
+  precip=get.precip(1)
+  precip[2302]
+  
+  # Distribution des analogues
+  ana=get.ana(date=getdates()[2302],rank = 1:224,k = 1,dist = "TWS",ref = start,nbdays = 1,start,end,rean)
+  plot.ecdf(precip[ana$ind[1:112]])
+  abline(v=precip[2302])
+  
+  # Analogues les plus proches selon la moyenne du geopotentiel
+  geo=getdata(k = 1,start,end,rean)
+  tmp=apply(geo,3,mean)
+  ran=sort(abs(tmp[ana$ind]-tmp[2302]),index.return=T)$ix
+  ana.new=ana$ind[ran[1:112]]
+  plot.ecdf(precip[ana.new])
+  abline(v=precip[2302])
+  
+  # crps avant apres
+  crps_sample(precip[2302],precip[ana$ind[1:112]])
+  crps_sample(precip[2302],precip[ana.new])
+  
+  # distance moyenne des analogues à la moyenne du geopotentiel cible pour les pluies croissantes
+  for(i in 1:22645){
+    tmp1[i]=mean(tmp[i]-tmp[nei[[i]]])
+  }
+  
+  ind=sort(precip,index.return=T)$ix
+  plot(sort(precip),abs(tmp1[ind]))
+  points(sort(precip[ind1]),abs(tmp1[ind])[ind1],col="red")
+  # => plus on va vers les extrêmes, plus les écarts à la moyenne diminuent
+}
+
 # Test sur la reconstitution des indices analogues de chaque date a partir de la liste
 test.getdist4i<-function(N,len=NULL){
   l<-list();

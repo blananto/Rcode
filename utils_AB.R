@@ -910,18 +910,16 @@ compare.crps.simple <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rad
   
   # Indicateurs
   descr <- list(
-    c("cel","cel"),
-    c("celnei","celnei_rmse"),
-    c("celnei","celnei"),
-    c("singnei","rsingnei")
+    c("sing05","rsing05"),
+    c("sing05","rsing05")
   )
   
   dist <- list(
-    c("TWS","RMSE"),
-    c("TWS","RMSE"),
-    c("TWS","RMSE"),
+    c("TWS","TWS"),
     c("TWS","TWS")
   )
+  
+  threeday <- c(F,T)
   
   ndescr <- length(descr)
   namdescr <- lapply(descr,nam2str)
@@ -936,7 +934,7 @@ compare.crps.simple <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rad
   for(i in 1:ndescr){
     di <- ifelse(dist[[i]][1]==dist[[i]][2],dist[[i]][1],paste0(dist[[i]][1],"_",dist[[i]][2]))
     load(file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compute_crps",get.CVstr(CV),"/",descr[[i]][1],"_",descr[[i]][2],
-                       "_",di,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".Rdata"))
+                       "_",di,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,ifelse(threeday[i],"_threeday",""),".Rdata"))
     crps.all <- cbind(crps.all,crps[,"all ecdf"])
     crps.pos <- cbind(crps.pos,crps[,"pos ecdf"])
     crps.p0 <- cbind(crps.p0,crps[,"p0 binom"])
@@ -2461,7 +2459,7 @@ get.ana<-function(date,rank=c(1,50,100),ref="1851-01-01",k,dist,nbdays=1,start="
   
   # Indice des voisins
   load(file=paste0(get.dirstr(k,rean),"save.nei.A/nei_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
-  nei<-nei[["05"]]
+  nei<-nei[["10"]]
   
   pos <- which(getdates()==date)
   res <- vector("list",length = 2)
@@ -3255,7 +3253,7 @@ plot.bilan.quant <- function(nbdays=3,start="1950-01-01",end="2011-12-31",rean){
 }
   
 # plot la chronique d'un vecteur sur une periode souhaitee (extr correspond au max annuel de precip sur 3j)
-plot.chronique <- function(dates,vec,label,liss=T,extr=T){
+plot.chronique <- function(dates,vec,label,liss=F,interan=F,extr=F){
   
   plot(vec,type="n",xlab="Year",ylab=label,xaxt="n")
   abline(v=match(unique(substr(dates,1,4)),substr(dates,1,4)),lty=3,col="grey")
@@ -3263,12 +3261,21 @@ plot.chronique <- function(dates,vec,label,liss=T,extr=T){
   lines(vec)
   axis(1,at = match(unique(substr(dates,1,4)),substr(dates,1,4)),labels = unique(substr(dates,1,4)))
   
-  if(liss) vec.liss <- rollapply(vec,50,mean)
-  lines(vec.liss,col="blue",lwd=2)
+  if(liss){
+    vec.liss <- rollapply(vec,50,mean)
+    lines(vec.liss,col="blue",lwd=2)
+  }
   
-  if(extr) ind.extr <- get.ind.max(type = "year",nbdays = 3,start = dates[1],end = dates[length(dates)])
-  points(ind.extr,vec[ind.extr],col="red",pch=19)
+  if(interan){
+    interan <- aggregate(vec,by=list(substr(dates,6,10)),mean)
+    vec.interan <- interan[match(substr(dates,6,10),interan[,1]),2]
+    lines(vec.interan,col="blue",lwd=1)
+  }
   
+  if(extr){
+    ind.extr <- get.ind.max(type = "year",nbdays = 3,start = dates[1],end = dates[length(dates)])
+    points(ind.extr,vec[ind.extr],col="red",pch=19)
+  }
 }
 
 # plot la comparaison des p0 et mean(p>0) par mois entre la climato, l'analogie classique et les indicateurs
@@ -3922,7 +3929,7 @@ plot.empir.clean.obs<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
   title(names(param))
   
   if(dP) {
-    deltaP <- get.dP(k,nbdays,start,end,rean)
+    deltaP <- get.dP(k[1],nbdays,start,end,rean[1])
     
     plot(descr1,descr2,
          col=getcol(deltaP),
@@ -4191,7 +4198,7 @@ plot.p0.wp <- function(){
 }
 
 # Trace le boxplot des quantiles d'un indicateur, pour 500 & 1000, pour les 4 distances
-plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",rean,bv="all",leg=T){
+plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",rean,bv="all",save=T){
   
   # Import de l'indicateurs pour k1, k2, et les 4 distances
   k <- c(1,2)
@@ -4201,8 +4208,6 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
   for(i in k){
     for(j in dist){
       tmp <- descr
-      if(j=="TWS" && substr(descr,nchar(descr)-2,nchar(descr))=="rev") tmp <- substr(descr,1,nchar(descr)-4)
-      
       des <- get.descriptor(descriptor = tmp,k = i,dist = j,nbdays = nbdays,
                               start = start,end = end,standardize = F,rean = rean)
       mat <- cbind(mat,des)
@@ -4234,12 +4239,13 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
   names(l) <- c("annmax","monmax")
   
   # Boxplot
-  ggplot(l$annmax, aes(x=dist, y=quantile, fill=geo)) + 
+  a <- ggplot(l$annmax, aes(x=dist, y=quantile, fill=geo)) + 
     theme_bw()+
-    theme(plot.margin = unit(c(0,0,0,1),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+    theme(plot.margin = unit(c(1,0.5,0,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
           axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=10),
           axis.text.y = element_text(size=10),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
-          legend.position = ifelse(leg,"right","none"))+
+          legend.position = "right",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=10),
+          legend.title = element_text(size=12))+
     stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
     geom_boxplot(outlier.shape = NA,col="darkblue")+
     scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
@@ -4248,8 +4254,10 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
     ylab("Percentile (%)")+
     labs(fill="Geopotential (hPa)")#,title = namdescr
     
-    ggsave(filename = paste0("2_Travail/20CR/Rresults/overall/plot.quant.descr/plot_",descr,"_",nbdays,"day_",start,"_",end,"_",bv,".png"),width = 15,height = 8,units="cm",dpi = 200)
+  if(save){
+    ggsave(filename = paste0("2_Travail/20CR/Rresults/overall/plot.quant.descr/plot_",descr,"_",nbdays,"day_",start,"_",end,"_",bv,".png"),plot = a,width = 15,height = 8,units="cm",dpi = 200)
     graphics.off()
+  }else{a}
 }
 
 # Trace les hyétorgammes des 62 plus grosses séquences de pluie

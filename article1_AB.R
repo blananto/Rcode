@@ -36,7 +36,7 @@ combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="20
   
   # plot.empir.dp.sais
   if(fun==2){
-    pdf(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.dP.sais-CV/plot_combine.pdf"),width=8,height=9) # manip substr pour enlever le std
+    png(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.dP.sais-CV/plot_combine.png"),width=8,height=9,units = "in",res=1200) # manip substr pour enlever le std
     layout(matrix(c(rep(1,3),2:4,rep(5,3),6:8,rep(9,3),10:12),nrow = 6,ncol = 3,byrow = T),widths = rep(1,3),heights = c(0.1,1.2,0.1,1.2,0.1,1.2))
     par(pty="s")
     nam <- c("Celerity","Singularity","Relative singularity")
@@ -50,9 +50,20 @@ combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="20
       
       # Graphiques
       par(mar=c(3,4,0,3),pty="s")
-      
       plot.empir.dP.sais(c(rean,rean),c(k,k),c(descr[i],descr[i]),dist,nbdays,start,end,coin=ifelse(descr[i]=="celnei",T,F),save=F,let=let[[i]])
     }
+    graphics.off()
+  }
+  
+  # plot.quant.descr
+  if(fun==3){
+    a <- plot.quant.descr(descr[1],nbdays,start,end,rean,save=F)
+    b <- plot.quant.descr(descr[2],nbdays,start,end,rean,save=F)
+    c <- plot.quant.descr(descr[3],nbdays,start,end,rean,save=F)
+    d <- get_legend(a)
+    final <- ggarrange(a, b, c, as_ggplot(d), nrow=2,ncol=2, legend = "none",
+                       labels = c("Celerity","Singularity","Relative singularity"),hjust = c(-3.3,-2.2,-1.1))
+    ggsave(filename = paste0("2_Travail/",rean,"/Rresults/overall/plot.quant.descr/plot_combine.png"),plot = final,width = 10,height = 6)
     graphics.off()
   }
   
@@ -82,7 +93,7 @@ map.corner <- function(k, rean){
   }
   
   # Cartes
-  pdf(file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.corner/map_corner_celnei.pdf"),width = 8,height = 14)
+  png(file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.corner/map_corner_celnei.png"),width = 8,height = 14,units = "in",res = 1200)
   layout(matrix(c(1:12,rep(13,3)),nrow = 5,ncol = 3,byrow = T),widths = rep(1,3),heights = c(rep(1,4),0.5))
 
   for(i in 1:4){
@@ -107,12 +118,11 @@ map.extr.dry <- function(k, rean){
   # Recherche des dates
   dates <- NULL
   
-  dates[1] <- getdates()[get.ind.extr(1)]
-  dates[2] <- getdates()[get.ana(date = dates[1],rank = 100,ref = "1950-01-01",k = k,dist = "TWS",nbdays = 3,rean=rean)$ind]
-  tmp <- which(get.precip(3)==0)
-  #dates[3] <- getdates()[sample(tmp,1)]
-  dates[3] <- "1950-03-06"
-  dates[4] <- getdates()[get.ana(date = dates[3],rank = 100,ref = "1950-01-01",k = k,dist = "TWS",nbdays = 3,rean=rean)$ind]
+  dates[1] <- getdates()[get.ind.extr(nbre = 2,ref = "1950-01-01",nbdays = 1)[2]]
+  dates[2] <- getdates()[get.ana(date = dates[1],rank = 100,ref = "1950-01-01",k = k,dist = "TWS",nbdays = 1,rean=rean)$ind]
+  tmp <- which(get.precip(1)==0)
+  dates[3] <- getdates()[sample(tmp,1)]
+  dates[4] <- getdates()[get.ana(date = dates[3],rank = 100,ref = "1950-01-01",k = k,dist = "TWS",nbdays = 1,rean=rean)$ind]
   
   lettre <- c("a)","b)","c)","d)")
   
@@ -126,14 +136,11 @@ map.extr.dry <- function(k, rean){
   }
   
   # Cartes
-  pdf(file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.extr.dry/map_extr_dry.pdf"),width = 8,height = 14)
-  layout(matrix(c(1:12,rep(13,3)),nrow = 5,ncol = 3,byrow = T),widths = rep(1,3),heights = c(rep(1,4),0.5))
+  png(file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.extr.dry/map_extr_dry.png"),width = 6,height = 7,units = "in",res = 1200)
+  layout(matrix(c(1:4,rep(5,2)),nrow = 3,ncol = 2,byrow = T),widths = rep(1,2),heights = c(rep(1,2),0.5))
   
   for(i in 1:4){
-    for(j in 1:3){
-      date <- as.character(as.Date(dates[i])+j-1)
-      map.geo(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = ifelse(j==1,lettre[i],F),leg=F)
-    }
+      map.geo(date = dates[i],rean = rean,k = k,nbdays = 1,save = F,win = T,let = lettre[i],leg=F)
   }
   par(pty="m",mar=c(0,0,0,0))
   plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
@@ -220,8 +227,8 @@ plot.dP.descr <- function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="201
   lm.desais  <- lm(desais.descr~desais.dP)
   
   # Graphiques
-  pdf(file = paste0(get.dirstr(k,rean),"plot.dP.descr/plot_dP_",descriptor,"_",dist,"_member",member,
-                    "_k",k,"_mean",nbdays,"day_",start,"_",end,".pdf"),width = 8,height = 3.5)
+  png(file = paste0(get.dirstr(k,rean),"plot.dP.descr/plot_dP_",descriptor,"_",dist,"_member",member,
+                    "_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 8,height = 3.5,units = "in",res = 1200)
   par(pty="s",mfrow=c(1,3))
   
   # Brut
@@ -366,8 +373,8 @@ plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
        xlim=c((min(descr1,na.rm=T)+max(descr1,na.rm=T))/2-((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2),(min(descr1,na.rm=T)+max(descr1,na.rm=T))/2+((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2)),
        ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.3))
   addscale(vec = c(param,gamme))
-  text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T))*0.8,
-       y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2*0.95,
+  text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T)),
+       y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.15,
        paste0(round(min(param,na.rm=T),2),"-",round(max(param,na.rm=T),2)))
   points(descr1[ale],descr2[ale],pch=19,cex=0.9)
   points(descr1[ind.extr],descr2[ind.extr],pch=21,bg="white") 
@@ -435,7 +442,7 @@ plot.sais.all <- function(descr,k,nbdays=3,start="1950-01-01",end="2011-12-31",r
   ind.chro <- match(dates.chro,dates)
   
   # Figure
-  pdf(file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.sais.all/plot_sais_all_",descr,".pdf"),width = 8,height = 6)
+  png(file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.sais.all/plot_sais_all_",descr,".png"),width = 8,height = 6,units = "in",res = 1200)
   par(mfrow=c(2,3),mar=c(2.5,2,2.5,2))
   plot.sais.quantile(dates = dates.all,vec = dP,label = "Pressure Gradient (m)")
   title("Pressure gradient")
@@ -446,11 +453,11 @@ plot.sais.all <- function(descr,k,nbdays=3,start="1950-01-01",end="2011-12-31",r
   plot.sais.quantile(dates = dates.all,vec = descr.rmse,label = paste0(descr," RMSE"))
   title(paste0(descr," RMSE"))
   mtext("c)",side=3,adj=0,line=0.8,font=1)
-  plot.chronique(dates = dates.chro,vec = dP[ind.chro],label = "Pressure Gradient (m)",liss = T,extr = T)
+  plot.chronique(dates = dates.chro,vec = dP[ind.chro],label = "Pressure Gradient (m)",liss = F,interan = T,extr = T)
   mtext("d)",side=3,adj=0,line=0.8,font=1)
-  plot.chronique(dates = dates.chro,vec = descr.tws[ind.chro],label = paste0(descr," TWS"),liss = T,extr = T)
+  plot.chronique(dates = dates.chro,vec = descr.tws[ind.chro],label = paste0(descr," TWS"),liss = F,interan = T,extr = T)
   mtext("e)",side=3,adj=0,line=0.8,font=1)
-  plot.chronique(dates = dates.chro,vec = descr.rmse[ind.chro],label = paste0(descr," RMSE"),liss = T,extr = T)
+  plot.chronique(dates = dates.chro,vec = descr.rmse[ind.chro],label = paste0(descr," RMSE"),liss = F,interan = T,extr = T)
   mtext("f)",side=3,adj=0,line=0.8,font=1)
   graphics.off()
   
