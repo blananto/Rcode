@@ -603,40 +603,6 @@ get.radius<-function(descr,norm){
   radius<-mean(sdvec)/norm
 }
 
-# Calcul du fichier precip a partir des pluvios: interpolation 1x1km2 puis moyenne
-make.precip1<-function(start="1950-01-01",end="2011-12-31") { #debut=19500101, nbjour=3,5ou7, fin=20161231
-  
-  bord<-read.csv("/Users/juliette/DataLTHE/METEO-FRANCE/DAILY/Isere@Grenoble/border_Isere@Grenoble.csv",sep=",") #coordonnees des bassins
-  
-  load("/Users/juliette/DataLTHE/METEO-FRANCE/DAILY/Isere@Grenoble/Isere@Grenoble_24h_minlength50.Rdata") #precip journlieres
-  
-  bassin<-c(87,567,706,577,797,621,136,116,180,1092,792,248,596,670,19,35,104,124,176) #ensemble des bassins du domaine
-  
-  #indice des 1er et derniers jours dans le Rdata des precip 
-  id1<-which(rownames(l$ymat)==paste0(substr(start,1,4),substr(start,6,7),substr(start,9,10)))
-  id2<-which(rownames(l$ymat)==paste0(substr(end,1,4),substr(end,6,7),substr(end,9,10)))
-  
-  grids<-merge((seq(min(bord[,2]),max(bord[,2]),by=1)),(seq(min(bord[,3]),max(bord[,3]),by=1)))  #on quadrille (pas 1km), pour pouvoir ensuite calculer a l'echelle du domaine en ne prenant que les points du quadrillage qui sont dans le domaine
-  
-  idx<-NULL
-  for (i in 1:length(bassin)) { 
-    idx<-c(idx,inpip(grids,bord[bord[,1]==bassin[i],2:3])) #indice des points du quadrillage qui sont dans mon domaine
-  }
-  #plot(grids[,1],grids[,2])
-  #points(grids[idx,1],grids[idx,2],col="red")
-  
-  ivec<-id1:id2
-  precip<-rep(NA,length(ivec))
-  for (i in ivec) {
-    fit<- Tps(l$coord[,1:2],l$ymat[i,]/10,give.warnings=F)
-    tmp<-predict(fit,cbind(grids[idx,1],grids[idx,2]))  #contient toutes les estimations des points du quadrillage qui sont dans le domaine
-    tmp[tmp<0]=0  #on remet a 0 toutes les valeurs estimees de pluies qui sont negatives
-    precip[i]<-mean(tmp,na.rm = T) ##precip contient la valeur moyenne du bassin pour chaque jour entre debut et fin
-  }
-  
-  precip
-}
-
 # Ancienne fonction plot.empir
 plot.empir.old<-function(descriptors,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,rean,empir=TRUE,obs=FALSE){
   
