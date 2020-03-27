@@ -1,4 +1,5 @@
-setwd("C:/Users/blananto/Documents")
+#setwd("C:/Users/blananto/Documents")
+setwd("../../")
 
 # Parametres ----
 rean     <- "20CR"
@@ -11,7 +12,7 @@ N        <- "02" # %age de voisins selectionnes pour l'analogie classique
 Q        <- "05" # %age de voisins selectionnes pour construire les indicateurs 
 M        <- "nrn05" # %age de voisins selectionnes pour l'analogie indicateurs
 start    <- "1950-01-01"
-end      <- "2011-12-31"
+end      <- "2011-12-31" # end <- "2010-12-31" pour ERA2C
 
 # Import des sorties de la reanalyse et calcul des distances ----
 load.nc(rean = rean)
@@ -40,11 +41,11 @@ plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start 
                 radtype = M, rean = rean, ref="1900-01-01")
 
 # Version generique
-fit.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("rsing05","rsing05"), dist = c("TWS","RMSE"),
+fit.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("celnei","dP"), dist = c("TWS","TWS"),
           nbdays = 3, start = start, end = end, radtype = M)
 plot.empir.clean.obs(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("celnei","rsingnei"), dist = c("TWS","TWS"),
            nbdays = 3, start = start, end = end, radtype = M,dP = T,coin = T)
-compute_crps(descriptors = c("sing05","rsing05"), k = c(1,1), dist = c("TWS","TWS"), nbdays = 3,
+compute_crps(descriptors = c("celnei","dP"), k = c(1,1), dist = c("TWS","TWS"), nbdays = 3,
              start = start, end = end, radtype = M, rean = c("20CR","20CR"),threeday = c(F,F))
 compare.crps(which = "", k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
 

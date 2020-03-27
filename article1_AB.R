@@ -1,4 +1,4 @@
-source('~/2_Travail/Rcode/utils_AB.R', encoding = 'UTF-8')
+source('2_Travail/Rcode/utils_AB.R', encoding = 'UTF-8')
 
 
 # classification manuelle des circulations selon leur distance TWS ou RMSE
@@ -22,7 +22,7 @@ classif.perso <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",re
 }
 
 # Combine deux fonctions en une
-combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean){
+combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean,quant=F,dP=F){
   
   # plot.desais.descr
   if(fun==1){
@@ -36,11 +36,18 @@ combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="20
   
   # plot.empir.dp.sais
   if(fun==2){
-    png(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.dP.sais-CV/plot_combine.png"),width=8,height=9,units = "in",res=1200) # manip substr pour enlever le std
-    layout(matrix(c(rep(1,3),2:4,rep(5,3),6:8,rep(9,3),10:12),nrow = 6,ncol = 3,byrow = T),widths = rep(1,3),heights = c(0.1,1.2,0.1,1.2,0.1,1.2))
+    if(!dP){
+      png(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.dP.sais-CV/plot_combine",ifelse(quant,"_quant",""),".png"),width=8,height=9,units = "in",res=1200)
+      layout(matrix(c(rep(1,3),2:4,rep(5,3),6:8,rep(9,3),10:12),nrow = 6,ncol = 3,byrow = T),widths = rep(1,3),heights = c(0.1,1.2,0.1,1.2,0.1,1.2))
+      let <- list(c("a)","b)","c)"),c("d)","e)","f)"),c("g)","h)","i)"))
+    }else{
+      png(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.dP.sais-CV/plot_combine_dP",ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=1200)
+      layout(matrix(c(rep(1,2),2:3,rep(4,2),5:6,rep(7,2),8:9),nrow = 6,ncol = 2,byrow = T),widths = rep(1,2),heights = c(0.1,1.2,0.1,1.2,0.1,1.2))
+      let <- list(c("a)","b)"),c("c)","d)"),c("e)","f)"))
+    }
+
     par(pty="s")
     nam <- c("Celerity","Singularity","Relative singularity")
-    let <- list(c("a)","b)","c)"),c("d)","e)","f)"),c("g)","h)","i)"))
     
     for(i in 1:length(descr)){
       # Nom de l'indicateur
@@ -50,7 +57,7 @@ combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="20
       
       # Graphiques
       par(mar=c(3,4,0,3),pty="s")
-      plot.empir.dP.sais(c(rean,rean),c(k,k),c(descr[i],descr[i]),dist,nbdays,start,end,coin=ifelse(descr[i]=="celnei",T,F),save=F,let=let[[i]])
+      plot.empir.dP.sais(c(rean,rean),c(k,k),c(descr[i],ifelse(dP,"dP",descr[i])),dist,nbdays,start,end,coin=ifelse(descr[i]=="celnei",F,F),save=F,let=let[[i]],quant = quant)
     }
     graphics.off()
   }
@@ -67,6 +74,33 @@ combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="20
     graphics.off()
   }
   
+}
+
+# Calcul densite de points dans un plan
+compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",quant=F){
+  
+  # Import des descripteurs
+  descr1<-get.descriptor(descriptors[1],k,dist[1],nbdays,start,end,standardize=T,rean)
+  descr2<-get.descriptor(descriptors[2],k,dist[2],nbdays,start,end,standardize=T,rean)
+  descr <- cbind(descr1,descr2)
+  
+  if(quant){
+    descr1 <- ecdf(descr1)(descr1)*100
+    descr2 <- ecdf(descr2)(descr2)*100
+    descr1 <- descr1/sd(descr1)
+    descr2 <- descr2/sd(descr2)
+    descr <- cbind(descr1,descr2)
+  }
+  
+  nb <- NULL
+  for(i in 1:nrow(descr)){
+    if (i %%50==0) print(i)
+    count <- nn2(data = descr,query = t(descr[i,]),searchtype = "radius",radius =  0.5,k = nrow(descr)) # nombre de voisins dans le rayon (tmp$idef: indices ou les deux descr sont non NA)
+    nb[i] <- rowSums(count$nn.idx>0)-1
+  }
+  print(paste0("min density: ",min(nb)))
+  print(paste0("max density: ",max(nb)))
+  save(nb,file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compute.density/nbnei_",ifelse(quant,"quant_",""),descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
 }
 
 # Calcul de dP
@@ -99,7 +133,7 @@ map.corner <- function(k, rean){
   for(i in 1:4){
     for(j in 1:3){
       date <- as.character(as.Date(dates[i])+j-1)
-      map.geo(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = ifelse(j==1,lettre[i],F),leg=F)
+      map.geo(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = ifelse(j==1,lettre[i],F),leg=F,iso = T)
     }
   }
   par(pty="m",mar=c(0,0,0,0))
@@ -140,7 +174,7 @@ map.extr.dry <- function(k, rean){
   layout(matrix(c(1:4,rep(5,2)),nrow = 3,ncol = 2,byrow = T),widths = rep(1,2),heights = c(rep(1,2),0.5))
   
   for(i in 1:4){
-      map.geo(date = dates[i],rean = rean,k = k,nbdays = 1,save = F,win = T,let = lettre[i],leg=F)
+      map.geo(date = dates[i],rean = rean,k = k,nbdays = 1,save = F,win = T,let = lettre[i],leg=F,iso = T)
   }
   par(pty="m",mar=c(0,0,0,0))
   plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
@@ -174,6 +208,7 @@ plot.desais.descr <- function(descr,k,dist,nbdays,start="1950-01-01",end="2011-1
   colnames(qua) <- c("Original","Seasonal adjusted")
   
   # Mise en forme
+  precip <- get.precip(nbdays,start,end)
   ind.extr <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
   tab.final <- pivot_longer(data = qua[ind.extr,],1:2,names_to = "name",values_to = "quantile")
   tab.final$name <- factor(tab.final$name,colnames(qua))
@@ -226,6 +261,10 @@ plot.dP.descr <- function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="201
   cor.desais <- round(cor(desais.dP,desais.descr)^2,2)
   lm.desais  <- lm(desais.descr~desais.dP)
   
+  # Extremes
+  precip <- get.precip(nbdays,start,end)
+  ind.extr <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
+  
   # Graphiques
   png(file = paste0(get.dirstr(k,rean),"plot.dP.descr/plot_dP_",descriptor,"_",dist,"_member",member,
                     "_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 8,height = 3.5,units = "in",res = 1200)
@@ -241,6 +280,7 @@ plot.dP.descr <- function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="201
   colo <- c("red","darkorange","blue","olivedrab3")
   
   plot(dP,descr,col=colo[sea],xlab="Pressure gradient (m)",ylab=paste0(descriptor," ",dist),main="Original")
+  points(dP[ind.extr],descr[ind.extr],pch=21,bg="white")
   abline(lm$coefficients[1],lm$coefficients[2],lwd=2)
   text(quantile(dP,0.1),quantile(descr,0.001),paste0("R² = ",cor),font=2)
   legend("topright",c("summer","autumn","winter","spring"),col=colo,pch=1,bty="n",ncol=2,cex=0.9)
@@ -262,6 +302,7 @@ plot.dP.descr <- function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="201
   
   # Desais
   plot(desais.dP,desais.descr,col="darkgray",xlab="Pressure gradient (m)",ylab=paste0(descriptor," ",dist),main="Seasonal adjusted")
+  points(desais.dP[ind.extr],desais.descr[ind.extr],pch=21,bg="white")
   abline(lm.desais$coefficients[1],lm.desais$coefficients[2],lwd=2)
   text(quantile(desais.dP,0.01),quantile(desais.descr,0.001),paste0("R² = ",cor.desais),font=2)
   
@@ -315,7 +356,7 @@ plot.dP.descr <- function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="201
 }
 
 # Plan des indicateurs colorie par densite, gradient de pression, et saison
-plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),coin=F,save=T,let=F){
+plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),coin=F,save=T,let=F,quant=F){
   
   # Definition du repertoire de travail (lecture et ecriture)
   if(rean[1] != rean[2]){ 
@@ -331,16 +372,27 @@ plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
     path2 <- paste0(descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
   }
   
-  # Import des precip, du fit.empir, des indicateurs
+  # Import precip
   precip <- get.precip(nbdays,start,end)
   
+  # Import descripteurs
+  descr1<-get.descriptor(descriptors[1],k[1],dist[1],nbdays,start,end,standardize=F,rean[1],threeday[1])
+  descr2<-get.descriptor(descriptors[2],k[2],dist[2],nbdays,start,end,standardize=F,rean[2],threeday[2])
+  
+  if(quant){
+    descr1 <- ecdf(descr1)(descr1)*100
+    descr2 <- ecdf(descr2)(descr2)*100
+  }
+  
+  # Import nbnei
+  if(!("dP" %in% descriptors) & !quant){
   if(TRUE %in% threeday) {comp <- paste0("_threeday",which(threeday==T))
   } else {comp <- ""}
   load(file=paste0(path1,"fit.empir",get.CVstr(CV),"/",path2,comp,".Rdata"))
-  param<-param[,colnames(param)!="kurtosis"]
-  
-  descr1<-get.descriptor(descriptors[1],k[1],dist[1],nbdays,start,end,standardize=FALSE,rean[1],threeday[1])
-  descr2<-get.descriptor(descriptors[2],k[2],dist[2],nbdays,start,end,standardize=FALSE,rean[2],threeday[2])
+  nb<-param[,"nbnei"]
+  }else{
+    load(file = paste0("2_Travail/",rean[1],"/Rresults/overall/k",k[1],"/compute.density/nbnei_",ifelse(quant,"quant_",""),descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  }
   
   # Nom propre des indicateurs
   cond <- substr(descriptors,nchar(descriptors)-1,nchar(descriptors)) == substr(radtype,nchar(radtype)-1,nchar(radtype))
@@ -357,37 +409,41 @@ plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
   ind.extr <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
   
   # Creation du plot
-  if(save){
-    pdf(file=paste0(path1,"plot.empir.dP.sais",get.CVstr(CV),"/plot_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),comp,".pdf"),width=8,height=3.5) # manip substr pour enlever le std
+  if(save & !("dP" %in% descriptors)){
+    pdf(file=paste0(path1,"plot.empir.dP.sais",get.CVstr(CV),"/plot_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),comp,ifelse(quant,"_quant",""),".pdf"),width=8,height=3.5) # manip substr pour enlever le std
     par(mfrow=c(1,3))
   }
+  if(save & ("dP" %in% descriptors)){
+    pdf(file=paste0(path1,"plot.empir.dP.sais",get.CVstr(CV),"/plot_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),comp,ifelse(quant,"_quant",""),".pdf"),width=8,height=4.5) # manip substr pour enlever le std
+    par(mfrow=c(1,2))
+  }
   
-  gamme <- c(0,4445)
-  param <- param[,c("nbnei")]
+  gamme <- c(0,3973)
   
   # Densite
   plot(descr1,descr2,
-       col=getcol(param,range = gamme),
-       xlab=paste0(namdescr[1]," ",dist[1]),
-       ylab=paste0(namdescr[2]," ",dist[2]),
+       col=getcol(nb,range = gamme),
+       xlab=paste0(ifelse(quant,"Percentile ",""),namdescr[1]," ",ifelse(descriptors[1]!="dP",dist[1],"")),
+       ylab=paste0(ifelse(quant,"Percentile ",""),namdescr[2]," ",ifelse(descriptors[2]!="dP",dist[2],"")),
        xlim=c((min(descr1,na.rm=T)+max(descr1,na.rm=T))/2-((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2),(min(descr1,na.rm=T)+max(descr1,na.rm=T))/2+((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2)),
        ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.3))
-  addscale(vec = c(param,gamme))
+  addscale(vec = c(nb,gamme))
   text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T)),
        y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.15,
-       paste0(round(min(param,na.rm=T),2),"-",round(max(param,na.rm=T),2)))
+       paste0(round(min(nb,na.rm=T),2),"-",round(max(nb,na.rm=T),2)))
   points(descr1[ale],descr2[ale],pch=19,cex=0.9)
   points(descr1[ind.extr],descr2[ind.extr],pch=21,bg="white") 
   if(coin) points(descr1[pos.coin],descr2[pos.coin],pch=19,cex=0.8,col="red")
   if(length(let)!=1) mtext(let[1],side=3,adj=0,line=0.8,font=1)
   
   # Gradient de pression
+  if(!("dP" %in% descriptors)){
   deltaP <- get.dP(k[1],nbdays,start,end,rean[1])
   
   plot(descr1,descr2,
        col=getcol(deltaP),
-       xlab=paste0(namdescr[1]," ",dist[1]),
-       ylab=paste0(namdescr[2]," ",dist[2]),
+       xlab=paste0(ifelse(quant,"Percentile ",""),namdescr[1]," ",ifelse(descriptors[1]!="dP",dist[1],"")),
+       ylab=paste0(ifelse(quant,"Percentile ",""),namdescr[2]," ",ifelse(descriptors[2]!="dP",dist[2],"")),
        xlim=c((min(descr1,na.rm=T)+max(descr1,na.rm=T))/2-((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2),(min(descr1,na.rm=T)+max(descr1,na.rm=T))/2+((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2)),
        ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.3))
   addscale(vec = round(deltaP,0))
@@ -396,6 +452,7 @@ plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
   points(descr1[ind.extr],descr2[ind.extr],pch=21,bg="white")
   if(coin) points(descr1[pos.coin],descr2[pos.coin],pch=19,cex=0.8,col="red")
   if(length(let)!=1) mtext(let[2],side=3,adj=0,line=0.8,font=1)
+  }
   
   # Saison
   dates <- getdates(start,end)
@@ -409,8 +466,8 @@ plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
     
   plot(descr1,descr2,
          col=colo[sea],
-         xlab=paste0(namdescr[1]," ",dist[1]),
-         ylab=paste0(namdescr[2]," ",dist[2]),
+         xlab=paste0(ifelse(quant,"Percentile ",""),namdescr[1]," ",ifelse(descriptors[1]!="dP",dist[1],"")),
+         ylab=paste0(ifelse(quant,"Percentile ",""),namdescr[2]," ",ifelse(descriptors[2]!="dP",dist[2],"")),
        xlim=c((min(descr1,na.rm=T)+max(descr1,na.rm=T))/2-((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2),(min(descr1,na.rm=T)+max(descr1,na.rm=T))/2+((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2)),  
        ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.3))
   legend("topleft",c("summer","autumn","winter","spring"),col=colo,pch=1,bty="n",ncol=2)

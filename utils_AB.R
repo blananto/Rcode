@@ -18,12 +18,13 @@ library("ggplot2") #ggplot
 library("ggpubr") #ggarrange
 library("deSolve") #ode
 library("plot3D") #lines3D
-library("PACBO") # runiform_ball
+#library("PACBO") # runiform_ball
 library("rgeos") # pour maptools
 library("maptools") # wrld_simpl
 library("RColorBrewer") # brewer.pal
 library("gridExtra") # several ggplot on the same page
 library("corrplot") # colorlegend
+library("raster") # brick
 
 # Fonctions graphiques
 addcircle<-function(radius){
@@ -910,16 +911,24 @@ compare.crps.simple <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rad
   
   # Indicateurs
   descr <- list(
-    c("sing05","rsing05"),
-    c("sing05","rsing05")
+    c("celnei","celnei"),
+    c("celnei","dP"),
+    c("singnei","singnei"),
+    c("singnei","dP"),
+    c("rsingnei","rsingnei"),
+    c("rsingnei","dP")
   )
   
   dist <- list(
+    c("TWS","RMSE"),
     c("TWS","TWS"),
+    c("TWS","RMSE"),
+    c("TWS","TWS"),
+    c("TWS","RMSE"),
     c("TWS","TWS")
   )
   
-  threeday <- c(F,T)
+  threeday <- c(F,F,F,F,F,F)
   
   ndescr <- length(descr)
   namdescr <- lapply(descr,nam2str)
@@ -1481,11 +1490,10 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
   
   if (!update) {
     #coln.new<-c("cel","mind","sing05","sing1","sing2","sing5","lsing05","lsing1","lsing2","lsing5","pers05","pers1","pers2","pers5","q05","q1","q2","q5","pcel","pnei05","pnei1","pnei2","pnei5","snei05","snei1","snei2","snei5")
-    coln.new<-c("q05","cel","snei05","sing05")
+    coln.new<-c("celnei","persnei","singnei","rsingnei")
   }
   if (update) {
-    coln.new<-c("pneinei")
-    #coln.new <- c("rsingnei")
+    coln.new<-c("celnei","persnei","singnei","rsingnei")
   }
   
   criteria.new<-matrix(NA,ncol=length(coln.new),nrow=N)
@@ -1559,19 +1567,19 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="accR") {if (i==1) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/criteria[i-1,"cel"]/qi05)}
       #if (cc=="acc10R") {if (i %in% 1:10) tmp<-c(tmp,NA) else tmp <- c(tmp,criteria[i,"cel"]/mean(criteria[(i-10):(i-1),"cel"],na.rm=TRUE)/qi05)}
       
-      if (cc=="accnei") tmp <- c(tmp,mean(criteria[idi05,"acc"],na.rm=TRUE))
+      #if (cc=="accnei") tmp <- c(tmp,mean(criteria[idi05,"acc"],na.rm=TRUE))
       #if (cc=="accneiR") tmp <- c(tmp,mean(criteria[idi05,"acc"],na.rm=TRUE)/qi05)
       # Minimum distance
       #if (cc=="mind") tmp<-c(tmp,di[soso$ix[2]]) # score minimum obtenu avec la meilleure journee analogue
       #
       ## Singularite
-      if (cc=="sing05") tmp<-c(tmp,mean(di[idi05])) # moyenne des distances (scores) des 0.5% les plus proches
+      #if (cc=="sing05") tmp<-c(tmp,mean(di[idi05])) # moyenne des distances (scores) des 0.5% les plus proches
       #if (cc=="sing1") tmp<-c(tmp,mean(di[idi1]))   # des 1% les plus proches
       #if (cc=="sing2") tmp<-c(tmp,mean(di[idi2]))   # des 2% les plus proches
       #if (cc=="sing5") tmp<-c(tmp,mean(di[idi5]))   # des 5% les plus proches
       #if (cc=="sing10") tmp<-c(tmp,mean(di[idi10])) # des 10% les plus proches
-      if (cc=="singnei_rev") tmp <- c(tmp,mean(criteria[idi05,"sing05"],na.rm=TRUE))
-      if (cc=="rsingnei_rev") tmp <- c(tmp,mean(criteria[idi05,"rsing05"],na.rm=TRUE))
+      if (cc=="singnei") tmp <- c(tmp,mean(criteria[idi05,"sing05"],na.rm=TRUE))
+      if (cc=="rsingnei") tmp <- c(tmp,mean(criteria[idi05,"rsing05"],na.rm=TRUE))
       #
       ## Log Singularite
       #if (cc=="lsing05") tmp<-c(tmp,mean(log(di[idi05]))) # moyenne du logarithme des distances des 0.5% les plus proches
@@ -1588,7 +1596,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="pers10") tmp<-c(tmp,mean(ri10$lengths[ri10$values==1])) # du quantile 10%
       #
       ## Quantiles
-      if (cc=="q05") tmp<-c(tmp,qi05) # Quantile 0.5%
+      #if (cc=="q05") tmp<-c(tmp,qi05) # Quantile 0.5%
       #if (cc=="q1") tmp<-c(tmp,qi1)   # Quantile 1%
       #if (cc=="q2") tmp<-c(tmp,qi2)   # Quantile 2%
       #if (cc=="q5") tmp<-c(tmp,qi5)   # Quantile 5%
@@ -1598,23 +1606,23 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="pcel"){if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ecdf(dim1)(ddi[i-1]))} # calcul de la fonction de repartition empirique (F=i/n, fonction creneau) et probabilite au non depassement de la veille (donne une indication sur son rang dans les analogues)
       #
       ## Persistence neighbour: probabilite qu'un jour du voisinage soit dans le voisinage de la veille le jour precedent (qu'il suive la meme trajectoire)
-      if (cc=="pnei05") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi05-1) %in% idi05m1))} # moyenne de la condition: les veilles des journees analogues sont dans les 0.5% les plus proches de la veille de la journee cible
+      #if (cc=="pnei05") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi05-1) %in% idi05m1))} # moyenne de la condition: les veilles des journees analogues sont dans les 0.5% les plus proches de la veille de la journee cible
       #if (cc=="pnei1") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi1-1) %in% idi1m1))}    # dans les 1% les plus proches
       #if (cc=="pnei2") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi2-1) %in% idi2m1))}    # dans les 2% les plus proches
       #if (cc=="pnei5") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi5-1) %in% idi5m1))}    # dans les 5% les plus proches
       #if (cc=="pnei10") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi10-1) %in% idi10m1))} # dans les 10% les plus proches
-      if (cc=="pneinei") tmp <- c(tmp,mean(criteria[idi05,"pnei05"],na.rm=TRUE))
+      #if (cc=="pneinei") tmp <- c(tmp,mean(criteria[idi05,"pnei05"],na.rm=TRUE))
       #
       ## Persistence neighbour: probabilite qu'un jour du voisinage soit deja dans le voisinage le jour precedent
-      if (cc=="snei05") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi05-1) %in% idi05))} # moyenne de la condition: les veilles des journees analogues sont deja dans les 0.5% les plus proches de la journee cible
+      #if (cc=="snei05") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi05-1) %in% idi05))} # moyenne de la condition: les veilles des journees analogues sont deja dans les 0.5% les plus proches de la journee cible
       #if (cc=="snei1") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi1-1) %in% idi1))}    # dans les 1% les plus proches
       #if (cc=="snei2") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi2-1) %in% idi2))}    # dans les 2% les plus proches
       #if (cc=="snei5") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi5-1) %in% idi5))}    # dans les 5% les plus proches
       #if (cc=="snei10") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi10-1) %in% idi10))} # dans les 10% les plus proches
-      if (cc=="persnei_rev") tmp <- c(tmp,mean(criteria[idi05,"snei05"],na.rm=TRUE))
+      if (cc=="persnei") tmp <- c(tmp,mean(criteria[idi05,"snei05"],na.rm=TRUE))
       
       ## Celerite neighbour: on moyenne la celerite des plus proches voisins
-      if (cc=="celnei_rev") tmp<-c(tmp,mean(criteria[idi05,"cel"],na.rm=TRUE)) # moyenne des celerites des 0.5% les plus proches
+      if (cc=="celnei") tmp<-c(tmp,mean(criteria[idi05,"cel"],na.rm=TRUE)) # moyenne des celerites des 0.5% les plus proches
       #if (cc=="celnei1") tmp<-c(tmp,mean(criteria[idi1,"cel"],na.rm=TRUE))   # des 1% les plus proches
       #if (cc=="celnei2") tmp<-c(tmp,mean(criteria[idi2,"cel"],na.rm=TRUE))   # des 2% les plus proches
       #if (cc=="celnei5") tmp<-c(tmp,mean(criteria[idi5,"cel"],na.rm=TRUE))   # des 5% les plus proches
@@ -2560,7 +2568,7 @@ get.dirstr<-function(k=NULL,rean){
 }
 
 # Renvoie les indices des nbre events extremes de precip a partir d'une certaine reference
-get.ind.extr <- function(nbre, ref = "1950-01-01", nbdays=3, start="1950-01-01", end="2011-12-31", nei=FALSE, bv="all"){
+get.ind.extr <- function(nbre, ref = "1950-01-01", nbdays=3, start="1950-01-01", end="2011-12-31", nei=FALSE, bv="Isere"){
   
   # Classement
   precip <- get.precip(nbdays, start, end, bv)
@@ -2591,10 +2599,10 @@ get.ind.extr <- function(nbre, ref = "1950-01-01", nbdays=3, start="1950-01-01",
 }
 
 # Renvoie les indices des max annuels ou mensuels de precip (dans le referentiel de start/end)
-get.ind.max <- function(type="year",nbdays=3,start="1950-01-01", end="2011-12-31",bv="all"){
+get.ind.max <- function(type="year",nbdays=3,start="1950-01-01", end="2011-12-31",bv="Isere"){
   
   # Import
-  precip <- get.precip(nbdays, start, end, bv)
+  precip <- get.precip(nbdays,start,end,bv)
   dates <- as.Date(getdates(start,end))
   length(dates) <- length(precip)
   
@@ -2624,9 +2632,11 @@ get.ind.min.max.descr <- function(descr,k,dist,nbdays,start="1950-01-01",end="20
 }
 
 # Importation des donnees de precipitation
-get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="all"){
+get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere"){
   
-  precip <- read.csv(file=paste0("2_Travail/Data/Precip/",ifelse(bv=="all","Isere@Grenoble",bv),"_cum",nbdays,"day_1950-01-01_2011-12-31.csv"))
+  # bv possibles: Isere-seul et Drac-seul
+  
+  precip <- read.csv(file=paste0("2_Travail/Data/Precip/",bv,"_cum",nbdays,"day_1950-01-01_2011-12-31.csv"))
   precip <- precip[,1]
   
   if(start != "1950-01-01"){
@@ -2844,51 +2854,36 @@ image.europe<- function(){
 }
 
 # Trace la carte du BV avec pluvios, rivieres, villes
-image.region<-function(pluvios = TRUE, sousBV = F,save=T){
+image.region<-function(pluvios = TRUE,save=T){
   
-  if(save) pdf(file=paste0("2_Travail/Rresults/image.region/map_region",ifelse(pluvios,"_pluvios",""),ifelse(sousBV,"_sousBV",""),".pdf"),width = 7.5,height = 7.5)
+  bv <- c(#"isere",
+          #"isere-seul",
+          #"drac-seul",
+          "tarentaise",
+          "maurienne",
+          "romanche",
+          "drac",
+          "gresivaudan")
+  
+  if(save) pdf(file=paste0("2_Travail/Rresults/image.region/map_region_",ifelse(pluvios,"pluvios_",""),paste0(bv,collapse = "_"),".pdf"),width = 7.5,height = 7.5)
   
   # Fond de carte
   load(file=paste("2_Travail/Data/Carto/griddata_1x1_IsereSavoieHautesAlpes.Rdata",sep=""))
   Fx<-griddata$Fx
   Fy<-griddata$Fy
   Fz<-griddata$Fz*1000
-  #windows(width=7.5,heigh=6.5)
   image.plot(Fx,Fy,Fz,col=gray(seq(0.1,0.99,length=100)),xlab="X (km) - Lambert II extended",ylab="Y (km) - Lambert II extended",legend.line=-2.3, cex.axis=1.3, cex.lab=1.3)
   
   # Bordure du BV et des sous-BV
-  bord<-read.csv("2_Travail/Data/Carto/borders-lambert93-lambertII.csv",sep=";")
-  bord<-cbind(bord$XLII.m,bord$YLII.m)/1000
-  lines(bord,col="white",lwd=3)
-  #geometry::polyarea(bord[,1],bord[,2]) pour calculer la surface!
-  #bord <- bord[bord[,1] %in% c(670,19,35,124,248,176,596,104),] # Drac
-  #bord <- bord[bord[,1] %in% c(87,576,706,577,797,621,136,180,1092,116,792),] # Isere
-  #ui<-unique(bord[,1])
-  #for (i in ui) lines(bord[bord[,1]==i,2],bord[bord[,1]==i,3],col="red")
-  
-  #a1<-as(bord[bord[,1]==unique(bord[,1])[1],2:3],"gpc.poly")
-  #a2<-as(bord[bord[,1]==unique(bord[,1])[2],2:3],"gpc.poly")
-  #a<-union(a1,a2) # Initialisation puis boucle
-  
-  # Tout le BV
-  #for (i in ui[-(1:2)]) {
-  #  a1<-as(bord[bord[,1]==i,2:3],"gpc.poly")
-  #  a<-union(a1,a)
-  #} 
-  #lines(a@pts[[1]]$x,a@pts[[1]]$y,col="white",lwd=3)
-  
-  if(sousBV){ # On retrace le Drac dessus
-    bord <- bord[bord[,1] %in% c(670,19,35,124,248,176,596,104),] # Drac
-    ui<-unique(bord[,1])
-    a1<-as(bord[bord[,1]==unique(bord[,1])[1],2:3],"gpc.poly")
-    a2<-as(bord[bord[,1]==unique(bord[,1])[2],2:3],"gpc.poly")
-    a<-union(a1,a2) # Initialisation puis boucle
-    for (i in ui[-(1:2)]) {
-      a1<-as(bord[bord[,1]==i,2:3],"gpc.poly")
-      a<-union(a1,a)
-    } 
-    lines(a@pts[[1]]$x,a@pts[[1]]$y,col="white",lwd=3)
+  for(i in 1:length(bv)){
+    bord<-read.csv(paste0("2_Travail/Data/Carto/borders-lambertII-",bv[i],".csv"),sep=";")
+    bord<-cbind(bord$XLII.m,bord$YLII.m)
+    lines(bord,col="white",lwd=3)
   }
+  
+  # Calcul surfaces
+  #geometry::polyarea(bord[,1],bord[,2]) pour calculer la surface!
+  
   # Rivieres
   riv<-readOGR("2_Travail/Data/Carto/Principales/Principales/riviere2_3.shp")
   id<-c(552,554,553,381)#isere,Drac,Arc,Romanche
@@ -2905,26 +2900,25 @@ image.region<-function(pluvios = TRUE, sousBV = F,save=T){
   }
   
   # Noms des rivieres
-  if(!sousBV){
-    shadowtext(938,2074+1,"Isère",col="cyan",srt=28,cex=1.2,bg="darkblue")
-    shadowtext(880,2042+1,"Isère",col="cyan",srt=60,cex=1.2,bg="darkblue")
-    shadowtext(846,2034+1,"Isère",col="cyan",srt=64,cex=1.2,bg="darkblue")
-    shadowtext(934,2035,"Arc",col="cyan",srt=-5,cex=1.2,bg="darkblue")
-    shadowtext(907-2.5,2010-2,"Romanche",col="cyan",srt=5,cex=1.2,bg="darkblue")
-    shadowtext(904.5,1972+1,"Drac",col="cyan",srt=20,cex=1.2,bg="darkblue")
-    
-    # Noms des villes
-    r<-rbind(
-      c(867.137,2026.491,"Grenoble"),
-      c(894.062,2107.205,"Annecy"),
-      c(897.82,1959.14,"Gap"),
-      c(915,2082,"Albertville"),
-      c(940.146,2031.530,"Modane")#,
-      #c(945.384,2078.211,"Bourg St Maurice")
-    )
-    shadowtext(r[,1],r[,2],r[,3],pos=c(1,1,1,1,1,3),cex=1.2,col="white",bg="darkblue",adj=c(0,0),r=0.09,font=3)#font=2
-    points(r[,1],r[,2],pch=22,col="darkblue",bg="white",cex=.8)
-  }
+  shadowtext(938,2074+1,"Isère",col="cyan",srt=28,cex=1.2,bg="darkblue")
+  shadowtext(880,2042+1,"Isère",col="cyan",srt=60,cex=1.2,bg="darkblue")
+  shadowtext(846,2034+1,"Isère",col="cyan",srt=64,cex=1.2,bg="darkblue")
+  shadowtext(934,2035,"Arc",col="cyan",srt=-5,cex=1.2,bg="darkblue")
+  shadowtext(907-2.5,2010-2,"Romanche",col="cyan",srt=5,cex=1.2,bg="darkblue")
+  shadowtext(904.5,1972+1,"Drac",col="cyan",srt=20,cex=1.2,bg="darkblue")
+  
+  # Noms des villes
+  r<-rbind(
+    c(867.137,2026.491,"Grenoble"),
+    c(894.062,2107.205,"Annecy"),
+    c(897.82,1959.14,"Gap"),
+    c(915,2082,"Albertville"),
+    c(940.146,2031.530,"Modane")#,
+    #c(945.384,2078.211,"Bourg St Maurice")
+  )
+  shadowtext(r[,1],r[,2],r[,3],pos=c(1,1,1,1,1,3),cex=1.2,col="white",bg="darkblue",adj=c(0,0),r=0.09,font=3)#font=2
+  points(r[,1],r[,2],pch=22,col="darkblue",bg="white",cex=.8)
+  
  if(save) graphics.off()
 }
 
@@ -2991,7 +2985,7 @@ make.precip1.isere<-function(start="1950-01-01",end="2011-12-31") {
 }
 
 # Carte de geopotentiel d'un jour donne
-map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T){
+map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F){
   
   # Import des donnees
   load.nc(rean)
@@ -3012,10 +3006,12 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T){
     breaks <- seq(4900,6100,length.out = 12)
     N <- 11
     lab <- seq(4900,6100,200)
+    lev <- seq(4900,6100,100)
   }else{
     breaks <- seq(-300,400,length.out = 8)
     N <- 7
     lab <- seq(-300,400,100)
+    lev <- lab
     }
   
   # Carte
@@ -3049,6 +3045,12 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T){
     plot(wrld_simpl, add = TRUE)
     if(win) rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
     if(i==1 & let!=F) mtext(let, side=3, at=-30,line = 2,cex=1.5)
+    if(iso){
+      z500 <- brick("2_Travail/20CR/Data/Membre_1/20Crv2c_Membre_1_HGT500_1851-2011_daily.nc")
+      dates <- seq(from=as.Date("1851-01-01"), to=as.Date("2011-12-31"), by="1 day")
+      ind <- which(dates == as.Date(date))
+      contour(x=z500[[ind]], levels=lev, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
+    }
     box()
   }
   
@@ -3057,7 +3059,7 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T){
 }
 
 # Carte de geopotentiels des sequences de plus fortes precipitations, avec distribution des analogues
-map.extr <- function(k,N="02",start="1950-01-01",end="2011-12-31",rean,bv="all"){
+map.extr <- function(k,N="02",start="1950-01-01",end="2011-12-31",rean,bv="Isere"){
   
   if(N=="02") n <- "0.2"
   if(N=="05") n <- "0.5"
@@ -3079,7 +3081,7 @@ map.extr <- function(k,N="02",start="1950-01-01",end="2011-12-31",rean,bv="all")
   for(j in 1:length(config)){
     
     if(j==1) ind <- get.ind.extr(nbre = 62,ref = start,nbdays = 3,start = start,end = end,bv = bv)
-    if(j==2) ind <- get.ind.max(type = "year",nbdays = 3,start = start,end = end,bv = bv)
+    if(j==2) ind <- get.ind.max(type = "year",nbdays = 3,start = start,end = end)
     if(j==3) {
       dP <- get.dP(k,nbdays,start,end,rean)
       ind <- sort(dP,decreasing=T,index.return=T)$ix[1:62]
@@ -3097,7 +3099,7 @@ map.extr <- function(k,N="02",start="1950-01-01",end="2011-12-31",rean,bv="all")
       print(paste0(i,"/",length(dates.extr)))
       
       # les 3 cartes
-      map.geo(dates.extr[i],rean,k,win=T); map.geo(dates.extr[i]+1,rean,k,win=T); map.geo(dates.extr[i]+2,rean,k,win=T)
+      map.geo(dates.extr[i],rean,k,win=T,iso=T); map.geo(dates.extr[i]+1,rean,k,win=T,iso=T); map.geo(dates.extr[i]+2,rean,k,win=T,iso=T)
       
       # la distribution des analogues
       precip.i <- precip[ind[i]]
@@ -4198,7 +4200,7 @@ plot.p0.wp <- function(){
 }
 
 # Trace le boxplot des quantiles d'un indicateur, pour 500 & 1000, pour les 4 distances
-plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",rean,bv="all",save=T){
+plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",rean,bv="Isere",save=T){
   
   # Import de l'indicateurs pour k1, k2, et les 4 distances
   k <- c(1,2)
@@ -4218,8 +4220,8 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
   namdescr <- ifelse(substr(descr,nchar(descr)-2,nchar(descr))=="rev",substr(descr,1,nchar(descr)-4),descr)
   
   # Traitement
-  ind.year <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end,bv = bv)
-  ind.mon <- get.ind.max(type = "month",nbdays = nbdays,start = start,end = end,bv = bv)
+  ind.year <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
+  ind.mon <- get.ind.max(type = "month",nbdays = nbdays,start = start,end = end)
   ind <- list(ind.year,ind.mon)
   
   qua <- apply(mat,2,function(v) ecdf(v)(v)*100)
@@ -4649,7 +4651,7 @@ plot.TWSgeo<-function(k,dist,nbdays,start,end,rean){
 }
 
 # plot le wp des precip extremes
-plot.wp.extr<-function(start="1950-01-01",end="2011-12-31",bv="all"){
+plot.wp.extr<-function(start="1950-01-01",end="2011-12-31",bv="Isere"){
   
   # Import
   wp <- get.wp(start = start,end = end)
@@ -4668,7 +4670,7 @@ plot.wp.extr<-function(start="1950-01-01",end="2011-12-31",bv="all"){
   
   # max annuel
   png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_annual_max_",bv,".png"),width = 800,height = 400,units = "px")
-  ind.max <- get.ind.max(type = "year",nbdays = 3,start = start,end = end,bv = bv)
+  ind.max <- get.ind.max(type = "year",nbdays = 3,start = start,end = end)
   ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
   tmp <- hist(wp[ind.max],0:8,plot=F)$counts
   tmp <- tmp/sum(tmp)*100 # pourcentage
@@ -4678,7 +4680,7 @@ plot.wp.extr<-function(start="1950-01-01",end="2011-12-31",bv="all"){
   
   # max mensuel
   png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_monthly_max_",bv,".png"),width = 800,height = 400,units = "px")
-  ind.max <- get.ind.max(type = "month",nbdays = 3,start = start,end = end,bv = bv)
+  ind.max <- get.ind.max(type = "month",nbdays = 3,start = start,end = end)
   ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
   tmp <- hist(wp[ind.max],0:8,plot=F)$counts
   tmp <- tmp/sum(tmp)*100 # pourcentage
