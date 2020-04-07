@@ -41,11 +41,11 @@ plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start 
                 radtype = M, rean = rean, ref="1900-01-01")
 
 # Version generique
-fit.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("celnei","dP"), dist = c("TWS","TWS"),
+fit.empir(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("rsingnei","dPnei"), dist = c("TWS","TWS"),
           nbdays = 3, start = start, end = end, radtype = M)
-plot.empir.clean.obs(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("celnei","rsingnei"), dist = c("TWS","TWS"),
-           nbdays = 3, start = start, end = end, radtype = M,dP = T,coin = T)
-compute_crps(descriptors = c("celnei","dP"), k = c(1,1), dist = c("TWS","TWS"), nbdays = 3,
+plot.empir.clean.obs(rean = c("20CR","20CR"), k = c(1,1), descriptors = c("rsingnei","dP"), dist = c("TWS","TWS"),
+           nbdays = 3, start = start, end = end, radtype = M,dP = F,coin = F)
+compute_crps(descriptors = c("rsingnei","dPnei"), k = c(1,1), dist = c("TWS","TWS"), nbdays = 3,
              start = start, end = end, radtype = M, rean = c("20CR","20CR"),threeday = c(F,F))
 compare.crps(which = "", k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
 

@@ -912,11 +912,11 @@ compare.crps.simple <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rad
   # Indicateurs
   descr <- list(
     c("celnei","celnei"),
-    c("celnei","dP"),
+    c("celnei","dPnei"),
     c("singnei","singnei"),
-    c("singnei","dP"),
+    c("singnei","dPnei"),
     c("rsingnei","rsingnei"),
-    c("rsingnei","dP")
+    c("rsingnei","dPnei")
   )
   
   dist <- list(
@@ -1399,6 +1399,37 @@ compare.crps.wp <- function(k,dist,nbdays=1,start="1950-01-01",end="2011-12-31",
   }
 }
 
+# Comparaison des interpolations TPS et SPAZM
+compare.tps.spazm <- function(nbdays,start,end,bv){
+  
+  # Import
+  tps <- get.precip(nbdays,start,end,bv,spazm=F)
+  spazm <- get.precip(nbdays,start,end,bv,spazm=T)
+  
+  # Traitement
+  max.tps <- get.ind.extr(nbre = 62,ref = start,nbdays,start,end,nei = F,bv,spazm=F)
+  max.spazm <- get.ind.extr(nbre = 62,ref = start,nbdays,start,end,nei = F,bv,spazm=T)
+  
+  ann.tps <- get.ind.max(type = "year",nbdays,start,end,bv,spazm=F)
+  ann.spazm <- get.ind.max(type = "year",nbdays,start,end,bv,spazm=T)
+  
+  # Graphiques
+  png(filename = paste0("2_Travail/Rresults/compare.tps.spazm/comp_",bv,"_",nbdays,"day_",start,"_",end,".png"),width = 800,height = 400,units = "px")
+  par(mfrow=c(1,3),pty="s")
+  
+  plot(spazm,tps,main="all")
+  abline(0,1,col="red")
+  text(40,10,paste0("R2 = ",round(cor(spazm,tps)^2,2)),cex=2)
+  
+  plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",main="62 max")
+  text(1,1,paste0("common: ",length(intersect(max.tps,max.spazm)),"/62"),cex=2)
+  
+  plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",main="Annual max")
+  text(1,1,paste0("common: ",length(intersect(ann.tps,ann.spazm)),"/62"),cex=2)
+  
+  graphics.off()
+}
+
 # Calcul de la relative singularite pour tous les rayons possibles
 compute.rsing<- function(vec,sing=F){
   som <- cumsum(vec)
@@ -1493,7 +1524,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
     coln.new<-c("celnei","persnei","singnei","rsingnei")
   }
   if (update) {
-    coln.new<-c("celnei","persnei","singnei","rsingnei")
+    coln.new<-c("dPnei")
   }
   
   criteria.new<-matrix(NA,ncol=length(coln.new),nrow=N)
@@ -1541,8 +1572,11 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
     
     for (cc in coln.new){
       
+      # dP
+      if (cc=="dPnei") tmp <- c(tmp,mean(criteria[idi05,"dP"],na.rm=TRUE))
+      
       # Celerite
-      if (cc=="cel") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i-1])} # score de la journee avec la veille
+      #if (cc=="cel") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i-1])} # score de la journee avec la veille
       #if (cc=="cel+1") {if (i==N) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i+1])} # score de la journee avec le lendemain
       
       #if(cc=="celAv"){if(1 %in% idi05) idi05 <- idi05[idi05!=1]; tmp <- c(tmp,mean(di[idi05-1]))} # score entre jour J et veille des voisins
@@ -1578,8 +1612,8 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="sing2") tmp<-c(tmp,mean(di[idi2]))   # des 2% les plus proches
       #if (cc=="sing5") tmp<-c(tmp,mean(di[idi5]))   # des 5% les plus proches
       #if (cc=="sing10") tmp<-c(tmp,mean(di[idi10])) # des 10% les plus proches
-      if (cc=="singnei") tmp <- c(tmp,mean(criteria[idi05,"sing05"],na.rm=TRUE))
-      if (cc=="rsingnei") tmp <- c(tmp,mean(criteria[idi05,"rsing05"],na.rm=TRUE))
+      #if (cc=="singnei") tmp <- c(tmp,mean(criteria[idi05,"sing05"],na.rm=TRUE))
+      #if (cc=="rsingnei") tmp <- c(tmp,mean(criteria[idi05,"rsing05"],na.rm=TRUE))
       #
       ## Log Singularite
       #if (cc=="lsing05") tmp<-c(tmp,mean(log(di[idi05]))) # moyenne du logarithme des distances des 0.5% les plus proches
@@ -1619,10 +1653,10 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="snei2") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi2-1) %in% idi2))}    # dans les 2% les plus proches
       #if (cc=="snei5") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi5-1) %in% idi5))}    # dans les 5% les plus proches
       #if (cc=="snei10") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,mean((idi10-1) %in% idi10))} # dans les 10% les plus proches
-      if (cc=="persnei") tmp <- c(tmp,mean(criteria[idi05,"snei05"],na.rm=TRUE))
+      #if (cc=="persnei") tmp <- c(tmp,mean(criteria[idi05,"snei05"],na.rm=TRUE))
       
       ## Celerite neighbour: on moyenne la celerite des plus proches voisins
-      if (cc=="celnei") tmp<-c(tmp,mean(criteria[idi05,"cel"],na.rm=TRUE)) # moyenne des celerites des 0.5% les plus proches
+      #if (cc=="celnei") tmp<-c(tmp,mean(criteria[idi05,"cel"],na.rm=TRUE)) # moyenne des celerites des 0.5% les plus proches
       #if (cc=="celnei1") tmp<-c(tmp,mean(criteria[idi1,"cel"],na.rm=TRUE))   # des 1% les plus proches
       #if (cc=="celnei2") tmp<-c(tmp,mean(criteria[idi2,"cel"],na.rm=TRUE))   # des 2% les plus proches
       #if (cc=="celnei5") tmp<-c(tmp,mean(criteria[idi5,"cel"],na.rm=TRUE))   # des 5% les plus proches
@@ -2364,12 +2398,21 @@ fit.loglik.p0.A<-function(rad,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31
 }
 
 # Sort la matrice de donnees de dat500 (k=1) ou dat1000 (k=2) dans notre fenetre d'analogie pour le jour j (de 1=01/01/1851 a 58804=31/12/2011)
-getdata<-function(k,day0,day1=day0,rean,large_win=F){
-  num0<-date_to_number(nc[[k]],day0,rean)
-  num1<-date_to_number(nc[[k]],day1,rean)
-  N<-length(num0:num1)
-  infowind<-getinfo_window(k,large_win)
-  ncvar_get(nc[[k]],varid="hgt",start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
+getdata<-function(k,day0,day1=day0,rean,large_win=F,var="hgt"){
+  nc <- load.nc(rean,var)
+  if(var=="hgt"){
+    num0<-date_to_number(nc[[k]],day0,rean)
+    num1<-date_to_number(nc[[k]],day1,rean)
+    N<-length(num0:num1)
+    infowind<-getinfo_window(k,large_win,var=var)
+    ncvar_get(nc = nc[[k]],varid=var,start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
+  }else{
+    num0<-date_to_number(nc,day0,rean)
+    num1<-date_to_number(nc,day1,rean)
+    N<-length(num0:num1)
+    infowind<-getinfo_window(k,large_win,var=var)
+    ncvar_get(nc = nc,varid=var,start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
+  }
 }
 
 # Part de la serie de dates complete et ressort seulement le subset voulu
@@ -2408,12 +2451,21 @@ getdist4i<-function(i,dist.vec,N,sU){
 }
 
 # Definit la fenetre spatiale d'analogie pour extraire des donnees de data500 et data1000 
-getinfo_window<-function(k,large_win = F){ 
-  # lat et lon correspondent aux degres de longitude et latitude pour lesquels on a les donnees des geopot 500 et 1000
-  lon<-nc[[1]]$dim$lon$vals # de -30 a 50 deg E tranches de 2 deg -> 41 valeurs
-  lat<-nc[[1]]$dim$lat$vals #de 24 a 72 deg N tranches de 2 deg -> 25 valeurs
-  # time=data500$dim$time$vals # 58804 valeurs par tranches de 24h (du 01-01-1851 au 31-12-2011), valeurs a 9h chaque jour
-  # parametre fenetre d'analogie
+getinfo_window<-function(k,large_win = F,var="hgt"){ 
+  if(var == "hgt"){
+    nc <- load.nc(var=var)
+    # lat et lon correspondent aux degres de longitude et latitude pour lesquels on a les donnees des geopot 500 et 1000
+    lon<-nc[[1]]$dim$lon$vals # de -30 a 50 deg E tranches de 2 deg -> 41 valeurs
+    lat<-nc[[1]]$dim$lat$vals #de 24 a 72 deg N tranches de 2 deg -> 25 valeurs
+    # time=data500$dim$time$vals # 58804 valeurs par tranches de 24h (du 01-01-1851 au 31-12-2011), valeurs a 9h chaque jour
+    # parametre fenetre d'analogie
+  }
+  
+  if(var =="pwat"){
+    nc <- load.nc(var=var)
+    lon<-nc$dim$lon$vals
+    lat<-nc$dim$lat$vals
+  }
   
   c_lon<-6 # centre de la fenetre longitude
   c_lat<-44 # centre de la fenetre latitude
@@ -2568,10 +2620,10 @@ get.dirstr<-function(k=NULL,rean){
 }
 
 # Renvoie les indices des nbre events extremes de precip a partir d'une certaine reference
-get.ind.extr <- function(nbre, ref = "1950-01-01", nbdays=3, start="1950-01-01", end="2011-12-31", nei=FALSE, bv="Isere"){
+get.ind.extr <- function(nbre, ref = "1950-01-01", nbdays=3, start="1950-01-01", end="2011-12-31", nei=FALSE, bv="Isere", spazm=T){
   
   # Classement
-  precip <- get.precip(nbdays, start, end, bv)
+  precip <- get.precip(nbdays, start, end, bv, spazm)
   tri <- sort(precip, decreasing = TRUE, index.return = TRUE)
   ind <- tri$ix[1:nbre]
   
@@ -2599,10 +2651,10 @@ get.ind.extr <- function(nbre, ref = "1950-01-01", nbdays=3, start="1950-01-01",
 }
 
 # Renvoie les indices des max annuels ou mensuels de precip (dans le referentiel de start/end)
-get.ind.max <- function(type="year",nbdays=3,start="1950-01-01", end="2011-12-31",bv="Isere"){
+get.ind.max <- function(type="year",nbdays=3,start="1950-01-01", end="2011-12-31",bv="Isere",spazm=T){
   
   # Import
-  precip <- get.precip(nbdays,start,end,bv)
+  precip <- get.precip(nbdays,start,end,bv,spazm)
   dates <- as.Date(getdates(start,end))
   length(dates) <- length(precip)
   
@@ -2632,11 +2684,13 @@ get.ind.min.max.descr <- function(descr,k,dist,nbdays,start="1950-01-01",end="20
 }
 
 # Importation des donnees de precipitation
-get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere"){
+get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm=T){
   
   # bv possibles: Isere-seul et Drac-seul
+  # donnees possibles: TPS et SPAZM
   
-  precip <- read.csv(file=paste0("2_Travail/Data/Precip/",bv,"_cum",nbdays,"day_1950-01-01_2011-12-31.csv"))
+  dir <- ifelse(spazm,"SPAZM/","TPS/")
+  precip <- read.csv(file=paste0("2_Travail/Data/Precip/",dir,bv,"_cum",nbdays,"day_1950-01-01_2011-12-31.csv"))
   precip <- precip[,1]
   
   if(start != "1950-01-01"){
@@ -2647,7 +2701,7 @@ get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere"){
     end_diff <- length(seq(as.Date(end),as.Date("2011-12-31"),"days"))
     precip <- precip[1:(length(precip) - end_diff + 1)]
   }
-  return(precip)
+  precip
 }
 
 # Retourne une chaine de caractere "_std" pour le chemin des dossiers
@@ -2657,7 +2711,7 @@ get.stdstr<-function(standardize){
 }
 
 # Importation des WP EDF
-get.wp <- function(start="1950-01-01",end="2011-12-31",risk=F){
+get.wp <- function(nbdays,start="1950-01-01",end="2011-12-31",risk=F,bv="Isere"){
   
   wp <- read.table("2_Travail/Data/WP/type_temps_jour.txt", quote="\"", comment.char="")
   wp[,1] <- as.character(format(as.Date(wp[,1],"%d/%m/%Y"),"%Y-%m-%d"))
@@ -2667,6 +2721,27 @@ get.wp <- function(start="1950-01-01",end="2011-12-31",risk=F){
     dates <- getdates(start,end)
     wp[substr(dates,6,7) %in% c("03","04","05","06","07","08")] <- wp[substr(dates,6,7) %in% c("03","04","05","06","07","08")]+8
   }
+  
+  if(nbdays==3){
+    precip3 <- get.precip(nbdays = 3,start,end,bv)
+    precip1 <- get.precip(nbdays = 1,start,end,bv)
+    tab <- cbind(wp,c(wp[-1],NA),c(wp[-(1:2)],rep(NA,2)))
+    tab <- tab[-c(nrow(tab)-1,nrow(tab)),]
+    res <- NULL
+    cat1 <- cat2 <- cat3 <- 0
+    
+    for(i in 1:nrow(tab)){
+      vec <- tab[i,]
+      count <- table(vec)
+      
+      if(count[1]>=2) {res[i] <- as.numeric(names(count[1])); cat1<-cat1+1} # si on a le meme wp deux ou trois jours, on prend celui la
+      if(count[1]==1 & precip3[i]>=0.1) {res[i] <- vec[which.max(precip1[i:(i+2)])]; cat2<-cat2+1} # si trois differents, on prend celui ou il a le plus plu
+      if(count[1]==1 & precip3[i]<0.1)  {res[i] <- vec[2]; cat3<-cat3+1} # si trois differents et pas de precip, on prend celui du milieu
+    }
+    wp <- res
+    print(cat1);print(cat2);print(cat3)
+  }
+  
   wp
 }
 
@@ -2913,7 +2988,8 @@ image.region<-function(pluvios = TRUE,save=T){
     c(894.062,2107.205,"Annecy"),
     c(897.82,1959.14,"Gap"),
     c(915,2082,"Albertville"),
-    c(940.146,2031.530,"Modane")#,
+    c(940.146,2031.530,"Modane"),
+    c(854.337,2045.940,"Voiron")
     #c(945.384,2078.211,"Bourg St Maurice")
   )
   shadowtext(r[,1],r[,2],r[,3],pos=c(1,1,1,1,1,3),cex=1.2,col="white",bg="darkblue",adj=c(0,0),r=0.09,font=3)#font=2
@@ -2923,21 +2999,29 @@ image.region<-function(pluvios = TRUE,save=T){
 }
 
 # Charge les fichiers NetCDF 500 hPa et 1000 hPa d'un membre donne
-load.nc<-function(rean = "20CR"){
-  if(rean == "20CR"){
+load.nc<-function(rean = "20CR",var="hgt"){
+  
+  if(rean == "20CR" & var == "hgt"){
     nc500<-nc_open(paste0("2_Travail/20CR/Data/Membre_",member,"/20Crv2c_Membre_",member,"_HGT500_1851-2011_daily.nc"))
     nc1000<-nc_open(paste0("2_Travail/20CR/Data/Membre_",member,"/20Crv2c_Membre_",member,"_HGT1000_1851-2011_daily.nc"))
   }
+  
+  if(rean == "20CR" & var == "pwat"){
+    nc<-nc_open(paste0("2_Travail/20CR/Data/PWAT/20Crv2_EnsembleMean_PWAT_1851-2014_daily.nc"))
+  }
+  
   if(rean == "ERA20C"){
     nc500<-nc_open("2_Travail/ERA20C/Data/ERA20C_HGT500_1900_2010_daily.nc")
     nc1000<-nc_open("2_Travail/ERA20C/Data/ERA20C_HGT1000_1900_2010_daily.nc")
   }
+  
   if(rean == "ERA20C_18"){
     nc500<-nc_open("2_Travail/ERA20C_18/Data/ERA20C_HGT500_1900_2010_18h.nc")
     nc1000<-nc_open("2_Travail/ERA20C_18/Data/ERA20C_HGT1000_1900_2010_18h.nc")
   }
   
-  nc<<-list(nc500=nc500,nc1000=nc1000)
+  if(var=="hgt") nc<-list(nc500=nc500,nc1000=nc1000)
+  nc
 }
 
 # Sort la matrice des gradients pour input= data500 ou data1000 sur notre fenetre d'analogie, l=1 longitude, l=2 latitude
@@ -2984,11 +3068,47 @@ make.precip1.isere<-function(start="1950-01-01",end="2011-12-31") {
   precip
 }
 
+# Mise en forme des fichiers de donnees SPAZM
+manip.spazm <- function(){
+  
+  # Import
+  load("2_Travail/Data/Precip/SPAZM/accum-drac-isere_SPAZM_1950-2012.Rdata")
+  
+  # Surfaces
+  print(paste0("Surface BV Isere: ",length(accum$idx.isere)+length(accum$idx.drac), "km2"))
+  print(paste0("Surface BV Isere seul: ",length(accum$idx.isere), "km2"))
+  print(paste0("Surface BV Drac seul: ",length(accum$idx.drac), "km2"))
+  
+  # Dates
+  deb <- which(accum$dates == "01/01/50"); fin <- which(accum$dates == "12/31/11")
+  accum$sum.isere <- accum$sum.isere[deb:fin]
+  accum$sum.drac <- accum$sum.drac[deb:fin]
+  
+  # Isere
+  precip.isere <- (accum$sum.isere+accum$sum.drac)/(length(accum$idx.isere)+length(accum$idx.drac))
+  precip.isere.3j <- rollapply(precip.isere,3,mean)
+  write.table(x = precip.isere,file = "2_Travail/Data/Precip/SPAZM/Isere_cum1day_1950-01-01_2011-12-31.csv",sep = ";",row.names = F, col.names = T)
+  write.table(x = precip.isere.3j,file = "2_Travail/Data/Precip/SPAZM/Isere_cum3day_1950-01-01_2011-12-31.csv",sep = ";",row.names = F, col.names = T)
+  
+  # Isere seul
+  precip.isere.seul <- accum$sum.isere/length(accum$idx.isere)
+  precip.isere.seul.3j <- rollapply(precip.isere.seul,3,mean)
+  write.table(x = precip.isere.seul,file = "2_Travail/Data/Precip/SPAZM/Isere-seul_cum1day_1950-01-01_2011-12-31.csv",sep = ";",row.names = F, col.names = T)
+  write.table(x = precip.isere.seul.3j,file = "2_Travail/Data/Precip/SPAZM/Isere-seul_cum3day_1950-01-01_2011-12-31.csv",sep = ";",row.names = F, col.names = T)
+  
+  # Drac seul
+  precip.drac.seul <- accum$sum.drac/length(accum$idx.drac)
+  precip.drac.seul.3j <- rollapply(precip.drac.seul,3,mean)
+  write.table(x = precip.drac.seul,file = "2_Travail/Data/Precip/SPAZM/Drac-seul_cum1day_1950-01-01_2011-12-31.csv",sep = ";",row.names = F, col.names = T)
+  write.table(x = precip.drac.seul.3j,file = "2_Travail/Data/Precip/SPAZM/Drac-seul_cum3day_1950-01-01_2011-12-31.csv",sep = ";",row.names = F, col.names = T)
+  
+}
+
 # Carte de geopotentiel d'un jour donne
 map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F){
   
   # Import des donnees
-  load.nc(rean)
+  nc <- load.nc(rean)
   fen <- getinfo_window(k)
   
   if(k==1){nc <- nc$nc500
@@ -3043,6 +3163,7 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F){
     
     data(wrld_simpl)
     plot(wrld_simpl, add = TRUE)
+    points(6,45,col="red",pch=19)
     if(win) rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
     if(i==1 & let!=F) mtext(let, side=3, at=-30,line = 2,cex=1.5)
     if(iso){
@@ -3059,7 +3180,7 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F){
 }
 
 # Carte de geopotentiels des sequences de plus fortes precipitations, avec distribution des analogues
-map.extr <- function(k,N="02",start="1950-01-01",end="2011-12-31",rean,bv="Isere"){
+map.extr <- function(var="hgt",k,N="02",start="1950-01-01",end="2011-12-31",rean,bv="Isere"){
   
   if(N=="02") n <- "0.2"
   if(N=="05") n <- "0.5"
@@ -3081,16 +3202,20 @@ map.extr <- function(k,N="02",start="1950-01-01",end="2011-12-31",rean,bv="Isere
   for(j in 1:length(config)){
     
     if(j==1) ind <- get.ind.extr(nbre = 62,ref = start,nbdays = 3,start = start,end = end,bv = bv)
-    if(j==2) ind <- get.ind.max(type = "year",nbdays = 3,start = start,end = end)
+    if(j==2) ind <- get.ind.max(type = "year",nbdays = 3,start = start,end = end,bv = bv)
     if(j==3) {
       dP <- get.dP(k,nbdays,start,end,rean)
       ind <- sort(dP,decreasing=T,index.return=T)$ix[1:62]
     }
     
     dates.extr <- dates[ind]
-    
-    pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.extr/map_",config[j],"_k",k,"_",N,"_",start,"_",end,"_",bv,".pdf"),width = 13,height = 8)
-    layout(matrix(1:12,3,4,byrow = T))
+    if(var=="hgt"){
+      pdf(file = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.extr/map_",config[j],"_k",k,"_",N,"_",start,"_",end,"_",bv,".pdf"),width = 13,height = 8)
+    }else{
+      pdf(file = paste0("2_Travail/20CR/Rresults/overall/map.extr.",var,"/map_",config[j],"_k",k,"_",N,"_",start,"_",end,"_",bv,".pdf"),width = 13,height = 8)
+    }
+      
+      layout(matrix(1:12,3,4,byrow = T))
     par(mar=c(4.5,5,4,6.5))
     print(config[j])
     
@@ -3099,7 +3224,12 @@ map.extr <- function(k,N="02",start="1950-01-01",end="2011-12-31",rean,bv="Isere
       print(paste0(i,"/",length(dates.extr)))
       
       # les 3 cartes
-      map.geo(dates.extr[i],rean,k,win=T,iso=T); map.geo(dates.extr[i]+1,rean,k,win=T,iso=T); map.geo(dates.extr[i]+2,rean,k,win=T,iso=T)
+      if(var=="hgt"){
+        map.geo(dates.extr[i],rean,k,win=T,iso=T); map.geo(dates.extr[i]+1,rean,k,win=T,iso=T); map.geo(dates.extr[i]+2,rean,k,win=T,iso=T)
+      }
+      if(var=="pwat"){
+        map.pwat(dates.extr[i],rean,k,win=T); map.pwat(dates.extr[i]+1,rean,k,win=T); map.pwat(dates.extr[i]+2,rean,k,win=T)
+      }
       
       # la distribution des analogues
       precip.i <- precip[ind[i]]
@@ -4220,8 +4350,8 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
   namdescr <- ifelse(substr(descr,nchar(descr)-2,nchar(descr))=="rev",substr(descr,1,nchar(descr)-4),descr)
   
   # Traitement
-  ind.year <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end)
-  ind.mon <- get.ind.max(type = "month",nbdays = nbdays,start = start,end = end)
+  ind.year <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end,bv = bv)
+  ind.mon <- get.ind.max(type = "month",nbdays = nbdays,start = start,end = end,bv = bv)
   ind <- list(ind.year,ind.mon)
   
   qua <- apply(mat,2,function(v) ecdf(v)(v)*100)

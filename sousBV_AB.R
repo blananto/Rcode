@@ -109,7 +109,7 @@ create.sousBV <- function(){
   sous_bv[[2]] <- 136
   sous_bv[[3]] <- 104
   sous_bv[[4]] <- c(596,176,248,124,35,1)
-  sous_bv[[5]] <- c(180,1092,116,792,670,19)
+  sous_bv[[5]] <- c(180,1092,116,792,670,19,1065,934)
   names(sous_bv) <- c("tarentaise","maurienne","romanche","drac","gresivaudan")
   
   res <- list()
@@ -125,7 +125,7 @@ create.sousBV <- function(){
     res[[i]] <- cbind(a@pts[[1]]$x,a@pts[[1]]$y)
     print(paste0(names(sous_bv)[i],": ",round(geometry::polyarea(a@pts[[1]]$x,a@pts[[1]]$y),0)," km2"))
     lines(res[[i]],col="red",lwd=3)
-    
+
     # Export csv
     tab <- res[[i]]
     colnames(tab) <- c("XLII.m","YLII.m")
@@ -134,6 +134,40 @@ create.sousBV <- function(){
                 row.names = T, col.names = T)
   }
   graphics.off()
+}
+
+# Recherche du bv manquant (branche gauche du Y grenoblois) et l'ajoute aux small bv
+find.missing.bv <- function(){
+  
+  # Carte de base
+  load(file=paste("2_Travail/Data/Carto/griddata_1x1_IsereSavoieHautesAlpes.Rdata",sep=""))
+  Fx<-griddata$Fx
+  Fy<-griddata$Fy
+  Fz<-griddata$Fz*1000
+  image.plot(Fx,Fy,Fz,col=gray(seq(0.1,0.99,length=100)),xlab="X (km) - Lambert II extended",ylab="Y (km) - Lambert II extended",legend.line=-2.3, cex.axis=1.3, cex.lab=1.3)
+  
+  # Sous bv de Juliette
+  pol<-readShapePoly("2_Travail/Data/Carto/SousSecteurHydro/SousSecteurHydro_FXX.shp")
+  
+  for (i in 1:length(pol@polygons)) {
+    tmp<-pol@polygons[[i]]@Polygons[[1]]@coords;
+    dfr <- data.frame(x = tmp[,1], y = tmp[,2]);
+    coordinates(dfr) <- ~ x + y;
+    proj4string(dfr) <- CRS("+proj=lcc +lat_1=49 +lat_2=44 +lat_0=46.5 +lon_0=3 +x_0=700000 +y_0=6600000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
+    newdfr<-spTransform(dfr,CRS("+proj=lcc +lat_1=46.8 +lat_0=46.8 +lon_0=0 +k_0=0.99987742 +x_0=600000 +y_0=2200000 +a=6378249.2 +b=6356515 +towgs84=-168,-60,320,0,0,0,0 +pm=paris +units=m +no_defs"));
+    center.x <- mean(newdfr@coords[,1]/1000)
+    center.y <- mean(newdfr@coords[,2]/1000)
+    lines(newdfr@coords[,1]/1000,newdfr@coords[,2]/1000,col="white",lwd=2)
+    text(center.x,center.y,i,col="white")
+    if(i==934) bon <- cbind(newdfr@coords[,1]/1000,newdfr@coords[,2]/1000)
+  } # notre bv manquant: numero 1065, 934 aussi?
+  
+  bord <- read.csv("2_Travail/Data/Carto/border_Isere@Grenoble_small_bv.csv",sep=";")
+  bon <- cbind(rep(934,nrow(bon)),bon)
+  colnames(bon) <- colnames(bord)
+  bord <- rbind(bord,bon)
+  write.table(x = bord,file = "2_Travail/Data/Carto/border_Isere@Grenoble_small_bv.csv",sep = ";",
+              row.names = T, col.names = T)
 }
 
 # Interpolation TPS 1x1km2 puis moyenne
