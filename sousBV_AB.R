@@ -2,26 +2,48 @@ source('2_Travail/Rcode/utils_AB.R', encoding = 'UTF-8')
 source('2_Travail/Rcode/article1_AB.R', encoding = 'UTF-8')
 
 # Compparaison des max annuels de precip
-compare.extr <- function(bv=c("Isere-seul","Drac-seul"),nbdays=3,start="1950-01-01",end="2011-12-31"){
+compare.extr <- function(bv=c("Isere-seul","Drac-seul"),nbdays=3,start="1950-01-01",end="2011-12-31",comm=F){
   
   # Import des precip
+  precip <- get.precip(nbdays,start,end,"Isere")
   precip1 <- get.precip(nbdays,start,end,bv[1])
   precip2 <- get.precip(nbdays,start,end,bv[2])
   
   # Max annuels
-  ind1 <- get.ind.max(precip1,type = "year",nbdays,start,end)
-  ind2 <- get.ind.max(precip2,type = "year",nbdays,start,end)
+  ind  <- get.ind.max(type = "year",nbdays,start,end,"Isere")
+  ind1 <- get.ind.max(type = "year",nbdays,start,end,bv[1])
+  ind2 <- get.ind.max(type = "year",nbdays,start,end,bv[2])
   
-  # 62 max
-  ind1 <- get.ind.extr(62,nei=T,bv=bv[1])
-  ind2 <- get.ind.extr(62,nei=T,bv=bv[2])
+  if(comm){
+    commun <- which(ind1==ind2)
+    ind1 <- ind1[-commun]
+    ind2 <- ind2[-commun]
+  }
   
   # Distribution
-  plot(ecdf(precip1[ind1]))
+  png(filename = paste0("2_Travail/Rresults/compare.extr/distrib_annual_max",ifelse(comm,"_comm",""),".png"),width = 500,height = 400,units = "px")
+  plot(ecdf(precip1[ind1]),xlim=c(0,60),xlab="Precip (mm/day)",main="Annual max")
   plot(ecdf(precip2[ind2]),col="red",add=T)
+  legend(inset=.08,"topleft",bty="n",pch=19,col=c("black","red"),c(bv1,bv2))
+  graphics.off()
   
+  # Max annuels de l'Isere
+  sw <- c(1,2,4,5,7,11,14,20,22,24,26,28,30,38,40,43,44,45,47,48,51,52,53,59,60,62)
   
-}
+  png(filename = paste0("2_Travail/Rresults/compare.extr/contrib_annual_max_Isere.png"),width = 500,height = 400,units = "px")
+  par(pty="s")
+  plot(precip1[ind],precip2[ind],xlim=c(10,60),ylim=c(10,60),col=getcol(precip[ind]),
+       xlab=paste0("Precip (mm/d) ",bv[1]),ylab=paste0("Precip (mm/d) ",bv[2]),cex=1.5)
+  addscale(precip[ind])
+  abline(0,1,col="red")
+  
+  par(pty="s")
+  plot(precip1[ind.extr],precip2[ind.extr],xlim=c(10,60),ylim=c(10,60),col=getcol(precip[ind.extr]),
+       xlab=paste0("Precip (mm/d) ",bv[1]),ylab=paste0("Precip (mm/d) ",bv[2]),cex=1.5)
+  addscale(round(precip[ind.extr],1))
+  abline(0,1,col="red")
+  graphics.off()
+  }
   
 # Generation du trace propre des deux BVs, ajout du petit BV manquant
 create.drac.isere <- function(){

@@ -77,3 +77,9 @@ plot.distrib(rean = rean,k = k,descriptors = c("persnei","singnei"),dist = dist,
 plot.crps(rean = rean,k = k,descriptors = c("singnei","rsingnei"),dist = dist,nbdays = nbdays,start = start,end = end)
 image.region()
 image.cumul()
+
+# Fonction longue a ecrire
+plot.empir.bv(bv1 = "Isere",bv2 = "Isere-seul",rean = c(rean,rean),
+              k = c(1,1),descriptors = c("rsingnei","dP"),dist = c("TWS","TWS"),
+              nbdays = 3,start = start,end = end,radtype = M,CV = T,threeday = c(F,F),
+              save = T,let = F,quant = T,sea = T,pwat = T,comm=T,spazm=c(T,T))
