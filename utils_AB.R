@@ -1413,11 +1413,12 @@ compare.tps.spazm <- function(nbdays,start,end,bv){
   ann.tps <- get.ind.max(type = "year",nbdays,start,end,bv,spazm=F)
   ann.spazm <- get.ind.max(type = "year",nbdays,start,end,bv,spazm=T)
   
-  # Graphiques
+  # Graphiques: correlation et max communs
   png(filename = paste0("2_Travail/Rresults/compare.tps.spazm/comp_",bv,"_",nbdays,"day_",start,"_",end,".png"),width = 800,height = 400,units = "px")
   par(mfrow=c(1,3),pty="s")
   
-  plot(spazm,tps,main="all")
+  ran <- range(spazm,tps)
+  plot(spazm,tps,main="all",xlim=ran,ylim=ran)
   abline(0,1,col="red")
   text(40,10,paste0("R2 = ",round(cor(spazm,tps)^2,2)),cex=2)
   
@@ -1427,6 +1428,68 @@ compare.tps.spazm <- function(nbdays,start,end,bv){
   plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",main="Annual max")
   text(1,1,paste0("common: ",length(intersect(ann.tps,ann.spazm)),"/62"),cex=2)
   
+  graphics.off()
+  
+  # Graphiques: correlation par WP
+  wp <- get.wp(nbdays,start,end,risk=F,bv)
+  label <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
+             "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
+  
+  # Max annuels ajoutes/enleves
+  comm <- which(ann.tps==ann.spazm)
+  ind.tps <- ann.tps[-comm]
+  ind.spazm <- ann.spazm[-comm]
+  
+  png(filename = paste0("2_Travail/Rresults/compare.tps.spazm/comp_wp_",bv,"_",nbdays,"day_",start,"_",end,".png"),width = 1500,height = 800,units = "px")
+  par(mfrow=c(2,4),pty="s",mar=c(4,4,4,4))
+  lim <- c(0,max(tps,spazm))
+  
+  for(i in 1:8){
+    ind <- which(wp==i)
+    ran <- range(spazm[ind],tps[ind])
+    plot(spazm[ind],tps[ind],xlim=lim,ylim=lim,main=label[i],xlab="spazm",ylab="tps",cex.axis=1.5,cex.lab=1.5)
+    abline(0,1,col="red")
+    text(lim[2]*0.8,lim[2]*0.1,paste0("R2 = ",round(cor(spazm[ind],tps[ind])^2,2)),cex=1.5)
+    
+    # on ajoute les sequences enlevees/ajoutees
+    ind.avant <- which(ind.tps %in% ind)
+    if(length(ind.avant)!=0){
+      points(spazm[ind.tps[ind.avant]],tps[ind.tps[ind.avant]],col="blue",pch=19)
+      text(spazm[ind.tps[ind.avant]]-10,tps[ind.tps[ind.avant]]+10,as.character(ind.avant),col="blue",cex=2,font=2)
+      segments(spazm[ind.tps[ind.avant]]-8,tps[ind.tps[ind.avant]]+8,spazm[ind.tps[ind.avant]],tps[ind.tps[ind.avant]])
+    }
+    
+    ind.apres <- which(ind.spazm %in% ind)
+    if(length(ind.apres)!=0){
+      points(spazm[ind.spazm[ind.apres]],tps[ind.spazm[ind.apres]],col="red",pch=19)
+      text(spazm[ind.spazm[ind.apres]]+10,tps[ind.spazm[ind.apres]]-10,as.character(ind.apres),col="red",cex=2,font=2)
+      segments(spazm[ind.spazm[ind.apres]]+8,tps[ind.spazm[ind.apres]]-8,spazm[ind.spazm[ind.apres]],tps[ind.spazm[ind.apres]])
+    }
+  }
+  graphics.off()
+  
+  # Graphiques: correlation par saison
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  sea <- dates
+  sea[which(substr(dates,6,7) %in% c("06","07","08"))] <- 1
+  sea[which(substr(dates,6,7) %in% c("09","10","11"))] <- 2
+  sea[which(substr(dates,6,7) %in% c("12","01","02"))] <- 3
+  sea[which(substr(dates,6,7) %in% c("03","04","05"))] <- 4
+  sea <- as.numeric(sea)
+  
+  label <- c("Summer","Autumn","Winter","Spring")
+  
+  
+  png(filename = paste0("2_Travail/Rresults/compare.tps.spazm/comp_season_",bv,"_",nbdays,"day_",start,"_",end,".png"),width = 800,height = 800,units = "px")
+  par(mfrow=c(2,2),pty="s")
+  
+  for(i in 1:4){
+    ind <- which(sea==i)
+    ran <- range(spazm[ind],tps[ind])
+    plot(spazm[ind],tps[ind],xlim=ran,ylim=ran,main=label[i],xlab="spazm",ylab="tps")
+    abline(0,1,col="red")
+    text(ran[2]*0.6,ran[2]*0.1,paste0("R2 = ",round(cor(spazm[ind],tps[ind])^2,2)),cex=1.5)
+  }
   graphics.off()
 }
 
@@ -3123,7 +3186,7 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F){
   
   # Parametres graphiques
   if(k==1){ 
-    breaks <- seq(4900,6100,length.out = 12)
+    breaks <- seq(4850,6100,length.out = 12)
     N <- 11
     lab <- seq(4900,6100,200)
     lev <- seq(4900,6100,100)
@@ -3250,7 +3313,7 @@ map.extr <- function(var="hgt",k,N="02",start="1950-01-01",end="2011-12-31",rean
   }
 }
 
-# Noms propres des couples d'indicateurs
+# Noms propres des couples d'indicateurs et des bvs
 nam2str<-function(nams,cloud=FALSE){
 
   for(i in 1:length(nams)){
@@ -3262,7 +3325,10 @@ nam2str<-function(nams,cloud=FALSE){
     if(nams[i] == "rsingnei_best") nams[i] <- "rsingnei-best"
     if(nams[i] == "TWSgeo") nams[i] <- "TWS_500_1000"
     if(substr(nams[i],nchar(nams[i])-2,nchar(nams[i])) == "rev") nams[i] <- substr(nams[i],1,nchar(nams[i])-4)
-  }
+    if(nams[i] == "Isere") nams[i] <- "Whole Isere catchment"
+    if(nams[i] == "Isere-seul") nams[i] <- "Isere catchment"
+    if(nams[i] == "Drac-seul") nams[i] <- "Drac catchment"
+    }
   
   if(!cloud && length(nams)==2 && nams != c("A","A")){ # si on ne l'utilise pas pour un nuage de points, alors nams de longueur 1
     if(nams[1]==nams[2]) nams <- nams[1]
@@ -3800,7 +3866,7 @@ plot.distrib<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="
 }
 
 # Trace la repartition des parametres empiriques dans le plan des indicateurs (un couple d'indicateur par png)
-plot.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,obs=FALSE,threeday=c(F,F)){
+plot.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,obs=FALSE,threeday=c(F,F),bv="Isere"){
   
   # Definition du repertoire de travail (lecture et ecriture)
   if(rean[1] != rean[2]){ 
@@ -3817,7 +3883,7 @@ plot.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="20
   }
   
   # Import des precip, du fit.empir, des indicateurs
-  precip <- get.precip(nbdays,start,end)
+  precip <- get.precip(nbdays,start,end,bv)
   
   if(TRUE %in% threeday) {comp <- paste0("_threeday",which(threeday==T))
   } else {comp <- ""}
@@ -3833,7 +3899,7 @@ plot.empir<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="20
   namdescr <- nam2str(descriptors, cloud = TRUE)
   
   # Creation du plot
-  png(file=paste0(path1,"plot.empir",get.CVstr(CV),"/plot_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),comp,".png"),width=640,height=450,units="px",res=72) # manip substr pour enlever le std}
+  png(file=paste0(path1,"plot.empir",get.CVstr(CV),"/plot_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),comp,"_",bv,".png"),width=640,height=450,units="px",res=72) # manip substr pour enlever le std}
   par(mfrow=c(2,3))
   gamme <- list(6)
   gamme[[1]] <- c(0,5380)
@@ -4781,71 +4847,101 @@ plot.TWSgeo<-function(k,dist,nbdays,start,end,rean){
 }
 
 # plot le wp des precip extremes
-plot.wp.extr<-function(start="1950-01-01",end="2011-12-31",bv="Isere"){
+plot.wp.extr<-function(bv1,bv2,nbdays,start="1950-01-01",end="2011-12-31",spazm=c(T,T),comm=F){
   
   # Import
-  wp <- get.wp(start = start,end = end)
+  wp <- get.wp(nbdays,start,end,risk=F,bv)
   xlabel <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
               "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
   
   # 62 max
-  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_62_max_",bv,".png"),width = 800,height = 400,units = "px")
-  ind.max <- get.ind.extr(nbre = 62,ref = start,nbdays = 3,start = start,end = end,bv = bv)
-  ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
-  tmp <- hist(wp[ind.max],0:8,plot=F)$counts
-  tmp <- tmp/sum(tmp)*100 # pourcentage
-  barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
-          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
+  ind.extr1 <- get.ind.extr(62,start,nbdays,start,end,nei=T,bv1,spazm[1])
+  ind.extr2 <- get.ind.extr(62,start,nbdays,start,end,nei=T,bv1,spazm[2])
+  
+  if(comm){
+    commun <- intersect(ind.extr1,ind.extr2)
+    print(paste0("62 max in common: ",length(commun)))
+    ind.extr1 <- ind.extr1[-which(ind.extr1 %in% commun)]
+    ind.extr2 <- ind.extr2[-which(ind.extr2 %in% commun)]
+  }
+  
+  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_62_max_",bv1,"_",bv2,ifelse(spazm[1]!=spazm[2],"_spazm",""),ifelse(comm,"_comm",""),".png"),width = 700,height = 600,units = "px")
+  par(mfrow=c(2,1))
+  
+  tmp <- hist(wp[ind.extr1],0:8,plot=F)$counts
+  tit <- paste0(bv1," (spazm=",spazm[1],")")
+  barplot(height = tmp,ylim=c(0,max(tmp)),space = 0,names.arg = xlabel,main=tit,
+          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Count")
+  
+  tmp1 <- hist(wp[ind.extr2],0:8,plot=F)$counts
+  tit <- paste0(bv2," (spazm=",spazm[2],")")
+  barplot(height = tmp1,ylim=c(0,max(tmp)),space = 0,names.arg = xlabel,main=tit,
+          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Count")
   graphics.off()
   
-  # max annuel
-  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_annual_max_",bv,".png"),width = 800,height = 400,units = "px")
-  ind.max <- get.ind.max(type = "year",nbdays = 3,start = start,end = end)
-  ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
-  tmp <- hist(wp[ind.max],0:8,plot=F)$counts
-  tmp <- tmp/sum(tmp)*100 # pourcentage
-  barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
-          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
+  # Annual max
+  ind.extr1 <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end,bv=bv1,spazm = spazm[1])
+  ind.extr2 <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end,bv=bv2,spazm= spazm[2])
+  
+  
+  if(comm){
+    commun <- which(ind.extr1==ind.extr2)
+    print(paste0("Annual max in common: ",length(commun)))
+    ind.extr1 <- ind.extr1[-commun]
+    ind.extr2 <- ind.extr2[-commun]
+  }
+  
+  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_annual_max_",bv1,"_",bv2,ifelse(spazm[1]!=spazm[2],"_spazm",""),ifelse(comm,"_comm",""),".png"),width = 700,height = 600,units = "px")
+  par(mfrow=c(2,1))
+  
+  tmp <- hist(wp[ind.extr1],0:8,plot=F)$counts
+  tit <- paste0(bv1," (spazm=",spazm[1],")")
+  barplot(height = tmp,ylim=c(0,max(tmp)),space = 0,names.arg = xlabel,main=tit,
+          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Count")
+  
+  tmp1 <- hist(wp[ind.extr2],0:8,plot=F)$counts
+  tit <- paste0(bv2," (spazm=",spazm[2],")")
+  barplot(height = tmp1,ylim=c(0,max(tmp)),space = 0,names.arg = xlabel,main=tit,
+          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Count")
   graphics.off()
   
   # max mensuel
-  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_monthly_max_",bv,".png"),width = 800,height = 400,units = "px")
-  ind.max <- get.ind.max(type = "month",nbdays = 3,start = start,end = end)
-  ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
-  tmp <- hist(wp[ind.max],0:8,plot=F)$counts
-  tmp <- tmp/sum(tmp)*100 # pourcentage
-  barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
-          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
-  graphics.off()
+  #ind.max <- get.ind.max(type = "month",nbdays,start,end,bv,spazm)
+  #
+  #png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_monthly_max_",bv,ifelse(spazm,"_spazm",""),".png"),width = 800,height = 400,units = "px")
+  #tmp <- hist(wp[ind.max],0:8,plot=F)$counts
+  #tmp <- tmp/sum(tmp)*100 # pourcentage
+  #barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
+  #        col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
+  #graphics.off()
   
   # 62 max dP
-  dP <- get.dP(1,3,start,end,"20CR")
-  
-  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_dP_max_",bv,".png"),width = 800,height = 400,units = "px")
-  ind.max <- sort(dP,decreasing=T,index.return=T)$ix[1:62]
-  ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
-  tmp <- hist(wp[ind.max],0:8,plot=F)$counts
-  tmp <- tmp/sum(tmp)*100 # pourcentage
-  barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
-          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
-  graphics.off()
+  #dP <- get.dP(1,3,start,end,"20CR")
+  #
+  #png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_dP_max_",bv,".png"),width = 800,height = 400,units = "px")
+  #ind.max <- sort(dP,decreasing=T,index.return=T)$ix[1:62]
+  #ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
+  #tmp <- hist(wp[ind.max],0:8,plot=F)$counts
+  #tmp <- tmp/sum(tmp)*100 # pourcentage
+  #barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
+  #        col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
+  #graphics.off()
   
   # max dP: < q0.02 de rsingnei TWS et rsingnei RMSE
-  dP <- get.dP(1,3,start,end,"20CR")
+  #dP <- get.dP(1,3,start,end,"20CR")
+  #
+  #rsingnei.tws <- get.descriptor(descriptor = "rsingnei",k = 1,dist = "TWS",nbdays = 3,start = start,end = end,standardize = F,"20CR")
+  #rsingnei.rmse <- get.descriptor(descriptor = "rsingnei",k = 1,dist = "RMSE",nbdays = 3,start = start,end = end,standardize = F,"20CR")
   
-  rsingnei.tws <- get.descriptor(descriptor = "rsingnei",k = 1,dist = "TWS",nbdays = 3,start = start,end = end,standardize = F,"20CR")
-  rsingnei.rmse <- get.descriptor(descriptor = "rsingnei",k = 1,dist = "RMSE",nbdays = 3,start = start,end = end,standardize = F,"20CR")
-  
-  
-  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_dP_max_rsingnei_",bv,".png"),width = 800,height = 400,units = "px")
-  ind.max <- which(rsingnei.tws < quantile(rsingnei.tws,0.02) & rsingnei.rmse < quantile(rsingnei.rmse,0.02))
-  ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
-  tmp <- hist(wp[ind.max],0:8,plot=F)$counts
-  tmp <- tmp/sum(tmp)*100 # pourcentage
-  print(tmp)
-  barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
-          col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
-  graphics.off()
+  #png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_dP_max_rsingnei_",bv,".png"),width = 800,height = 400,units = "px")
+  #ind.max <- which(rsingnei.tws < quantile(rsingnei.tws,0.02) & rsingnei.rmse < quantile(rsingnei.rmse,0.02))
+  #ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
+  #tmp <- hist(wp[ind.max],0:8,plot=F)$counts
+  #tmp <- tmp/sum(tmp)*100 # pourcentage
+  #print(tmp)
+  #barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
+  #        col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
+  #graphics.off()
   
 }
 

@@ -79,7 +79,7 @@ image.region()
 image.cumul()
 
 # Fonction longue a ecrire
-plot.empir.bv(bv1 = "Isere",bv2 = "Isere-seul",rean = c(rean,rean),
-              k = c(1,1),descriptors = c("rsingnei","dP"),dist = c("TWS","TWS"),
+plot.empir.bv(bv1 = "Isere",bv2 = "Isere",rean = c(rean,rean),
+              k = c(1,1),descriptors = c("celnei","dP"),dist = c("TWS","TWS"),
               nbdays = 3,start = start,end = end,radtype = M,CV = T,threeday = c(F,F),
-              save = T,let = F,quant = T,sea = T,pwat = T,comm=T,spazm=c(T,T))
+              save = T,let = c("a)","b)"),quant = T,sea = T,pwat = T,comm=F,spazm=c(F,T))

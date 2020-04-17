@@ -67,11 +67,10 @@ combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="20
     ggsave(filename = paste0("2_Travail/",rean,"/Rresults/overall/plot.quant.descr/plot_combine.png"),plot = final,width = 10,height = 6)
     graphics.off()
   }
-  
 }
 
 # Comparaison des percentiles d'indicateurs pour deux bassins versants
-compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,comm=F){
+compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,comm=F,spazm=c(T,T)){
   
   # Import indicateurs
   mat <- NULL
@@ -80,13 +79,13 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
   colnames(mat)[ncol(mat)] <- descr[i]
   }
   
-  pwat <- get.pwat(k,nbdays,start,end,rean)
-  mat <- cbind(mat,pwat)
+  #pwat <- get.pwat(k,nbdays,start,end,rean)
+  #mat <- cbind(mat,pwat)
   mat <- as.data.frame(apply(mat,2,function(v) ecdf(v)(v)*100))
   
   # Extremes
-  ind.extr1 <- get.ind.max(type="year",nbdays,start,end,bv1)
-  ind.extr2 <- get.ind.max(type="year",nbdays,start,end,bv2)
+  ind.extr1 <- get.ind.max(type="year",nbdays,start,end,bv1,spazm=spazm[1])
+  ind.extr2 <- get.ind.max(type="year",nbdays,start,end,bv2,spazm=spazm[2])
   
   if(comm){
     commun <- which(ind.extr1==ind.extr2)
@@ -95,32 +94,32 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
     ind.extr2 <- ind.extr2[-commun]
   }
   
-  bv <- rep(bv1,length(ind.extr1))
+  bv <- rep(ifelse(spazm[1]==spazm[2],nam2str(bv1),paste0(nam2str(bv1)," (spazm=", spazm[1],")")),length(ind.extr1))
   mat1 <- as.data.frame(cbind(bv,mat[ind.extr1,]))
-  bv <- rep(bv2,length(ind.extr2))
+  bv <- rep(ifelse(spazm[1]==spazm[2],nam2str(bv2),paste0(nam2str(bv2)," (spazm=", spazm[2],")")),length(ind.extr2))
   mat2 <- as.data.frame(cbind(bv,mat[ind.extr2,]))
   mat <- rbind(mat1,mat2)
   
-  mat <- pivot_longer(as.data.frame(mat),2:6,names_to = "descr",values_to = "percentile")
-  mat$descr <- factor(mat$descr,levels = c(descr,"pwat"))
+  mat <- pivot_longer(as.data.frame(mat),2:5,names_to = "descr",values_to = "percentile")
+  mat$descr <- factor(mat$descr,levels = descr)#c(descr,"pwat"))
   
   # Graphique
   ggplot(mat, aes(x=descr, y=percentile, fill=bv)) + 
     theme_bw()+
-    theme(plot.margin = unit(c(1,0.5,0,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
-          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=10),
-          axis.text.y = element_text(size=10),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
-          legend.position = "right",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=10),
-          legend.title = element_text(size=12))+
+    theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12),
+          axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
+          legend.position = "right",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
+          legend.title = element_blank())+
     stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
     geom_boxplot(outlier.shape = NA,col="darkblue")+
     scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
-    geom_vline(xintercept=c(1.5,2.5,3.5,4.5), linetype="dashed")+
-    xlab("")+
+    geom_vline(xintercept=c(1.5,2.5,3.5), linetype="dashed")+
+    xlab("Atmospheric descriptors")+
     ylab("Percentile (%)")+
     labs(fill="Catchment")#,title = namdescr
   
-  ggsave(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compare.descr.bv/plot_",bv1,"_",bv2,"_",nbdays,"day_",start,"_",end,ifelse(comm,"_commun",""),".png"),width = 28,height = 14,units="cm",dpi = 200)
+  ggsave(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compare.descr.bv/plot_",bv1,"_",bv2,"_",nbdays,"day_",start,"_",end,ifelse(comm,"_commun",""),".png"),width = 20,height = 11,units="cm",dpi = 200)
   graphics.off()
 }
 
@@ -585,8 +584,8 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
   
   # Creation du plot
   if(save){
-    png(filename=paste0(path1,"plot.empir.bv",get.CVstr(CV),"/plot_",bv1,"_",bv2,"_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),comp,ifelse(quant,"_quant",""),ifelse(sea,"_sea",""),ifelse(pwat,"_pwat",""),ifelse(comm,"_comm",""),".png"),width=700,height=400,units = "px") # manip substr pour enlever le std
-    par(mfrow=c(1,2))
+    png(filename=paste0(path1,"plot.empir.bv",get.CVstr(CV),"/plot_",bv1,"_",bv2,"_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),comp,ifelse(quant,"_quant",""),ifelse(sea,"_sea",""),ifelse(pwat,"_pwat",""),ifelse(comm,"_comm",""),".png"),width=7,height=5,units = "in",res=1200) # manip substr pour enlever le std
+    par(mfrow=c(1,2),pty="s")
   }
   
   # Parametres graphiques
@@ -609,14 +608,17 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
        ylab=paste0(ifelse(quant,"Percentile ",""),namdescr[2]," ",ifelse(descriptors[2]!="dP",dist[2],"")),
        xlim=c((min(descr1,na.rm=T)+max(descr1,na.rm=T))/2-((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2),(min(descr1,na.rm=T)+max(descr1,na.rm=T))/2+((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2)),
        ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.3),
-       main=bv1)
-  addscale(vec = c(nb,gamme))
-  text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T)),
-       y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.15,
+       main=nam2str(bv1),
+       xaxt="n",yaxt="n")
+  axis(1,seq(0,100,20),seq(0,100,20))
+  axis(2,seq(0,100,20),seq(0,100,20))
+  addscale(vec = c(nb,gamme),r=0)
+  text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T))*0.9,
+       y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2,
        paste0(round(min(nb,na.rm=T),2),"-",round(max(nb,na.rm=T),2)))
   #points(descr1[ale],descr2[ale],pch=19,cex=0.9)
   points(descr1[ind.extr1],descr2[ind.extr1],pch=22,bg=bg1,cex=cex1) 
-  if(length(let)!=1) mtext(let[1],side=3,adj=0,line=0.8,font=1)
+  if(length(let)!=1) mtext(let[1],side=3,adj=-0.2,line=0.5,font=1,cex=1.2)
   
   # bv2
   plot(descr1,descr2,
@@ -625,17 +627,60 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
        ylab=paste0(ifelse(quant,"Percentile ",""),namdescr[2]," ",ifelse(descriptors[2]!="dP",dist[2],"")),
        xlim=c((min(descr1,na.rm=T)+max(descr1,na.rm=T))/2-((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2),(min(descr1,na.rm=T)+max(descr1,na.rm=T))/2+((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2)),
        ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.3),
-       main=bv2)
-  addscale(vec = c(nb,gamme))
-  text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T)),
-       y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.15,
+       main=nam2str(bv2),
+       xaxt="n",yaxt="n")
+  axis(1,seq(0,100,20),seq(0,100,20))
+  axis(2,seq(0,100,20),seq(0,100,20))
+  addscale(vec = c(nb,gamme),r=0)
+  text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T))*0.9,
+       y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2,
        paste0(round(min(nb,na.rm=T),2),"-",round(max(nb,na.rm=T),2)))
   #points(descr1[ale],descr2[ale],pch=19,cex=0.9)
   points(descr1[ind.extr2],descr2[ind.extr2],pch=22,bg=bg2,cex=cex2) 
-  if(length(let)!=1) mtext(let[1],side=3,adj=0,line=0.8,font=1)
+  if(length(let)!=1) mtext(let[2],side=3,adj=-0.2,line=0.5,font=1,cex=1.2)
   
   if(save) graphics.off()
   
+}
+
+# plot.empir.bv combine
+plot.empir.bv.combine <- function(){
+  
+  # Parametres
+  bv1 <- "Isere-seul"
+  bv2 <- "Drac-seul"
+  rean <- c("20CR","20CR")
+  k <- c(1,1)
+  descr <- list(
+    c("celnei","dP"),
+    c("singnei","dP"),
+    c("rsingnei","dP")
+  )
+  nam <- c("Celerity","Singularity","Relative singularity")
+  dist <- c("TWS","TWS")
+  nbdays=3
+  start="1950-01-01"
+  end="2011-12-31"
+  let <- list(c("a)","b)"),c("c)","d)"),c("e)","f)"))
+  radtype="nrn05"
+  CV=TRUE;threeday=c(F,F);spazm=c(F,F);save=F;quant=T;sea=F;pwat=F;comm=F
+  
+  # Graphique
+  png(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.bv-CV/plot_combine_",bv1,"_",bv2,ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=1200)
+  layout(matrix(c(rep(1,2),2:3,rep(4,2),5:6,rep(7,2),8:9),nrow = 6,ncol = 2,byrow = T),widths = rep(1,2),heights = c(0.1,1.2,0.1,1.2,0.1,1.2))
+
+  for(i in 1:length(descr)){
+    # Nom de l'indicateur
+    par(mar=c(0,0,0,0),pty="m")
+    plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+    text(1,0.5,nam[i],cex=2,font=2)
+    
+    # Graphiques
+    par(mar=c(5,1.5,3,1.5),pty="s")
+    plot.empir.bv(bv1,bv2,rean,k,descr[[i]],dist,nbdays,start,end,radtype,
+                  CV,threeday,spazm,save,let[[i]],quant,sea,pwat,comm)
+  }
+  graphics.off()
 }
 
 # Plan des indicateurs colorie par densite, gradient de pression, et saison
