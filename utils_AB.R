@@ -22,6 +22,8 @@ library("plot3D") #lines3D
 library("rgeos") # pour maptools
 library("maptools") # wrld_simpl
 library("RColorBrewer") # brewer.pal
+library("grid") # combine plot and ggplot
+library("gridBase") # combine plot and ggplot
 library("gridExtra") # several ggplot on the same page
 library("corrplot") # colorlegend
 library("raster") # brick
@@ -3229,12 +3231,7 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F){
     points(6,45,col="red",pch=19)
     if(win) rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
     if(i==1 & let!=F) mtext(let, side=3, at=-30,line = 2,cex=1.5)
-    if(iso){
-      z500 <- brick("2_Travail/20CR/Data/Membre_1/20Crv2c_Membre_1_HGT500_1851-2011_daily.nc")
-      dates <- seq(from=as.Date("1851-01-01"), to=as.Date("2011-12-31"), by="1 day")
-      ind <- which(dates == as.Date(date))
-      contour(x=z500[[ind]], levels=lev, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
-    }
+    if(iso) contour(x=lon,y=lat,z=geo[,,i], levels=lev, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
     box()
   }
   
@@ -4692,7 +4689,7 @@ plot.sais.quantile <- function(dates,vec,label){
   q90 <- aggregate(vec,by=list(substr(dates,6,10)),quantile,probs=0.9)[,2]
   day <- as.Date(sort(unique(substr(dates,6,10))),"%m-%d")
   
-  plot(med,type="n",ylim=c(min(q10),max(q90)),col="blue",xaxt="n",lwd=2,xlab="",ylab=label)
+  plot(med,type="n",ylim=c(min(q10),max(q90)),col="blue",xaxt="n",lwd=2,xlab="",ylab=label,font.lab=2)
   abline(v=match(unique(substr(dates,6,7)),substr(dates,6,7)),lty=3,col="grey")
   grid(NA,NULL)
   lines(med,col="blue",lwd=2)
@@ -4850,7 +4847,7 @@ plot.TWSgeo<-function(k,dist,nbdays,start,end,rean){
 plot.wp.extr<-function(bv1,bv2,nbdays,start="1950-01-01",end="2011-12-31",spazm=c(T,T),comm=F){
   
   # Import
-  wp <- get.wp(nbdays,start,end,risk=F,bv)
+  wp <- get.wp(nbdays,start,end,risk=F,"Isere")
   xlabel <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
               "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
   
@@ -4895,11 +4892,13 @@ plot.wp.extr<-function(bv1,bv2,nbdays,start="1950-01-01",end="2011-12-31",spazm=
   par(mfrow=c(2,1))
   
   tmp <- hist(wp[ind.extr1],0:8,plot=F)$counts
+  print(tmp)
   tit <- paste0(bv1," (spazm=",spazm[1],")")
   barplot(height = tmp,ylim=c(0,max(tmp)),space = 0,names.arg = xlabel,main=tit,
           col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Count")
   
   tmp1 <- hist(wp[ind.extr2],0:8,plot=F)$counts
+  print(tmp1)
   tit <- paste0(bv2," (spazm=",spazm[2],")")
   barplot(height = tmp1,ylim=c(0,max(tmp)),space = 0,names.arg = xlabel,main=tit,
           col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Count")
@@ -4949,7 +4948,7 @@ plot.wp.extr<-function(bv1,bv2,nbdays,start="1950-01-01",end="2011-12-31",spazm=
 plot.wp.occurence<-function(start="1950-01-01",end="2011-12-31"){
   
   # Import
-  wp <- get.wp(start = start,end = end)
+  wp <- get.wp(start = start,end = end,nbdays = 1)
   dates <- getdates(start = start,end = end)
   
   # Traitement
@@ -4972,6 +4971,7 @@ plot.wp.occurence<-function(start="1950-01-01",end="2011-12-31"){
   # Plot des wp par saison
   xlabel <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
               "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
+  print(tab)
   ggplot(tab, aes(fill=Season, y=count, x=wp)) + 
     geom_bar(position="dodge", stat="identity")+
     theme_bw()+

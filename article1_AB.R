@@ -166,6 +166,75 @@ get.pwat <- function(k=1,nbdays,start="1950-01-01",end="2011-12-31",rean){
   des <- rollapply(des,nbdays,mean)
 }
 
+# Carte composite par wp
+map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T){
+  
+  # Import wp
+  tt <- get.wp(nbdays = 1,start,end,risk=F,bv = "Isere")
+  ind <- which(tt==wp)
+  
+  # Import geopotentiel
+  nc <- load.nc(rean)
+  fen <- getinfo_window(k)
+  
+  if(k==1){nc <- nc$nc500
+  }else{nc <- nc$nc1000}
+  
+  lon <- nc$dim$lon$vals
+  lat <- nc$dim$lat$vals
+  num0 <- date_to_number(nc,start,rean)
+  leng <- length(seq(as.Date(start),as.Date(end),"days"))
+  
+  geo <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),leng))
+  dim(geo) <- c(length(lon),length(lat),leng)
+  
+  # Traitement
+  geo <- geo[,,ind]
+  comp <- apply(geo,1:2,mean)
+  
+  # Parametres graphiques
+  if(k==1){ 
+    breaks <- seq(4900,6100,length.out = 12)
+    N <- 11
+    lab <- seq(4900,6100,200)
+    lev <- seq(4900,6100,100)
+  }else{
+    breaks <- seq(-300,400,length.out = 8)
+    N <- 7
+    lab <- seq(-300,400,100)
+    lev <- lab
+  }
+  
+  label <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
+             "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
+  
+  # Carte
+  par(pty="s")
+  cex <- 1.5
+    
+    if(leg){
+      image.plot(lon,lat,comp,xlim=c(-20,25),ylim=c(25,70),
+                 col=rev(brewer.pal(n = N, name = "RdBu")),
+                 xlab="Longitude (°)",ylab="Latitude (°)",main=label[wp],
+                 legend.line=-2.3, cex.axis=cex, cex.lab=cex, cex.main=cex,
+                 breaks = breaks,axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
+    }else{
+      image(lon,lat,comp,xlim=c(-20,25),ylim=c(25,70),
+            col=rev(brewer.pal(n = N, name = "RdBu")),
+            xlab="Longitude (°)",ylab="Latitude (°)",main=label[wp],
+            cex.axis=cex, cex.lab=cex, cex.main=cex,
+            breaks = breaks)
+    }
+    
+    data(wrld_simpl)
+    plot(wrld_simpl, add = TRUE)
+    points(6,45,col="red",pch=19)
+    if(win) rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
+    if(let!=F) mtext(let, side=3, at=-30,line = 2,cex=1.5)
+    if(iso) contour(x=lon,y=lat,z=comp, levels=lev, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
+    box()
+}
+
 # Carte des geopotentiels aux 4 coins du plan celnei TWS - celnei RMSE
 map.corner <- function(k, rean){
   
@@ -802,8 +871,8 @@ plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
   
 }
 
-# Plan des indicateurs colorie par WP
-plot.empir.wp <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),save=T,quant=F){
+# Plan des indicateurs colorie par WP (si save, on met les 8 wp)
+plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),save=T,let=F,quant=F){
   
   # Definition du repertoire de travail (lecture et ecriture)
   if(rean[1] != rean[2]){ 
@@ -832,7 +901,7 @@ plot.empir.wp <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",en
   }
   
   # Import wp
-  wp <- get.wp(nbdays,start,end,risk = F,bv = "Isere")
+  tt <- get.wp(nbdays,start,end,risk = F,bv = "Isere")
   
   # Nom propre des indicateurs
   cond <- substr(descriptors,nchar(descriptors)-1,nchar(descriptors)) == substr(radtype,nchar(radtype)-1,nchar(radtype))
@@ -847,12 +916,13 @@ plot.empir.wp <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",en
   
   label <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
              "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
-  gamme <- c(0,2236)
+  gamme <- c(0,1840)
   
-  for(i in 1:8){
+  for(i in wp){
     # Import densite de pts
     load(file = paste0("2_Travail/",rean[1],"/Rresults/overall/k",k[1],"/compute.density/nbnei_",ifelse(quant,"quant_",""),"wp",i,"_",descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,".Rdata"))
-    occ <- round(sum(wp==i)/length(wp)*100,0)
+    occ <- round(sum(tt==i)/length(tt)*100,0)
+    cex <- 1.5
     
     # plot
     plot(descr1,descr2,
@@ -861,15 +931,85 @@ plot.empir.wp <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",en
          ylab=paste0(ifelse(quant,"Percentile ",""),namdescr[2]," ",ifelse(descriptors[2]!="dP",dist[2],"")),
          xlim=c((min(descr1,na.rm=T)+max(descr1,na.rm=T))/2-((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2),(min(descr1,na.rm=T)+max(descr1,na.rm=T))/2+((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2)),
          ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.3),
-         main=paste0(label[i]," (",occ,"%)"))
-    points(descr1[wp==i],descr2[wp==i],col=getcol(c(nb,gamme)))
+         main=label[i],cex.lab=cex, cex.main=cex,xaxt="n",yaxt="n")
+        axis(1,seq(0,100,20),seq(0,100,20))
+        axis(2,seq(0,100,20),seq(0,100,20))
+    points(descr1[tt==i],descr2[tt==i],col=getcol(c(nb,gamme)))
     addscale(vec = c(nb,gamme))
     text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T)),
          y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.15,
          paste0(round(min(nb,na.rm=T),2),"-",round(max(nb,na.rm=T),2)))
+    if(let!=F) mtext(let, side=3, at=-50,line = 2,cex=1.5)
   }
   if(save) graphics.off()
   
+}
+
+# Graphique de la saisonnalite de pwat et du boxplot de comparaison pour deux bvs
+plot.pwat <- function(bv1,bv2,start,end,rean,spazm=c(F,F)){
+  
+  # Imports
+  dates <- getdates(start,end)
+  pwat <- get.pwat(k = 1,nbdays = 1,start,end,rean)
+  ind.1 <- get.ind.max(type = "year",nbdays = 3,start = start,end = end,bv = bv1,spazm = spazm[1])
+  ind.2 <- get.ind.max(type = "year",nbdays = 3,start = start,end = end,bv = bv2,spazm = spazm[2])
+  
+  # Traitement boxplot
+  desais <- compute.desais(pwat,dates)
+  desais <- ecdf(desais)(desais)*100
+  
+  bv <- rep(ifelse(spazm[1]==spazm[2],nam2str(bv1),paste0(nam2str(bv1)," (spazm=", spazm[1],")")),length(ind.1))
+  mat1 <- as.data.frame(cbind(bv,pw[ind.1],desais[ind.1]))
+  
+  bv <- rep(ifelse(spazm[1]==spazm[2],nam2str(bv2),paste0(nam2str(bv2)," (spazm=", spazm[2],")")),length(ind.2))
+  mat2 <- as.data.frame(cbind(bv,pw[ind.2],desais[ind.2]))
+  mat <- rbind(mat1,mat2)
+  colnames(mat) <- c("bv","PWAT","sea. adj. PWAT")
+  
+  mat <- pivot_longer(mat,2:3,names_to = "type",values_to = "percentile")
+  mat$percentile <- as.numeric(as.character(mat$percentile))
+  mat$type <- factor(mat$type,levels = c("PWAT","sea. adj. PWAT"))
+  
+  # Traitement saisonalite
+  pw <- ecdf(pwat)(pwat)*100
+  comm <- ind.1==ind.2
+  ind.1 <- ind.1[!comm]
+  ind.2 <- ind.2[!comm]
+  ind.comm <- ind.1[comm]
+  year <- substr(seq(as.Date("2020-01-01"),as.Date("2020-12-31"),"days"),6,10) # pour ajouter les pts sur la saisonalite
+  
+  # Graphiques
+  png(filename = paste0("2_Travail/Rresults/plot.pwat/plot_pwat_",bv1,"_",bv2,"_spazm_",spazm[1],"_",spazm[2]),width = 11,height = 5,units = "in",res = 1200)
+  par(mfrow=c(1,2))
+  
+  plot.sais.quantile(dates = dates,vec = pw,label = "PWAT percentile (%)")
+  #points(match(substr(dates[ind.1],6,10),year),pw[ind.1],pch=22,bg="cornflowerblue",cex=1.3)
+  #points(match(substr(dates[ind.2],6,10),year),pw[ind.2],pch=22,bg="burlywood1",cex=1.3)
+  #points(match(substr(dates[ind.comm],6,10),year),pw[ind.comm],pch=22,bg="olivedrab3",cex=1.3)
+  #legend("topleft",inset=.02,bty="n",fill=c("cornflowerblue","burlywood1","olivedrab3"),
+  #        c(nam2str(bv1),nam2str(bv2),"common"))
+  
+  plot.new() # manip pour ajouter un ggplot au plot classique          
+  vps <- baseViewports()
+  pushViewport(vps$figure)
+  vp1 <-plotViewport(c(1,0,3,0))
+  
+  p <- ggplot(mat, aes(x=type, y=percentile, fill=bv)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12,colour="black",vjust=0),
+          axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
+          legend.position = "right",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
+          legend.title = element_blank())+
+    stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
+    geom_boxplot(outlier.shape = NA,col="darkblue")+
+    scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
+    geom_vline(xintercept=1.5, linetype="dashed")+
+    xlab("")+
+    ylab("Percentile (%)")+
+    labs(fill="Catchment")
+  print(p,vp=vp1)
+  graphics.off()
 }
 
 # Boxplot des percentiles des indicateurs avant et apres desaisonalisation
@@ -980,6 +1120,40 @@ plot.sais.extr <- function(nbdays,start,end,bv1,bv2,comm=F){
   lines(c(0,12),c(0,0))
   axis(2)
   axis(1,at = 0.5:11.5,labels = 1:12,tick = FALSE,padj = -1)
+  
+  graphics.off()
+}
+
+# Figure des cartes composites et nuages de pts WP
+plot.wp <- function(wp=c(1,2),rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),quant=F){
+  
+  # Graphique
+  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.wp/plot_wp_",descriptors[1],"_",descriptors[2],"_wp",wp[1],"_wp",wp[2],"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 8,height = 7,units = "in",res=1200)
+  layout(matrix(1:6,2,3,byrow=F),width=c(1.3,1.3,0.4))
+  par(pty="s",mar=c(5,7,6,1))
+  let <- list(c("a)","c)"),c("b)","d)"))
+  
+  # Cartes composites
+  for(i in 1:length(wp)){
+    map.composite.wp(wp[i],k[1],start,end,rean[1],leg=F,let=let[[i]][1])
+    plot.empir.wp(wp[i],rean,k,descriptors,dist,nbdays,start,end,radtype,CV,threeday,save=F,let=let[[i]][2],quant)
+  }
+  
+  # Legende cartes
+  if(k[1]==1){
+    leg <- as.character(seq(4900,6100,200))
+    N=11
+  } else{
+    leg <- as.character(seq(-300,400,100))
+    N=7
+  }
+
+  par(pty="m",mar=c(5,0,6,0))
+  plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",xlim=c(0,1),ylim=c(0,1))
+  colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
+              labels = paste0("        ",leg),at =  seq(0, 1,length.out = length(leg)),
+            vertical = T,xlim = c(0.2,0.4),ylim = c(0,1),cex=1.4)
+  #text(x = 1,y = 0.75,"Geopotential height (m)",cex=1.6)
   
   graphics.off()
 }
