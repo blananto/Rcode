@@ -74,9 +74,12 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
   
   # Import indicateurs
   mat <- NULL
+  nam.descr <- NULL
+  
   for(i in 1:length(descr)){
     mat <- cbind(mat,get.descriptor(descr[i],k,dist,nbdays,start,end,standardize = F,rean=rean))
-  colnames(mat)[ncol(mat)] <- descr[i]
+    nam.descr[i] <- ifelse(descr[i]=="dP","MPD",descr[i])
+    colnames(mat)[ncol(mat)] <- nam.descr[i]
   }
   
   #pwat <- get.pwat(k,nbdays,start,end,rean)
@@ -101,7 +104,7 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
   mat <- rbind(mat1,mat2)
   
   mat <- pivot_longer(as.data.frame(mat),2:5,names_to = "descr",values_to = "percentile")
-  mat$descr <- factor(mat$descr,levels = descr)#c(descr,"pwat"))
+  mat$descr <- factor(mat$descr,levels = nam.descr)#c(descr,"pwat"))
   
   # Graphique
   ggplot(mat, aes(x=descr, y=percentile, fill=bv)) + 
@@ -124,7 +127,7 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
 }
 
 # Calcul densite de points dans un plan
-compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",quant=F,wp=F){
+compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",quant=F,wp=F,agreg=F){
   
   # Import des descripteurs
   descr1<-get.descriptor(descriptors[1],k,dist[1],nbdays,start,end,standardize=T,rean)
@@ -139,7 +142,7 @@ compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",
     descr <- cbind(descr1,descr2)
   }
   
-  if(wp!=F) tt <- get.wp(nbdays,start,end,risk=F,bv="Isere"); descr <- descr[tt==wp,]
+  if(wp!=F) tt <- get.wp(nbdays,start,end,risk=F,bv="Isere",agreg=agreg); descr <- descr[tt==wp,]
   
   nb <- NULL
   for(i in 1:nrow(descr)){
@@ -149,7 +152,7 @@ compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",
   }
   print(paste0("min density: ",min(nb)))
   print(paste0("max density: ",max(nb)))
-  save(nb,file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compute.density/nbnei_",ifelse(quant,"quant_",""),ifelse(wp!=F,paste0("wp",wp,"_"),""),descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  save(nb,file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compute.density/nbnei_",ifelse(quant,"quant_",""),ifelse(wp!=F,paste0("wp",wp,"_"),""),descriptors[1],"_",descriptors[2],"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
 }
 
 # Calcul de dP
@@ -166,12 +169,12 @@ get.pwat <- function(k=1,nbdays,start="1950-01-01",end="2011-12-31",rean){
   des <- rollapply(des,nbdays,mean)
 }
 
-# Carte composite par wp
-map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T){
+# Carte composite des anomalies par wp ou groupement de wp
+map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F,title=""){
   
   # Import wp
-  tt <- get.wp(nbdays = 1,start,end,risk=F,bv = "Isere")
-  ind <- which(tt==wp)
+  tt <- get.wp(nbdays = 1,start,end,risk=F,bv = "Isere",agreg=agreg)
+  ind <- which(tt == wp)
   
   # Import geopotentiel
   nc <- load.nc(rean)
@@ -188,22 +191,21 @@ map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T){
   geo <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),leng))
   dim(geo) <- c(length(lon),length(lat),leng)
   
+  geo_all <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),22645))
+  dim(geo_all) <- c(length(lon),length(lat),22645)
+  
   # Traitement
   geo <- geo[,,ind]
   comp <- apply(geo,1:2,mean)
   
+  comp_all <- apply(geo_all,1:2,mean)
+  comp <- comp - comp_all
+  
   # Parametres graphiques
-  if(k==1){ 
-    breaks <- seq(4900,6100,length.out = 12)
+    breaks <- seq(-200,200,length.out = 12)
     N <- 11
-    lab <- seq(4900,6100,200)
-    lev <- seq(4900,6100,100)
-  }else{
-    breaks <- seq(-300,400,length.out = 8)
-    N <- 7
-    lab <- seq(-300,400,100)
-    lev <- lab
-  }
+    lab <- seq(-200,200,50)
+    lev <- seq(-200,200,100)
   
   label <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
              "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
@@ -215,13 +217,13 @@ map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T){
     if(leg){
       image.plot(lon,lat,comp,xlim=c(-20,25),ylim=c(25,70),
                  col=rev(brewer.pal(n = N, name = "RdBu")),
-                 xlab="Longitude (°)",ylab="Latitude (°)",main=label[wp],
+                 xlab="Longitude (°)",ylab="Latitude (°)",main=ifelse(agreg,title,label[wp]),
                  legend.line=-2.3, cex.axis=cex, cex.lab=cex, cex.main=cex,
                  breaks = breaks,axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
     }else{
       image(lon,lat,comp,xlim=c(-20,25),ylim=c(25,70),
             col=rev(brewer.pal(n = N, name = "RdBu")),
-            xlab="Longitude (°)",ylab="Latitude (°)",main=label[wp],
+            xlab="Longitude (°)",ylab="Latitude (°)",main=ifelse(agreg,title,label[wp]),
             cex.axis=cex, cex.lab=cex, cex.main=cex,
             breaks = breaks)
     }
@@ -312,7 +314,7 @@ map.extr.dry <- function(k, rean){
 }
 
 # Carte des geopotentiels des sequences min et max d'un descripteur
-map.min.max <- function(descr,k,dist,nbdays,start,end,rean){
+map.min.max <- function(descr,k,dist,nbdays,start,end,rean,poster=F){
   
   # min et max
   des <- get.descriptor(descr,k,dist,nbdays,start,end,T,rean,F)
@@ -329,22 +331,27 @@ map.min.max <- function(descr,k,dist,nbdays,start,end,rean){
   }
   
   # Cartes
-  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.min.max/map_min_max_",descr,".png"),width = 6,height = 6,units = "in",res = 1200)
+  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.min.max/map_min_max_",descr,ifelse(!poster,"","_poster"),".png"),width = 6,height = 6,units = "in",res = 1200)
   layout(matrix(c(1:6,rep(7,3)),nrow = 3,ncol = 3,byrow = T),widths = rep(1,3),heights = c(rep(1,2),0.5))
-  
+  par(mar=c(0.5,0.5,0.5,0.5))
+
   for(i in 1:2){
     ind <- ifelse(i==1,ind.min,ind.max)
     for(j in 1:3){
       date <- getdates()[ind+j-1]
-      map.geo(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = F,leg=F,iso = T)
+      if(!poster){
+        map.geo(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = F,leg=F,iso = T)
+      }else{
+        map.geo.condens(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = F,leg=F,iso = T)
+      }
     }
   }
   par(pty="m",mar=c(0,0,0,0))
   plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
   colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
               labels = leg,at =  seq(0, 1,length.out = length(leg)),
-              vertical = F,xlim = c(0.7,1.3),ylim = c(0.3,0.6),cex=1.4)
-  text(x = 1,y = 0.75,"Geopotential height (m)",cex=1.6)
+              vertical = F,xlim = c(0.7,1.3),ylim = c(0.55,0.85),cex=1.4)
+  text(x = 1,y = 0.95,"Geopotential height (m)",cex=1.6)
   graphics.off()
   
 }
@@ -617,7 +624,7 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
   # Nom propre des indicateurs
   cond <- substr(descriptors,nchar(descriptors)-1,nchar(descriptors)) == substr(radtype,nchar(radtype)-1,nchar(radtype))
   descriptors[cond] <- substr(descriptors[cond],1,nchar(descriptors[cond])-2)
-  namdescr <- nam2str(descriptors, cloud = TRUE)
+  namdescr <- nam2str(descriptors, cloud = TRUE,whole = T)
   
   # Points aleatoires dans le plan
   ale <- sample(1:length(descr1),62)
@@ -653,7 +660,7 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
   
   # Creation du plot
   if(save){
-    png(filename=paste0(path1,"plot.empir.bv",get.CVstr(CV),"/plot_",bv1,"_",bv2,"_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),comp,ifelse(quant,"_quant",""),ifelse(sea,"_sea",""),ifelse(pwat,"_pwat",""),ifelse(comm,"_comm",""),".png"),width=7,height=5,units = "in",res=1200) # manip substr pour enlever le std
+    png(filename=paste0(path1,"plot.empir.bv",get.CVstr(CV),"/plot_",bv1,"_",bv2,"_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),comp,ifelse(quant,"_quant",""),ifelse(sea,"_sea",""),ifelse(pwat,"_pwat",""),ifelse(comm,"_comm",""),".png"),width=8,height=5,units = "in",res=1200) # manip substr pour enlever le std
     par(mfrow=c(1,2),pty="s")
   }
   
@@ -673,11 +680,11 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
   # bv1
   plot(descr1,descr2,
        col=getcol(nb,range = gamme),
-       xlab=paste0(ifelse(quant,"Percentile ",""),namdescr[1]," ",ifelse(descriptors[1]!="dP",dist[1],"")),
-       ylab=paste0(ifelse(quant,"Percentile ",""),namdescr[2]," ",ifelse(descriptors[2]!="dP",dist[2],"")),
+       xlab=paste0(namdescr[1],ifelse(quant," percentile ","")),
+       ylab=paste0(namdescr[2],ifelse(quant," percentile ","")),
        xlim=c((min(descr1,na.rm=T)+max(descr1,na.rm=T))/2-((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2),(min(descr1,na.rm=T)+max(descr1,na.rm=T))/2+((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2)),
        ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.3),
-       main=nam2str(bv1),
+       main=nam2str(bv1),cex.lab=1.2,cex.axis=1.2,cex.main=1.5,
        xaxt="n",yaxt="n")
   axis(1,seq(0,100,20),seq(0,100,20))
   axis(2,seq(0,100,20),seq(0,100,20))
@@ -692,11 +699,11 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
   # bv2
   plot(descr1,descr2,
        col=getcol(nb,range = gamme),
-       xlab=paste0(ifelse(quant,"Percentile ",""),namdescr[1]," ",ifelse(descriptors[1]!="dP",dist[1],"")),
-       ylab=paste0(ifelse(quant,"Percentile ",""),namdescr[2]," ",ifelse(descriptors[2]!="dP",dist[2],"")),
+       xlab=paste0(namdescr[1],ifelse(quant," percentile ","")),
+       ylab=paste0(namdescr[2],ifelse(quant," percentile ","")),
        xlim=c((min(descr1,na.rm=T)+max(descr1,na.rm=T))/2-((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2),(min(descr1,na.rm=T)+max(descr1,na.rm=T))/2+((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2)),
        ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.3),
-       main=nam2str(bv2),
+       main=nam2str(bv2),cex.lab=1.2,cex.axis=1.2,cex.main=1.5,
        xaxt="n",yaxt="n")
   axis(1,seq(0,100,20),seq(0,100,20))
   axis(2,seq(0,100,20),seq(0,100,20))
@@ -872,7 +879,7 @@ plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
 }
 
 # Plan des indicateurs colorie par WP (si save, on met les 8 wp)
-plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),save=T,let=F,quant=F){
+plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),save=T,let=F,quant=F,agreg=F,title=""){
   
   # Definition du repertoire de travail (lecture et ecriture)
   if(rean[1] != rean[2]){ 
@@ -901,7 +908,7 @@ plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01
   }
   
   # Import wp
-  tt <- get.wp(nbdays,start,end,risk = F,bv = "Isere")
+  tt <- get.wp(nbdays,start,end,risk = F,bv = "Isere",agreg=agreg)
   
   # Nom propre des indicateurs
   cond <- substr(descriptors,nchar(descriptors)-1,nchar(descriptors)) == substr(radtype,nchar(radtype)-1,nchar(radtype))
@@ -916,11 +923,11 @@ plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01
   
   label <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
              "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
-  gamme <- c(0,1840)
+  gamme <- c(0,2965)
   
   for(i in wp){
     # Import densite de pts
-    load(file = paste0("2_Travail/",rean[1],"/Rresults/overall/k",k[1],"/compute.density/nbnei_",ifelse(quant,"quant_",""),"wp",i,"_",descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    load(file = paste0("2_Travail/",rean[1],"/Rresults/overall/k",k[1],"/compute.density/nbnei_",ifelse(quant,"quant_",""),"wp",i,"_",descriptors[1],"_",descriptors[2],"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,".Rdata"))
     occ <- round(sum(tt==i)/length(tt)*100,0)
     cex <- 1.5
     
@@ -931,7 +938,7 @@ plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01
          ylab=paste0(ifelse(quant,"Percentile ",""),namdescr[2]," ",ifelse(descriptors[2]!="dP",dist[2],"")),
          xlim=c((min(descr1,na.rm=T)+max(descr1,na.rm=T))/2-((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2),(min(descr1,na.rm=T)+max(descr1,na.rm=T))/2+((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2)),
          ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.3),
-         main=label[i],cex.lab=cex, cex.main=cex,xaxt="n",yaxt="n")
+         main=ifelse(agreg,title,label[i]),cex.lab=cex, cex.main=cex,xaxt="n",yaxt="n")
         axis(1,seq(0,100,20),seq(0,100,20))
         axis(2,seq(0,100,20),seq(0,100,20))
     points(descr1[tt==i],descr2[tt==i],col=getcol(c(nb,gamme)))
@@ -1105,48 +1112,51 @@ plot.sais.extr <- function(nbdays,start,end,bv1,bv2,comm=F){
   }
   
   # Graphique
-  png(filename = paste0("2_Travail/Rresults/plot.sais.extr/plot_ann_max_",bv1,"_",bv2,ifelse(comm,"_comm",""),".png"),width = 500,height = 600,units = "px")
-  par(mfrow=c(2,1))
+  png(filename = paste0("2_Travail/Rresults/plot.sais.extr/plot_ann_max_",bv1,"_",bv2,ifelse(comm,"_comm",""),".png"),width = 9,height = 3.5,units = "in",res=1200)
+  par(mfrow=c(1,2),lwd=2,mar=c(2,4,3,1))
   
-  hist(month.bv1,axes=F,breaks=0:12,col="cornflowerblue",
-       xlab="Month",ylab="Count",ylim=c(0,ifelse(comm,12,15)),main=bv1)
+  hist(month.bv1,axes=F,breaks=0:12,col="azure3",
+       xlab="",ylab="Count",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv1))
+  abline(h = c(5,10,15), col = "grey", lty = "dotted",lwd=1)
+  abline(v = c(2,5,8,11), col = "grey", lty = "dotted",lwd=1)
+  hist(month.bv1,axes=F,breaks=0:12,col="azure3",
+       xlab="Month",ylab="Count",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv1),add=T)
   lines(c(0,12),c(0,0))
   axis(2)
-  axis(1,at = 0.5:11.5,labels = 1:12,tick = FALSE,padj = -1)
+  text(0.5:11.5,par("usr")[3]-0.3, labels = month.abb, srt = -45, pos = 1, xpd = TRUE)
   
   
-  hist(month.bv2,axes=F,breaks=0:12,col="cornflowerblue",
-      xlab="Month",ylab="Count",ylim=c(0,ifelse(comm,12,15)),main=bv2)
+  hist(month.bv2,axes=F,breaks=0:12,col="azure3",
+      xlab="",ylab="Count",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv2))
+  abline(h = c(5,10,15), col = "grey", lty = "dotted",lwd=1)
+  abline(v = c(2,5,8,11), col = "grey", lty = "dotted",lwd=1)
+  hist(month.bv2,axes=F,breaks=0:12,col="azure3",
+       xlab="Month",ylab="Count",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv2),add=T)
   lines(c(0,12),c(0,0))
   axis(2)
-  axis(1,at = 0.5:11.5,labels = 1:12,tick = FALSE,padj = -1)
+  text(0.5:11.5,par("usr")[3]-0.3, labels = month.abb, srt = -45, pos = 1, xpd = TRUE)
   
   graphics.off()
 }
 
 # Figure des cartes composites et nuages de pts WP
-plot.wp <- function(wp=c(1,2),rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),quant=F){
+plot.wp <- function(wp=c(1,2),rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),quant=F,agreg=F,title=""){
   
   # Graphique
-  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.wp/plot_wp_",descriptors[1],"_",descriptors[2],"_wp",wp[1],"_wp",wp[2],"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 8,height = 7,units = "in",res=1200)
+  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.wp/plot_wp_",descriptors[1],"_",descriptors[2],"_wp",wp[1],"_wp",wp[2],"_",ifelse(agreg,"agreg_",""),dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 8,height = 7,units = "in",res=1200)
   layout(matrix(1:6,2,3,byrow=F),width=c(1.3,1.3,0.4))
   par(pty="s",mar=c(5,7,6,1))
   let <- list(c("a)","c)"),c("b)","d)"))
   
   # Cartes composites
   for(i in 1:length(wp)){
-    map.composite.wp(wp[i],k[1],start,end,rean[1],leg=F,let=let[[i]][1])
-    plot.empir.wp(wp[i],rean,k,descriptors,dist,nbdays,start,end,radtype,CV,threeday,save=F,let=let[[i]][2],quant)
+    map.composite.wp(wp[i],k[1],start,end,rean[1],leg=F,let=let[[i]][1],agreg=agreg,title=title[i])
+    plot.empir.wp(wp[i],rean,k,descriptors,dist,nbdays,start,end,radtype,CV,threeday,save=F,let=let[[i]][2],quant,agreg=agreg,title=title[i])
   }
   
   # Legende cartes
-  if(k[1]==1){
-    leg <- as.character(seq(4900,6100,200))
-    N=11
-  } else{
-    leg <- as.character(seq(-300,400,100))
-    N=7
-  }
+  leg <- seq(-200,200,50)
+  N <- 11
 
   par(pty="m",mar=c(5,0,6,0))
   plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",xlim=c(0,1),ylim=c(0,1))

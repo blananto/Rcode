@@ -2776,9 +2776,9 @@ get.stdstr<-function(standardize){
 }
 
 # Importation des WP EDF
-get.wp <- function(nbdays,start="1950-01-01",end="2011-12-31",risk=F,bv="Isere"){
+get.wp <- function(nbdays,start="1950-01-01",end="2011-12-31",risk=F,bv="Isere",agreg=F){
   
-  wp <- read.table("2_Travail/Data/WP/type_temps_jour.txt", quote="\"", comment.char="")
+  wp <- read.table(file = paste0("2_Travail/Data/WP/type_temps_jour",ifelse(agreg,"_agreg",""),".txt"), quote="\"", comment.char="")
   wp[,1] <- as.character(format(as.Date(wp[,1],"%d/%m/%Y"),"%Y-%m-%d"))
   wp <- wp[which(wp[,1]==start):which(wp[,1]==end),2]
   
@@ -2975,8 +2975,8 @@ image.europe<- function(){
   plot(wrld_simpl,xlim=c(-12,24),ylim=c(38,50))
   
   # Rectangles analogie
-  load.nc()
-  for(k in 1:2){
+  nc <- load.nc()
+  for(k in 1:1){
     fen <- getinfo_window(k)
     tmp <- nc[[k]]
     lon <- tmp$dim$lon$vals
@@ -2988,22 +2988,33 @@ image.europe<- function(){
   
   # Carte région
   par(mar=c(4,4,4,3))
-  image.region(pluvios = T,sousBV = F,save=F)
+  image.region(pluvios = T,save=F,names = T)
   graphics.off()
   
 }
 
 # Trace la carte du BV avec pluvios, rivieres, villes
-image.region<-function(pluvios = TRUE,save=T){
+image.region<-function(pluvios = TRUE,save=T,names=F){
   
   bv <- c(#"isere",
-          #"isere-seul",
-          #"drac-seul",
-          "tarentaise",
-          "maurienne",
-          "romanche",
-          "drac",
-          "gresivaudan")
+          "isere-seul",
+          "drac-seul"
+          #"tarentaise",
+          #"maurienne",
+          #"romanche",
+          #"drac",
+          #"gresivaudan"
+          )
+  if(names){
+    coord.nam <- list(
+      c(960,2010),#c(930,2055), si centre des bv
+      c(940,1985)#c(890,1995)
+    )
+    coord.seg <- list(
+      c(960,2015,957,2022),
+      c(929,1985,921,1987)
+    )
+  }
   
   if(save) pdf(file=paste0("2_Travail/Rresults/image.region/map_region_",ifelse(pluvios,"pluvios_",""),paste0(bv,collapse = "_"),".pdf"),width = 7.5,height = 7.5)
   
@@ -3019,6 +3030,11 @@ image.region<-function(pluvios = TRUE,save=T){
     bord<-read.csv(paste0("2_Travail/Data/Carto/borders-lambertII-",bv[i],".csv"),sep=";")
     bord<-cbind(bord$XLII.m,bord$YLII.m)
     lines(bord,col="white",lwd=3)
+    if(names){
+      text(coord.nam[[i]][1],coord.nam[[i]][2],nam2str(bv[i]),col="white",font=2,cex=2)
+      arrows(coord.seg[[i]][1],coord.seg[[i]][2],coord.seg[[i]][3],coord.seg[[i]][4],
+              col="white",lwd=3,length=0.1)
+    }
   }
   
   # Calcul surfaces
@@ -3060,7 +3076,7 @@ image.region<-function(pluvios = TRUE,save=T){
   shadowtext(r[,1],r[,2],r[,3],pos=c(1,1,1,1,1,3),cex=1.2,col="white",bg="darkblue",adj=c(0,0),r=0.09,font=3)#font=2
   points(r[,1],r[,2],pch=22,col="darkblue",bg="white",cex=.8)
   
- if(save) graphics.off()
+  if(save) graphics.off()
 }
 
 # Charge les fichiers NetCDF 500 hPa et 1000 hPa d'un membre donne
@@ -3239,6 +3255,75 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F){
   
 }
 
+# Carte de geopotentiel d'un jour donne (cartes serrees pour poster)
+map.geo.condens <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F){
+  
+  # Import des donnees
+  nc <- load.nc(rean)
+  fen <- getinfo_window(k)
+  
+  if(k==1){nc <- nc$nc500
+  }else{nc <- nc$nc1000}
+  
+  lon <- nc$dim$lon$vals
+  lat <- nc$dim$lat$vals
+  num0<-date_to_number(nc,date,rean)
+  
+  geo <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),nbdays))
+  dim(geo) <- c(length(lon),length(lat),nbdays)
+  
+  # Parametres graphiques
+  if(k==1){ 
+    breaks <- seq(4850,6100,length.out = 12)
+    N <- 11
+    lab <- seq(4900,6100,200)
+    lev <- seq(4900,6100,100)
+  }else{
+    breaks <- seq(-300,400,length.out = 8)
+    N <- 7
+    lab <- seq(-300,400,100)
+    lev <- lab
+  }
+  
+  # Carte
+  if(save) {
+    png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.geo/",date,"_k",k,"_",nbdays,"day.png"),
+        width = ifelse(nbdays==3,1050,350),height = 350,units = "px")
+    layout(matrix(1:nbdays,1,nbdays))
+  }
+  
+  par(pty="s")
+  if(nbdays==3) par(mar=c(6,4,6,4))
+  cex <- ifelse(nbdays==3,1.8,1.5)
+  
+  for(i in 1:nbdays){
+    
+    if(leg){
+      image.plot(lon,lat,geo[,,i],xlim=c(-20,25),ylim=c(25,70),
+                 col=rev(brewer.pal(n = N, name = "RdBu")),
+                 xlab="",ylab="",main="",xaxt="n",yaxt="n",
+                 breaks = breaks)
+    }else{
+      image(lon,lat,geo[,,i],xlim=c(-20,25),ylim=c(25,70),
+            col=rev(brewer.pal(n = N, name = "RdBu")),
+            xlab="",ylab="",main="",xaxt="n",yaxt="n",
+            breaks = breaks)
+    }
+    
+    data(wrld_simpl)
+    plot(wrld_simpl, add = TRUE)
+    points(6,45,col="red",pch=19)
+    if(win) rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
+    if(i==1 & let!=F) mtext(let, side=3, at=-30,line = 2,cex=1.5)
+    if(iso) contour(x=lon,y=lat,z=geo[,,i], levels=lev, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
+    shadowtext(-5,67,as.Date(date)+i-1,font=2,cex=2,col="black",bg="white")
+    box()
+  }
+  
+  if(save) graphics.off()
+  
+}
+
 # Carte de geopotentiels des sequences de plus fortes precipitations, avec distribution des analogues
 map.extr <- function(var="hgt",k,N="02",start="1950-01-01",end="2011-12-31",rean,bv="Isere"){
   
@@ -3311,7 +3396,7 @@ map.extr <- function(var="hgt",k,N="02",start="1950-01-01",end="2011-12-31",rean
 }
 
 # Noms propres des couples d'indicateurs et des bvs
-nam2str<-function(nams,cloud=FALSE){
+nam2str<-function(nams,cloud=FALSE,whole=F){
 
   for(i in 1:length(nams)){
     if(nams[i] == "snei") nams[i] <- "pers"
@@ -3323,8 +3408,14 @@ nam2str<-function(nams,cloud=FALSE){
     if(nams[i] == "TWSgeo") nams[i] <- "TWS_500_1000"
     if(substr(nams[i],nchar(nams[i])-2,nchar(nams[i])) == "rev") nams[i] <- substr(nams[i],1,nchar(nams[i])-4)
     if(nams[i] == "Isere") nams[i] <- "Whole Isere catchment"
-    if(nams[i] == "Isere-seul") nams[i] <- "Isere catchment"
-    if(nams[i] == "Drac-seul") nams[i] <- "Drac catchment"
+    if(nams[i] == "isere-seul") nams[i] <- "Isere"
+    if(nams[i] == "drac-seul") nams[i] <- "Drac"
+    if(nams[i] == "Isere-seul") nams[i] <- "Isere"
+    if(nams[i] == "Drac-seul") nams[i] <- "Drac"
+    if(nams[i] == "dP") nams[i] <- "MPD"
+    if(nams[i] == "celnei" & whole) nams[i] <- "celerity"
+    if(nams[i] == "singnei" & whole) nams[i] <- "singularity"
+    if(nams[i] == "rsingnei" & whole) nams[i] <- "relative singularity"
     }
   
   if(!cloud && length(nams)==2 && nams != c("A","A")){ # si on ne l'utilise pas pour un nuage de points, alors nams de longueur 1
