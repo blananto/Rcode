@@ -3316,7 +3316,7 @@ map.geo.condens <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F)
     if(win) rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
     if(i==1 & let!=F) mtext(let, side=3, at=-30,line = 2,cex=1.5)
     if(iso) contour(x=lon,y=lat,z=geo[,,i], levels=lev, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
-    shadowtext(-5,67,as.Date(date)+i-1,font=2,cex=2,col="black",bg="white")
+    shadowtext(3,66,as.Date(date)+i-1,font=2,cex=1.7,col="black",bg="white",r=0.3)
     box()
   }
   
@@ -3408,14 +3408,14 @@ nam2str<-function(nams,cloud=FALSE,whole=F){
     if(nams[i] == "TWSgeo") nams[i] <- "TWS_500_1000"
     if(substr(nams[i],nchar(nams[i])-2,nchar(nams[i])) == "rev") nams[i] <- substr(nams[i],1,nchar(nams[i])-4)
     if(nams[i] == "Isere") nams[i] <- "Whole Isere catchment"
-    if(nams[i] == "isere-seul") nams[i] <- "Isere"
+    if(nams[i] == "isere-seul") nams[i] <- "Isère"
     if(nams[i] == "drac-seul") nams[i] <- "Drac"
-    if(nams[i] == "Isere-seul") nams[i] <- "Isere"
+    if(nams[i] == "Isere-seul") nams[i] <- "Isère"
     if(nams[i] == "Drac-seul") nams[i] <- "Drac"
     if(nams[i] == "dP") nams[i] <- "MPD"
-    if(nams[i] == "celnei" & whole) nams[i] <- "celerity"
-    if(nams[i] == "singnei" & whole) nams[i] <- "singularity"
-    if(nams[i] == "rsingnei" & whole) nams[i] <- "relative singularity"
+    if(nams[i] == "celnei" & whole) nams[i] <- "Celerity"
+    if(nams[i] == "singnei" & whole) nams[i] <- "Singularity"
+    if(nams[i] == "rsingnei" & whole) nams[i] <- "Relative singularity"
     }
   
   if(!cloud && length(nams)==2 && nams != c("A","A")){ # si on ne l'utilise pas pour un nuage de points, alors nams de longueur 1

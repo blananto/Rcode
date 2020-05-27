@@ -70,7 +70,7 @@ combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="20
 }
 
 # Comparaison des percentiles d'indicateurs pour deux bassins versants
-compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,comm=F,spazm=c(T,T)){
+compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,comm=F,spazm=c(F,F),flow=F){
   
   # Import indicateurs
   mat <- NULL
@@ -80,6 +80,12 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
     mat <- cbind(mat,get.descriptor(descr[i],k,dist,nbdays,start,end,standardize = F,rean=rean))
     nam.descr[i] <- ifelse(descr[i]=="dP","MPD",descr[i])
     colnames(mat)[ncol(mat)] <- nam.descr[i]
+  }
+  
+  if(flow!=F){
+    namflow <- ifelse(flow==1,"zonal","meridional")
+    wp <- get.wp(nbdays,start,end,risk = F,bv = "Isere",agreg = T)
+    mat <- apply(mat,2,function(v) {v[wp!=flow]=NA;return(v)})
   }
   
   #pwat <- get.pwat(k,nbdays,start,end,rean)
@@ -113,7 +119,7 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
           axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12),
           axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
           legend.position = "right",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
-          legend.title = element_blank())+
+          legend.title = element_text(hjust=1,vjust=2,size = 12,face = "bold"))+
     stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
     geom_boxplot(outlier.shape = NA,col="darkblue")+
     scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
@@ -122,7 +128,64 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
     ylab("Percentile (%)")+
     labs(fill="Catchment")#,title = namdescr
   
-  ggsave(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compare.descr.bv/plot_",bv1,"_",bv2,"_",nbdays,"day_",start,"_",end,ifelse(comm,"_commun",""),".png"),width = 20,height = 11,units="cm",dpi = 200)
+  ggsave(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compare.descr.bv/plot_",bv1,"_",bv2,"_",nbdays,"day_",start,"_",end,ifelse(comm,"_commun",""),ifelse(flow!=F,paste0("_",namflow),""),".png"),width = 20,height = 11,units="cm",dpi = 200)
+  graphics.off()
+}
+
+# Comparaison des percentiles d'indicateurs pour deux flux
+compare.descr.flow <- function(flow=c(1,2),descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,spazm=c(F,F)){
+  
+  # Import indicateurs
+  mat <- NULL
+  nam.descr <- NULL
+  
+  for(i in 1:length(descr)){
+    mat <- cbind(mat,get.descriptor(descr[i],k,dist,nbdays,start,end,standardize = F,rean=rean))
+    nam.descr[i] <- ifelse(descr[i]=="dP","MPD",descr[i])
+    colnames(mat)[ncol(mat)] <- nam.descr[i]
+  }
+  
+  # Traitement
+  namflow <- c("Zonal","Meridional","North-East","Anticyclonic")
+  namflow <- namflow[flow]
+  ind.1 <- get.ind.max.flow(flow[1],agreg=T,nbdays,start,end)
+  ind.2 <- get.ind.max.flow(flow[2],agreg=T,nbdays,start,end)
+  
+  wp <- get.wp(nbdays,start,end,agreg=T)
+  mat.1 <- mat
+  mat.1[wp!=flow[1],] <- NA
+  mat.1 <- apply(mat.1,2,function(v) {ecdf(v)(v)*100})
+  mat.1 <- mat.1[ind.1,]
+  
+  mat.2 <- mat
+  mat.2[wp!=flow[2],] <- NA
+  mat.2 <- apply(mat.2,2,function(v) {ecdf(v)(v)*100})
+  mat.2 <- mat.2[ind.2,]
+  
+  mat <- as.data.frame(rbind(mat.1,mat.2))
+  mat <- cbind(c(rep(namflow[1],length(ind.1)),rep(namflow[2],length(ind.2))),mat)
+  colnames(mat)[1] <- "Flow"
+  mat <- pivot_longer(mat,2:5,names_to = "descr",values_to = "percentile")
+  mat$Flow <- factor(mat$Flow,levels = namflow[flow])
+  mat$descr <- factor(mat$descr,levels = nam.descr)
+  
+  # Graphique
+  ggplot(mat, aes(x=descr, y=percentile, fill=Flow)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12),
+          axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
+          legend.position = "right",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
+          legend.title = element_text(hjust=0.4,vjust=2,size = 12,face = "bold"))+
+    stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
+    geom_boxplot(outlier.shape = NA,col="darkblue")+
+    scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
+    geom_vline(xintercept=c(1.5,2.5,3.5), linetype="dashed")+
+    xlab("Atmospheric descriptors")+
+    ylab("Percentile (%)")+
+    labs(fill="Flow")#,title = namdescr
+  
+  ggsave(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compare.descr.flow/plot_",namflow[1],"_",namflow[2],"_",nbdays,"day_",start,"_",end,".png"),width = 20,height = 11,units="cm",dpi = 200)
   graphics.off()
 }
 
@@ -162,6 +225,19 @@ get.dP <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
   des <- rollapply(des,nbdays,mean)
 }
 
+# Max annuels de precip issus de zonal ou meridional (Drac et Isere)
+get.ind.max.flow <- function(flow,agreg,nbdays,start,end,spazm=F){
+  
+  # Import des max annuels des deux BVs
+  ind1 <- get.ind.max(type = "year",nbdays,start,end,bv="Isere-seul",spazm)
+  ind2 <- get.ind.max(type = "year",nbdays,start,end,bv="Drac-seul",spazm)
+  
+  # WPs
+  wp <- get.wp(nbdays,start,end,risk=F,bv="Isere",agreg=agreg)
+  ind <- sort(c(ind1[wp[ind1]==flow],ind2[wp[ind2]==flow]))
+  unique(ind) # pour ne compter qu'une seule fois les dates doublons
+}
+
 # Calcul de pwat moyen journalier
 get.pwat <- function(k=1,nbdays,start="1950-01-01",end="2011-12-31",rean){
   pwat <- getdata(k = k,day0 = start,day1 = end,rean = rean,var = "pwat") 
@@ -170,7 +246,7 @@ get.pwat <- function(k=1,nbdays,start="1950-01-01",end="2011-12-31",rean){
 }
 
 # Carte composite des anomalies par wp ou groupement de wp
-map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F,title=""){
+map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F,anomalies=T){
   
   # Import wp
   tt <- get.wp(nbdays = 1,start,end,risk=F,bv = "Isere",agreg=agreg)
@@ -191,24 +267,44 @@ map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F
   geo <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),leng))
   dim(geo) <- c(length(lon),length(lat),leng)
   
+  if(anomalies){
   geo_all <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),22645))
-  dim(geo_all) <- c(length(lon),length(lat),22645)
+  dim(geo_all) <- c(length(lon),length(lat),22645)}
+  
   
   # Traitement
   geo <- geo[,,ind]
   comp <- apply(geo,1:2,mean)
   
-  comp_all <- apply(geo_all,1:2,mean)
-  comp <- comp - comp_all
+  if(anomalies){
+    comp_all <- apply(geo_all,1:2,mean)
+    comp <- comp - comp_all}
   
   # Parametres graphiques
+  if(anomalies){
     breaks <- seq(-200,200,length.out = 12)
     N <- 11
     lab <- seq(-200,200,50)
     lev <- seq(-200,200,100)
+  }else{
+    if(k==1){ 
+      breaks <- seq(4850,6100,length.out = 12)
+      N <- 11
+      lab <- seq(4900,6100,200)
+      lev <- seq(4900,6100,100)
+    }else{
+      breaks <- seq(-300,400,length.out = 8)
+      N <- 7
+      lab <- seq(-300,400,100)
+      lev <- lab
+    }
+  }
   
-  label <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
-             "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
+  # Noms des circulations
+  if(agreg){namflow <- c("Zonal","Meridional","North-East","Anticyclonic")
+  }else{namflow <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
+                     "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")}
+  namflow <- namflow[wp]
   
   # Carte
   par(pty="s")
@@ -217,13 +313,13 @@ map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F
     if(leg){
       image.plot(lon,lat,comp,xlim=c(-20,25),ylim=c(25,70),
                  col=rev(brewer.pal(n = N, name = "RdBu")),
-                 xlab="Longitude (°)",ylab="Latitude (°)",main=ifelse(agreg,title,label[wp]),
+                 xlab="",ylab="",main="",xaxt="n",yaxt="n",
                  legend.line=-2.3, cex.axis=cex, cex.lab=cex, cex.main=cex,
                  breaks = breaks,axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
     }else{
       image(lon,lat,comp,xlim=c(-20,25),ylim=c(25,70),
             col=rev(brewer.pal(n = N, name = "RdBu")),
-            xlab="Longitude (°)",ylab="Latitude (°)",main=ifelse(agreg,title,label[wp]),
+            xlab="",ylab="",main="",xaxt="n",yaxt="n",
             cex.axis=cex, cex.lab=cex, cex.main=cex,
             breaks = breaks)
     }
@@ -232,8 +328,9 @@ map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F
     plot(wrld_simpl, add = TRUE)
     points(6,45,col="red",pch=19)
     if(win) rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
-    if(let!=F) mtext(let, side=3, at=-30,line = 2,cex=1.5)
+    if(let!=F) mtext(let, side=3, at=-23,line = 0,cex=1.4)
     if(iso) contour(x=lon,y=lat,z=comp, levels=lev, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
+    shadowtext(3,66,namflow,font=2,cex=2,col="black",bg="white",r=0.3)
     box()
 }
 
@@ -323,9 +420,11 @@ map.min.max <- function(descr,k,dist,nbdays,start,end,rean,poster=F){
   
   # Parametres de la legende
   if(k==1){
+    ran <- seq(4850,6100)
     leg <- as.character(seq(4900,6100,200))
     N=11
   } else{
+    ran <- seq(-300,400)
     leg <- as.character(seq(-300,400,100))
     N=7
   }
@@ -333,7 +432,7 @@ map.min.max <- function(descr,k,dist,nbdays,start,end,rean,poster=F){
   # Cartes
   png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.min.max/map_min_max_",descr,ifelse(!poster,"","_poster"),".png"),width = 6,height = 6,units = "in",res = 1200)
   layout(matrix(c(1:6,rep(7,3)),nrow = 3,ncol = 3,byrow = T),widths = rep(1,3),heights = c(rep(1,2),0.5))
-  par(mar=c(0.5,0.5,0.5,0.5))
+  if(poster) par(mar=c(0.5,0.5,0.5,0.5))
 
   for(i in 1:2){
     ind <- ifelse(i==1,ind.min,ind.max)
@@ -349,11 +448,75 @@ map.min.max <- function(descr,k,dist,nbdays,start,end,rean,poster=F){
   par(pty="m",mar=c(0,0,0,0))
   plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
   colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
-              labels = leg,at =  seq(0, 1,length.out = length(leg)),
+              labels = leg,at =  ecdf(ran)(leg),
               vertical = F,xlim = c(0.7,1.3),ylim = c(0.55,0.85),cex=1.4)
   text(x = 1,y = 0.95,"Geopotential height (m)",cex=1.6)
   graphics.off()
   
+}
+
+# Carte des geopotentiels des sequences min et max de plusieurs descripteur
+map.min.max.all <- function(descr=c("celnei","singnei","rsingnei"),k,dist,nbdays,start,end,rean){
+  
+  # Parametres graphiques
+  nam <- nam2str(descr,whole = T)
+  let <- c("a)","b)","c)","d)","e)","f)")
+  
+  if(k==1){
+    ran <- seq(4850,6100)
+    leg <- as.character(seq(4900,6100,200))
+    N=11
+  } else{
+    ran <- seq(-300,400)
+    leg <- as.character(seq(-300,400,100))
+    N=7
+  }
+  
+  # Graphiques
+  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.min.max.all/map_min_max_",paste(descr,collapse = "_"),".png"),width = 10,height = 8,units = "in",res = 1200)
+  layout(matrix(c(rep(1,7),2:8,rep(9,7),10:16,rep(17,7),18:24,rep(25,7)),nrow = 7,ncol = 7,byrow = T),widths = c(rep(1,3),0.4,rep(1,3)),heights = c(0.2,1.2,0.2,1.2,0.2,1.2,0.5))
+  
+  for(i in 1:length(descr)){
+    
+    # Nom de l'indicateur
+    par(mar=c(0,0,0,0),pty="m")
+    plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+    text(1,0.5,nam[i],cex=2.5,font=2)
+    
+    # min et max
+    des <- get.descriptor(descr[i],k,dist,nbdays,start,end,T,rean,F)
+    ind.min <- which.min(des)
+    ind.max <- which.max(des)
+    
+    # Cartes
+    par(mar=c(0.2,0.5,0.2,0.5))
+    
+    # min
+    ind <- ind.min
+      for(j in 1:3){
+        date <- getdates()[ind+j-1]
+        map.geo.condens(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = F,leg=F,iso = T)
+        if(j==1) mtext(let[(i-1)*2+1], side=3, at=-10,line = 0.8,cex=1.2)
+        }
+    plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+    
+    # max
+    ind <- ind.max
+    for(j in 1:3){
+      date <- getdates()[ind+j-1]
+      map.geo.condens(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = F,leg=F,iso = T)
+      if(j==1) mtext(let[(i-1)*2+2], side=3, at=-10,line = 0.8,cex=1.2)
+      }
+  }
+  
+  par(pty="m",mar=c(0,0,0,0))
+  plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+  colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
+              labels = leg,at =  ecdf(ran)(leg),
+              vertical = F,xlim = c(0.7,1.3),ylim = c(0.25,0.65),cex=1.4)
+  text(x = 1,y = 0.85,"Geopotential height (m)",cex=1.6)
+  
+  graphics.off()
 }
 
 # Carte de l'eau precipitable d'un jour donne
@@ -412,6 +575,54 @@ map.pwat <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T){
   
   if(save) graphics.off()
   
+}
+
+# Carte composite de geopotentiel et d'anomalies pour deux WP
+map.wp.flow <- function(flow=c(1,2),agreg=T,k,rean,start="1950-01-01",end="2011-12-31"){
+  
+  # Noms des circulations
+  if(agreg){namflow <- c("Zonal","Meridional","North-East","Anticyclonic")
+  }else{namflow <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
+             "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")}
+  namflow <- namflow[flow]
+  
+  # Graphique
+  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.wp.flow/map_wp_flow_",namflow[1],"_",namflow[2],"_wp","_","_member",member,"_k",k,"_",start,"_",end,".png"),width = 6,height = 5,units = "in",res=1200)
+  layout(matrix(1:6,2,3,byrow=F),width=c(1.3,1.3,0.4))
+  par(pty="s",mar=c(0,3,1,1))
+  let <- list(c("a)","c)"),c("b)","d)"))
+  
+  # Cartes composites
+  for(i in 1:length(wp)){
+    map.composite.wp(flow[i],k,start,end,rean,leg=F,let=let[[i]][1],agreg=agreg,anomalies = F)
+    map.composite.wp(flow[i],k,start,end,rean,leg=F,let=let[[i]][2],agreg=agreg,anomalies = T)
+  }
+  
+  # Legende cartes
+  par(pty="m",mar=c(1,0,2,0))
+  
+  if(k==1){ 
+    N <- 11
+    leg <- seq(4900,6100,200)
+    ran <- seq(4850,6100)
+  }else{
+    N <- 7
+    leg <- seq(-300,400,100)
+    ran <- seq(-300,400)
+  }
+  plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",xlim=c(0,1),ylim=c(0,1))
+  colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
+              labels = paste0("        ",leg),at = ecdf(ran)(leg),
+              vertical = T,xlim = c(0.1,0.4),ylim = c(0,1),cex=1.4)
+  
+  N <- 11
+  leg <- seq(-200,200,50)
+  plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",xlim=c(0,1),ylim=c(0,1))
+  colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
+              labels = paste0("        ",leg),at =  seq(0, 1,length.out = length(leg)),
+              vertical = T,xlim = c(0.1,0.4),ylim = c(0,1),cex=1.4)
+  
+  graphics.off()
 }
 
 # Desaisonnalisation d'un indicateur (dP possible)
@@ -680,12 +891,13 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
   # bv1
   plot(descr1,descr2,
        col=getcol(nb,range = gamme),
-       xlab=paste0(namdescr[1],ifelse(quant," percentile ","")),
-       ylab=paste0(namdescr[2],ifelse(quant," percentile ","")),
+       xlab="",
+       ylab="",
        xlim=c((min(descr1,na.rm=T)+max(descr1,na.rm=T))/2-((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2),(min(descr1,na.rm=T)+max(descr1,na.rm=T))/2+((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2)),
        ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.3),
-       main=nam2str(bv1),cex.lab=1.2,cex.axis=1.2,cex.main=1.5,
-       xaxt="n",yaxt="n")
+       main=nam2str(bv1),cex.axis=1.2,cex.main=1.5,xaxt="n",yaxt="n")
+  title(xlab=paste0(namdescr[1],ifelse(quant," percentile ","")), line=2.5, cex.lab=1.2)
+  title(ylab=paste0(namdescr[2],ifelse(quant," percentile ","")), line=2.5, cex.lab=1.2)
   axis(1,seq(0,100,20),seq(0,100,20))
   axis(2,seq(0,100,20),seq(0,100,20))
   addscale(vec = c(nb,gamme),r=0)
@@ -694,17 +906,18 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
        paste0(round(min(nb,na.rm=T),2),"-",round(max(nb,na.rm=T),2)))
   #points(descr1[ale],descr2[ale],pch=19,cex=0.9)
   points(descr1[ind.extr1],descr2[ind.extr1],pch=22,bg=bg1,cex=cex1) 
-  if(length(let)!=1) mtext(let[1],side=3,adj=-0.2,line=0.5,font=1,cex=1.2)
+  if(length(let)!=1) mtext(let[1],side=3,adj=-0.2,line=-0.5,font=1,cex=1.2)
   
   # bv2
   plot(descr1,descr2,
        col=getcol(nb,range = gamme),
-       xlab=paste0(namdescr[1],ifelse(quant," percentile ","")),
-       ylab=paste0(namdescr[2],ifelse(quant," percentile ","")),
+       xlab="",
+       ylab="",
        xlim=c((min(descr1,na.rm=T)+max(descr1,na.rm=T))/2-((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2),(min(descr1,na.rm=T)+max(descr1,na.rm=T))/2+((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2)),
        ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.3),
-       main=nam2str(bv2),cex.lab=1.2,cex.axis=1.2,cex.main=1.5,
-       xaxt="n",yaxt="n")
+       main=nam2str(bv2),cex.axis=1.2,cex.main=1.5,xaxt="n",yaxt="n")
+  title(xlab=paste0(namdescr[1],ifelse(quant," percentile ","")), line=2.5, cex.lab=1.2)
+  title(ylab=paste0(namdescr[2],ifelse(quant," percentile ","")), line=2.5, cex.lab=1.2)
   axis(1,seq(0,100,20),seq(0,100,20))
   axis(2,seq(0,100,20),seq(0,100,20))
   addscale(vec = c(nb,gamme),r=0)
@@ -713,7 +926,7 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
        paste0(round(min(nb,na.rm=T),2),"-",round(max(nb,na.rm=T),2)))
   #points(descr1[ale],descr2[ale],pch=19,cex=0.9)
   points(descr1[ind.extr2],descr2[ind.extr2],pch=22,bg=bg2,cex=cex2) 
-  if(length(let)!=1) mtext(let[2],side=3,adj=-0.2,line=0.5,font=1,cex=1.2)
+  if(length(let)!=1) mtext(let[2],side=3,adj=-0.2,line=-0.5,font=1,cex=1.2)
   
   if(save) graphics.off()
   
@@ -752,7 +965,7 @@ plot.empir.bv.combine <- function(){
     text(1,0.5,nam[i],cex=2,font=2)
     
     # Graphiques
-    par(mar=c(5,1.5,3,1.5),pty="s")
+    par(mar=c(4,1.5,1.5,0),pty="s")
     plot.empir.bv(bv1,bv2,rean,k,descr[[i]],dist,nbdays,start,end,radtype,
                   CV,threeday,spazm,save,let[[i]],quant,sea,pwat,comm)
   }
@@ -921,9 +1134,13 @@ plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01
     par(mfrow=c(4,2),pty="s")
   }
   
-  label <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
-             "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")
-  gamme <- c(0,2965)
+  if(agreg){namflow <- c("Zonal","Meridional","North-East","Anticyclonic")
+  }else{namflow <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
+                     "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")}
+  namflow <- namflow[wp]
+  
+  gamme <- list(rep(c(0,2965),length(wp)))
+  if(agreg) gamme <- list(c(0,3142),c(0,1497))
   
   for(i in wp){
     # Import densite de pts
@@ -931,25 +1148,72 @@ plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01
     occ <- round(sum(tt==i)/length(tt)*100,0)
     cex <- 1.5
     
+    # Import des max
+    ind.max <- get.ind.max.flow(flow=i,agreg,nbdays,start,end)
+    
     # plot
     plot(descr1,descr2,
          col="grey",
-         xlab=paste0(ifelse(quant,"Percentile ",""),namdescr[1]," ",ifelse(descriptors[1]!="dP",dist[1],"")),
-         ylab=paste0(ifelse(quant,"Percentile ",""),namdescr[2]," ",ifelse(descriptors[2]!="dP",dist[2],"")),
+         xlab="",
+         ylab="",
          xlim=c((min(descr1,na.rm=T)+max(descr1,na.rm=T))/2-((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2),(min(descr1,na.rm=T)+max(descr1,na.rm=T))/2+((max(descr1,na.rm=T)-min(descr1,na.rm=T))*1.3/2)),
          ylim=c(min(descr2,na.rm=T),min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.3),
-         main=ifelse(agreg,title,label[i]),cex.lab=cex, cex.main=cex,xaxt="n",yaxt="n")
-        axis(1,seq(0,100,20),seq(0,100,20))
-        axis(2,seq(0,100,20),seq(0,100,20))
-    points(descr1[tt==i],descr2[tt==i],col=getcol(c(nb,gamme)))
-    addscale(vec = c(nb,gamme))
+         main=namflow[i], cex.main=cex,xaxt="n",yaxt="n")
+    title(xlab=paste0(namdescr[1],ifelse(quant," percentile ","")), line=2.5, cex.lab=1.2)
+    title(ylab=paste0(namdescr[2],ifelse(quant," percentile ","")), line=2.5, cex.lab=1.2)
+    axis(1,seq(0,100,20),seq(0,100,20))
+    axis(2,seq(0,100,20),seq(0,100,20))
+    points(descr1[tt==i],descr2[tt==i],col=getcol(c(nb,gamme[[i]])))
+    points(descr1[ind.max],descr2[ind.max],pch=22,bg="white",cex=1.2)
+    addscale(vec = c(nb,gamme[[i]]))
     text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T)),
          y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.15,
          paste0(round(min(nb,na.rm=T),2),"-",round(max(nb,na.rm=T),2)))
-    if(let!=F) mtext(let, side=3, at=-50,line = 2,cex=1.5)
+    if(length(let)!=1) mtext(let[2],side=3,adj=-0.2,line=-0.5,font=1,cex=1.2)
   }
   if(save) graphics.off()
   
+}
+
+# plot.empir.wp combine
+plot.empir.wp.combine <- function(){
+  
+  # Parametres
+  wp <- c(1,2)
+  rean <- c("20CR","20CR")
+  k <- c(1,1)
+  descr <- list(
+    c("celnei","dP"),
+    c("singnei","dP"),
+    c("rsingnei","dP")
+  )
+  nam <- c("Celerity","Singularity","Relative singularity")
+  
+  dist <- c("TWS","TWS")
+  nbdays=3
+  start="1950-01-01"
+  end="2011-12-31"
+  let <- list(c("a)","b)"),c("c)","d)"),c("e)","f)"))
+  radtype="nrn05"
+  agreg=T
+  CV=TRUE;threeday=c(F,F);spazm=c(F,F);save=F;quant=T;sea=F;pwat=F;comm=F
+  
+  # Graphique
+  png(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.wp-CV/plot_combine_",namflow[1],"_",namflow[2],ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=1200)
+  layout(matrix(c(rep(1,2),2:3,rep(4,2),5:6,rep(7,2),8:9),nrow = 6,ncol = 2,byrow = T),widths = rep(1,2),heights = c(0.1,1.2,0.1,1.2,0.1,1.2))
+  
+  for(i in 1:length(descr)){
+    # Nom de l'indicateur
+    par(mar=c(0,0,0,0),pty="m")
+    plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+    text(1,0.5,nam[i],cex=2,font=2)
+    
+    # Graphiques
+    par(mar=c(4,1.5,1.5,0),pty="s")
+    plot.empir.wp(wp,rean,k,descr[[i]],dist,nbdays,start,end,radtype,
+                  CV,threeday,save,let[[i]],quant,agreg)
+  }
+  graphics.off()
 }
 
 # Graphique de la saisonnalite de pwat et du boxplot de comparaison pour deux bvs
@@ -962,6 +1226,7 @@ plot.pwat <- function(bv1,bv2,start,end,rean,spazm=c(F,F)){
   ind.2 <- get.ind.max(type = "year",nbdays = 3,start = start,end = end,bv = bv2,spazm = spazm[2])
   
   # Traitement boxplot
+  pw <- ecdf(pwat)(pwat)*100
   desais <- compute.desais(pwat,dates)
   desais <- ecdf(desais)(desais)*100
   
@@ -971,14 +1236,13 @@ plot.pwat <- function(bv1,bv2,start,end,rean,spazm=c(F,F)){
   bv <- rep(ifelse(spazm[1]==spazm[2],nam2str(bv2),paste0(nam2str(bv2)," (spazm=", spazm[2],")")),length(ind.2))
   mat2 <- as.data.frame(cbind(bv,pw[ind.2],desais[ind.2]))
   mat <- rbind(mat1,mat2)
-  colnames(mat) <- c("bv","PWAT","sea. adj. PWAT")
+  colnames(mat) <- c("bv","PW","sea. adj. PW")
   
   mat <- pivot_longer(mat,2:3,names_to = "type",values_to = "percentile")
   mat$percentile <- as.numeric(as.character(mat$percentile))
-  mat$type <- factor(mat$type,levels = c("PWAT","sea. adj. PWAT"))
+  mat$type <- factor(mat$type,levels = c("PW","sea. adj. PW"))
   
   # Traitement saisonalite
-  pw <- ecdf(pwat)(pwat)*100
   comm <- ind.1==ind.2
   ind.1 <- ind.1[!comm]
   ind.2 <- ind.2[!comm]
@@ -989,7 +1253,7 @@ plot.pwat <- function(bv1,bv2,start,end,rean,spazm=c(F,F)){
   png(filename = paste0("2_Travail/Rresults/plot.pwat/plot_pwat_",bv1,"_",bv2,"_spazm_",spazm[1],"_",spazm[2]),width = 11,height = 5,units = "in",res = 1200)
   par(mfrow=c(1,2))
   
-  plot.sais.quantile(dates = dates,vec = pw,label = "PWAT percentile (%)")
+  plot.sais.quantile(dates = dates,vec = pw,label = "PW percentile (%)")
   #points(match(substr(dates[ind.1],6,10),year),pw[ind.1],pch=22,bg="cornflowerblue",cex=1.3)
   #points(match(substr(dates[ind.2],6,10),year),pw[ind.2],pch=22,bg="burlywood1",cex=1.3)
   #points(match(substr(dates[ind.comm],6,10),year),pw[ind.comm],pch=22,bg="olivedrab3",cex=1.3)
@@ -1016,6 +1280,46 @@ plot.pwat <- function(bv1,bv2,start,end,rean,spazm=c(F,F)){
     ylab("Percentile (%)")+
     labs(fill="Catchment")
   print(p,vp=vp1)
+  graphics.off()
+}
+
+# Boxplot de pwat pour les max de precip zonaux et meridionaux
+plot.pwat.flow <- function(nbdays,start,end,rean){
+  
+  # Imports
+  dates <- getdates(start,end)
+  pwat <- get.pwat(k = 1,nbdays,start,end,rean)
+  ind.1 <- get.ind.max.flow(flow=1,agreg=T,nbdays,start,end)
+  ind.2 <- get.ind.max.flow(flow=2,agreg=T,nbdays,start,end)
+  
+  # Traitement
+  wp <- get.wp(nbdays,start,end,agreg=T)
+  pwat.1 <- pwat
+  pwat.1[wp!=1] <- NA
+  pwat.1 <- ecdf(pwat.1)(pwat.1)*100
+  
+  pwat.2 <- pwat
+  pwat.2[wp!=2] <- NA
+  pwat.2 <- ecdf(pwat.2)(pwat.2)*100
+  
+  mat <- data.frame(Zonal=pwat.1[ind.1],Meridional=c(pwat.2[ind.2],rep(NA,length(ind.1)-length(ind.2))))
+  mat <- pivot_longer(mat,1:2,names_to = "flow",values_to = "percentile")
+  mat <- na.omit(mat)
+  mat$flow <- factor(mat$flow,levels=c("Zonal","Meridional"))
+  
+  # Graphique
+  ggplot(mat, aes(x=flow, y=percentile)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0.5,0.5,0,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12,colour="black",vjust=0),
+          axis.text.y = element_text(size=12))+
+    stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
+    geom_boxplot(outlier.shape = NA,col="darkblue",fill=c("cornflowerblue","burlywood1"))+
+    geom_vline(xintercept=1.5, linetype="dashed")+
+    xlab("")+
+    ylab("PW Percentile (%)")
+  
+  ggsave(filename = "2_Travail/Rresults/plot.pwat.flow/plot_pwat_flow.png",width = 5,height = 4)
   graphics.off()
 }
 
