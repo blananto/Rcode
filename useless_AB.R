@@ -12,6 +12,7 @@ library(zoo) #rollapply
 library(RANN) #nn2
 library(scoringRules) #crps
 library(evd) #fpot
+require(mvtnorm)
 
 
 compare.loglik.gamma.nei<-function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,radtype="nrn05"){
@@ -601,6 +602,37 @@ getinfo_window=function(k){
 get.radius<-function(descr,norm){
   sdvec<-apply(descr,2,sd,na.rm=TRUE)
   radius<-mean(sdvec)/norm
+}
+
+# plot du copule colorie par la valeur de alpha, comme dans Faranda (2020)
+plot.alpha.faranda<-function(rho,qua){
+  
+  # Copule gaussienne
+  z<-rmvnorm(2*10^3,mean=c(0,0),sigma=matrix(c(1,rho,rho,1),ncol=2))
+  xvec<-pnorm(z[,1])
+  yvec<-pnorm(z[,2])
+  plot(xvec,yvec,xlim=c(0,1),ylim=c(0,1))
+  
+  # Alpha
+  alpha <- NULL
+  for(i in 1:2000){
+    print(i)
+    dist.x <- -log(abs(z[i,1]-z[,1]))
+    qua.x <- quantile(dist.x,qua)
+    
+    dist.y <- -log(abs(z[i,2]-z[,2]))
+    qua.y <- quantile(dist.y,qua)
+    
+    ana.x <- which(dist.x>qua.x & dist.x!=Inf)
+    ana.y <- which(dist.y>qua.y & dist.y!=Inf)
+    ana <- which(dist.x>qua.x & dist.y>qua.y & dist.x!=Inf & dist.y!=Inf)
+    
+    alpha[i] <- length(ana)/length(ana.x)
+  }
+  
+  # Plot
+  plot(xvec,yvec,xlim=c(0,1),ylim=c(0,1),col=getcol(alpha))
+  addscale(alpha)
 }
 
 # Ancienne fonction plot.empir

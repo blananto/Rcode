@@ -218,6 +218,33 @@ compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",
   save(nb,file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compute.density/nbnei_",ifelse(quant,"quant_",""),ifelse(wp!=F,paste0("wp",wp,"_"),""),descriptors[1],"_",descriptors[2],"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
 }
 
+# Compte le % de sequences d'un meme flux en dessous d'un certain quantile de deux descripteurs
+count.flow.descr <- function(flow,agreg,qua,descr,k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Import et traitement
+  des1 <- get.descriptor(descr[1],k,dist,nbdays,start,end,standardize = F,rean)
+  des1 <- ecdf(des1)(des1)
+  
+  des2 <- get.descriptor(descr[2],k,dist,nbdays,start,end,standardize = F,rean)
+  des2 <- ecdf(des2)(des2)
+  
+  wp <- get.wp(nbdays,start,end,agreg=agreg)
+  des1 <- des1[wp==flow]
+  des2 <- des2[wp==flow]
+  
+  # Sortie
+  print(nam2str(descr[1],whole=T))
+  print(paste0("En dessous: ",round(table(des1<qua)[2]/length(des1)*100,1),"%"))
+  print(paste0("Au dessus: ",round(table(des1<qua)[1]/length(des1)*100,1),"%"))
+  
+  print(nam2str(descr[2],whole=T))
+  print(paste0("En dessous: ",round(table(des2<qua)[2]/length(des2)*100,1),"%"))
+  print(paste0("Au dessus: ",round(table(des2<qua)[1]/length(des2)*100,1),"%"))
+  
+  plot(ecdf(des1))
+  lines(ecdf(des2),col="red")
+}
+
 # Calcul de dP
 get.dP <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
   geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
@@ -370,6 +397,34 @@ map.corner <- function(k, rean){
   
 }
 
+# Cartes d'une gamme croissante d'un descripteur pour gif
+map.descr.gif <- function(type="all",descr,k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Import
+  des <- get.descriptor(descr,k,dist,nbdays,start,end,standardize = F,rean)
+  dates <- getdates(start,end)
+  
+  
+  # Traitement
+  tri <- sort(des,decreasing = T,index.return=T)$ix
+  if(type=="all"){
+  ran <- tri[seq(1,length(tri),length.out = 60)]
+  }
+  if(type=="max"){
+    ran <- tri[(length(tri)-59):(length(tri))]
+  }
+  
+  # Cartes
+  for(i in 1:length(ran)){
+    print(i)
+    png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.descr.gif/",descr,"_",i,ifelse(type!="all","_max",""),"_k",k,"_",nbdays,"day.png"),
+                       width = ifelse(nbdays==3,1050,350),height = 350,units = "px")
+    layout(matrix(1:nbdays,1,nbdays))
+    map.geo(date = dates[ran[i]],rean = rean,k = k,nbdays = nbdays,save=F,win = T,let = F,leg = F,iso = T)
+    graphics.off()
+  }
+}
+
 # Carte des geopotentiels de l'extreme et d'une sequence seche avec leur 100e analogue
 map.extr.dry <- function(k, rean){
   
@@ -473,7 +528,7 @@ map.min.max.all <- function(descr=c("celnei","singnei","rsingnei"),k,dist,nbdays
   }
   
   # Graphiques
-  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.min.max.all/map_min_max_",paste(descr,collapse = "_"),".png"),width = 10,height = 8,units = "in",res = 1200)
+  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.min.max.all/map_min_max_",paste(descr,collapse = "_"),".png"),width = 10,height = 8,units = "in",res = 200)
   layout(matrix(c(rep(1,7),2:8,rep(9,7),10:16,rep(17,7),18:24,rep(25,7)),nrow = 7,ncol = 7,byrow = T),widths = c(rep(1,3),0.4,rep(1,3)),heights = c(0.2,1.2,0.2,1.2,0.2,1.2,0.5))
   
   for(i in 1:length(descr)){
@@ -587,13 +642,13 @@ map.wp.flow <- function(flow=c(1,2),agreg=T,k,rean,start="1950-01-01",end="2011-
   namflow <- namflow[flow]
   
   # Graphique
-  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.wp.flow/map_wp_flow_",namflow[1],"_",namflow[2],"_wp","_","_member",member,"_k",k,"_",start,"_",end,".png"),width = 6,height = 5,units = "in",res=1200)
+  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.wp.flow/map_wp_flow_",namflow[1],"_",namflow[2],"_wp","_","_member",member,"_k",k,"_",start,"_",end,".png"),width = 6,height = 5,units = "in",res=200)
   layout(matrix(1:6,2,3,byrow=F),width=c(1.3,1.3,0.4))
   par(pty="s",mar=c(0,3,1,1))
   let <- list(c("a)","c)"),c("b)","d)"))
   
   # Cartes composites
-  for(i in 1:length(wp)){
+  for(i in 1:length(flow)){
     map.composite.wp(flow[i],k,start,end,rean,leg=F,let=let[[i]][1],agreg=agreg,anomalies = F)
     map.composite.wp(flow[i],k,start,end,rean,leg=F,let=let[[i]][2],agreg=agreg,anomalies = T)
   }
@@ -955,7 +1010,7 @@ plot.empir.bv.combine <- function(){
   CV=TRUE;threeday=c(F,F);spazm=c(F,F);save=F;quant=T;sea=F;pwat=F;comm=F
   
   # Graphique
-  png(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.bv-CV/plot_combine_",bv1,"_",bv2,ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=1200)
+  png(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.bv-CV/plot_combine_",bv1,"_",bv2,ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=200)
   layout(matrix(c(rep(1,2),2:3,rep(4,2),5:6,rep(7,2),8:9),nrow = 6,ncol = 2,byrow = T),widths = rep(1,2),heights = c(0.1,1.2,0.1,1.2,0.1,1.2))
 
   for(i in 1:length(descr)){
@@ -1169,7 +1224,7 @@ plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01
     text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T)),
          y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.15,
          paste0(round(min(nb,na.rm=T),2),"-",round(max(nb,na.rm=T),2)))
-    if(length(let)!=1) mtext(let[2],side=3,adj=-0.2,line=-0.5,font=1,cex=1.2)
+    if(length(let)!=1) mtext(let[i],side=3,adj=-0.2,line=-0.5,font=1,cex=1.2)
   }
   if(save) graphics.off()
   
@@ -1180,6 +1235,7 @@ plot.empir.wp.combine <- function(){
   
   # Parametres
   wp <- c(1,2)
+  namflow <- c("Zonal","Meridional")
   rean <- c("20CR","20CR")
   k <- c(1,1)
   descr <- list(
@@ -1199,7 +1255,7 @@ plot.empir.wp.combine <- function(){
   CV=TRUE;threeday=c(F,F);spazm=c(F,F);save=F;quant=T;sea=F;pwat=F;comm=F
   
   # Graphique
-  png(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.wp-CV/plot_combine_",namflow[1],"_",namflow[2],ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=1200)
+  png(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.wp-CV/plot_combine_",namflow[1],"_",namflow[2],ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=200)
   layout(matrix(c(rep(1,2),2:3,rep(4,2),5:6,rep(7,2),8:9),nrow = 6,ncol = 2,byrow = T),widths = rep(1,2),heights = c(0.1,1.2,0.1,1.2,0.1,1.2))
   
   for(i in 1:length(descr)){
@@ -1416,7 +1472,7 @@ plot.sais.extr <- function(nbdays,start,end,bv1,bv2,comm=F){
   }
   
   # Graphique
-  png(filename = paste0("2_Travail/Rresults/plot.sais.extr/plot_ann_max_",bv1,"_",bv2,ifelse(comm,"_comm",""),".png"),width = 9,height = 3.5,units = "in",res=1200)
+  png(filename = paste0("2_Travail/Rresults/plot.sais.extr/plot_ann_max_",bv1,"_",bv2,ifelse(comm,"_comm",""),".png"),width = 9,height = 3.5,units = "in",res=200)
   par(mfrow=c(1,2),lwd=2,mar=c(2,4,3,1))
   
   hist(month.bv1,axes=F,breaks=0:12,col="azure3",

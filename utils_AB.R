@@ -2988,13 +2988,13 @@ image.europe<- function(){
   
   # Carte région
   par(mar=c(4,4,4,3))
-  image.region(pluvios = T,save=F,names = T)
+  image.region(pluvios = T,save=F,names = T,crsm=T)
   graphics.off()
   
 }
 
 # Trace la carte du BV avec pluvios, rivieres, villes
-image.region<-function(pluvios = TRUE,save=T,names=F){
+image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F){
   
   bv <- c(#"isere",
           "isere-seul",
@@ -3024,6 +3024,12 @@ image.region<-function(pluvios = TRUE,save=T,names=F){
   Fy<-griddata$Fy
   Fz<-griddata$Fz*1000
   image.plot(Fx,Fy,Fz,col=gray(seq(0.1,0.99,length=100)),xlab="X (km) - Lambert II extended",ylab="Y (km) - Lambert II extended",legend.line=-2.3, cex.axis=1.3, cex.lab=1.3)
+  
+  # Frontieres climato crsm (Auer, 2005)
+  if(crsm){
+    ligne=read.csv("2_Travail/Data/Carto/Shape_CRSM.csv")
+    lines(ligne[ligne[,1]==1,4],ligne[ligne[,1]==1,5],lwd=3,lty=2,col="black")
+  }
   
   # Bordure du BV et des sous-BV
   for(i in 1:length(bv)){
