@@ -105,14 +105,14 @@ getcol<-function(vec=NULL,range=NULL,transparent=FALSE,centered=FALSE,rev=FALSE)
 compare.bv.edf<-function(){
   
   # Import nouveau BV
-  poly <- readOGR("2_Travail/Rresults/compare.bv.edf", "DTG_bv_isere_stegreve")
+  poly <- readOGR("2_Travail/0_Present/Rresults/compare.bv.edf", "DTG_bv_isere_stegreve")
   bv_edf <- poly@polygons[[1]]@Polygons[[1]]@coords/1000
   
   # Export nouveau BV
-  write.csv(bv_edf,file="2_Travail/Rresults/compare.bv.edf/border_Isere@Grenoble_EDF.csv",row.names = F)
+  write.csv(bv_edf,file="2_Travail/0_Present/Rresults/compare.bv.edf/border_Isere@Grenoble_EDF.csv",row.names = F)
   
   # Carte des deux BVs
-  pdf(file=paste0("2_Travail/Rresults/compare.bv.edf/map_compare_bv.pdf"),width = 7.5,height = 7.5)
+  pdf(file=paste0("2_Travail/0_Present/Rresults/compare.bv.edf/map_compare_bv.pdf"),width = 7.5,height = 7.5)
   load(file=paste("2_Travail/Data/Carto/griddata_1x1_IsereSavoieHautesAlpes.Rdata",sep=""))
   Fx<-griddata$Fx
   Fy<-griddata$Fy
@@ -285,7 +285,7 @@ compare.crps<-function(which="",k=NULL,dist,nbdays=3,start="1950-01-01",end="201
     }
     
     # Score climato moyen
-    load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
     
     normalize<-mean(score$crps[idx,nam])
     if(substr(nam,1,3)=="pos"){
@@ -459,7 +459,7 @@ compare.crps.A<-function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rea
     idx.2<-intersect(idx,soso$ix[1:100]) # moyenne pour les 62 plus fortes pluies
     meancrps.2<-apply(crps.mat[idx.2,],2,mean)
     
-    load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata")) # Import du score climatologique
+    load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata")) # Import du score climatologique
     
     normalize<-mean(score$crps[idx,nam]) # moyenne des scores pour toutes les pluies
     normalize.1<-mean(score$crps[idx.1,nam]) # les 62*12 plus fortes
@@ -578,7 +578,7 @@ compare.crps.ana <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31"
     }
     
     # CRPS climato moyen
-    load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
     
     normalize<-mean(score$crps[idx,nam])
     if(nam == "pos ecdf"){
@@ -733,7 +733,7 @@ compare.crps.comb<-function(which = 1,k,dist,nbdays=3,start="1950-01-01",end="20
     }
     
     # Score climato
-    load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata")) # Import du score climatologique
+    load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata")) # Import du score climatologique
     
     normalize<-mean(score$crps[idx,nam])
     if(nam == "pos ecdf"){
@@ -839,7 +839,7 @@ compare.crps.sais<-function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",
     }
     
     # Score climato
-    load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
     crpss.mat <- apply(crps.mat,2,function(x) 1-x/score$crps[,nam])
     
     # indice des lignes completes sans NA
@@ -944,7 +944,7 @@ compare.crps.simple <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rad
   
   for(i in 1:ndescr){
     di <- ifelse(dist[[i]][1]==dist[[i]][2],dist[[i]][1],paste0(dist[[i]][1],"_",dist[[i]][2]))
-    load(file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compute_crps",get.CVstr(CV),"/",descr[[i]][1],"_",descr[[i]][2],
+    load(file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute_crps",get.CVstr(CV),"/",descr[[i]][1],"_",descr[[i]][2],
                        "_",di,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,ifelse(threeday[i],"_threeday",""),".Rdata"))
     crps.all <- cbind(crps.all,crps[,"all ecdf"])
     crps.pos <- cbind(crps.pos,crps[,"pos ecdf"])
@@ -966,7 +966,7 @@ compare.crps.simple <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rad
   meancrps.extr <- apply(crps.pos[idx.extr,],2,mean)
   
   # CRPS climato moyen
-  load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
   
   normalize.all <- mean(score$crps[idx,"all ecdf"])
   normalize.pos <- mean(score$crps[idx.pos,"pos ecdf"])
@@ -1090,7 +1090,7 @@ compare.crps.TL<-function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",ra
     }
     
     # Score climato
-    load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata")) # Import du score climatologique
+    load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata")) # Import du score climatologique
     
     normalize<-mean(score$crps[idx,nam])
     if(nam == "pos ecdf"){
@@ -1222,7 +1222,7 @@ compare.crps.wp <- function(k,dist,nbdays=1,start="1950-01-01",end="2011-12-31",
     }
     
     # WP EDF
-    load(file="2_Travail/Rresults/compute.crps.wp/crps_wp.Rdata")
+    load(file="2_Travail/0_Present/Rresults/compute.crps.wp/crps_wp.Rdata")
     meancrps.wp<-mean(crps[idx,nam])
     if(nam =="pos ecdf"){
       meancrps.wp.0<-mean(crps[idx.0,nam])
@@ -1231,7 +1231,7 @@ compare.crps.wp <- function(k,dist,nbdays=1,start="1950-01-01",end="2011-12-31",
     }
     
     # CRPS climato moyen
-    load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
     
     normalize<-mean(score$crps[idx,nam])
     if(nam == "pos ecdf"){
@@ -1416,7 +1416,7 @@ compare.tps.spazm <- function(nbdays,start,end,bv){
   ann.spazm <- get.ind.max(type = "year",nbdays,start,end,bv,spazm=T)
   
   # Graphiques: correlation et max communs
-  png(filename = paste0("2_Travail/Rresults/compare.tps.spazm/comp_",bv,"_",nbdays,"day_",start,"_",end,".png"),width = 800,height = 400,units = "px")
+  png(filename = paste0("2_Travail/0_Present/Rresults/compare.tps.spazm/comp_",bv,"_",nbdays,"day_",start,"_",end,".png"),width = 800,height = 400,units = "px")
   par(mfrow=c(1,3),pty="s")
   
   ran <- range(spazm,tps)
@@ -1442,7 +1442,7 @@ compare.tps.spazm <- function(nbdays,start,end,bv){
   ind.tps <- ann.tps[-comm]
   ind.spazm <- ann.spazm[-comm]
   
-  png(filename = paste0("2_Travail/Rresults/compare.tps.spazm/comp_wp_",bv,"_",nbdays,"day_",start,"_",end,".png"),width = 1500,height = 800,units = "px")
+  png(filename = paste0("2_Travail/0_Present/Rresults/compare.tps.spazm/comp_wp_",bv,"_",nbdays,"day_",start,"_",end,".png"),width = 1500,height = 800,units = "px")
   par(mfrow=c(2,4),pty="s",mar=c(4,4,4,4))
   lim <- c(0,max(tps,spazm))
   
@@ -1482,7 +1482,7 @@ compare.tps.spazm <- function(nbdays,start,end,bv){
   label <- c("Summer","Autumn","Winter","Spring")
   
   
-  png(filename = paste0("2_Travail/Rresults/compare.tps.spazm/comp_season_",bv,"_",nbdays,"day_",start,"_",end,".png"),width = 800,height = 800,units = "px")
+  png(filename = paste0("2_Travail/0_Present/Rresults/compare.tps.spazm/comp_season_",bv,"_",nbdays,"day_",start,"_",end,".png"),width = 800,height = 800,units = "px")
   par(mfrow=c(2,2),pty="s")
   
   for(i in 1:4){
@@ -1557,7 +1557,7 @@ compute_common<-function(type=1,dist1="TWS",dist2="RMSE",descr=c("celnei","singn
   
   if(type %in% c(1,3)){
     save(comm,file = paste0(get.dirstr(k,rean),"compute_common/common_ana_",comp,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,"_nrn",str,".Rdata"))
-  }else{save(comm,file = paste0("2_Travail/",rean,"/Rresults/overall/compute_common/common_ana_",dist1,"_member",member,"_k1_k2_mean",nbdays,"day_",start,"_",end,"_nrn",str,".Rdata"))}
+  }else{save(comm,file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/compute_common/common_ana_",dist1,"_member",member,"_k1_k2_mean",nbdays,"day_",start,"_",end,"_nrn",str,".Rdata"))}
   
 }
 
@@ -1946,7 +1946,7 @@ compute.crps.wp <- function(start="1950-01-01",end="2011-12-31"){
   # Import
   precip <- get.precip(1,start,end)
   wp <- get.wp(start,end,risk=T)
-  load("2_Travail/Rresults/save.wp.ind/WP_ind.Rdata")
+  load("2_Travail/0_Present/Rresults/save.wp.ind/WP_ind.Rdata")
   
   # Calcul
   N <- length(precip)
@@ -1964,7 +1964,7 @@ compute.crps.wp <- function(start="1950-01-01",end="2011-12-31"){
   }
   
   # Sauvegarde
-  save(crps,file="2_Travail/Rresults/compute.crps.wp/crps_wp.Rdata")
+  save(crps,file="2_Travail/0_Present/Rresults/compute.crps.wp/crps_wp.Rdata")
   
 }
 
@@ -1986,11 +1986,11 @@ compute_dist.gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean){
       if (dist=="RMSE_I") dist.list<-compute_RMSE_I(k,start,end,rean)
       if (dist=="RMSE_II") dist.list<-compute_RMSE_II(k,start,end,rean)
       if (dist=="Mahalanobis") dist.list<-compute_mahalanobis(k,start,end,rean)
-      save(dist.list,file=paste0("2_Travail/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+      save(dist.list,file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
     }
     else{ # si on demande un nTWS, sTWS, nRMSE ou sRMSE, les distances sont normalisees par la moyenne ou l'ecart type des distances
       dist0<-substr(dist,2,nchar(dist))
-      load(file=paste0("2_Travail/",rean,"/Rresults/compute_dist/",dist0,"_member",member,"_Z",Z,"_",start,"_",end,".Rdata"))
+      load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",dist0,"_member",member,"_Z",Z,"_",start,"_",end,".Rdata"))
       type<-substr(dist,1,1)
       print(type)
       if (type=="n") norm<-mean(unlist(dist.list))
@@ -1998,19 +1998,19 @@ compute_dist.gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean){
       print(norm)
       for (i in 1:length(dist.list)) dist.list[[i]]<-dist.list[[i]]/norm
       
-      save(dist.list,file=paste0("2_Travail/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+      save(dist.list,file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
     }
   }
   else { # si k=3, les scores sont deja censes etre calcules pour 500 et 1000, donc on fait juste la moyenne des deux
-    load(file=paste0("2_Travail/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_Z500_",start,"_",end,".Rdata"))
+    load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_Z500_",start,"_",end,".Rdata"))
     print("1")
     dist1.list<-dist.list
     rm(dist.list);gc(TRUE)
-    load(file=paste0("2_Travail/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_Z1000_",start,"_",end,".Rdata"))
+    load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_Z1000_",start,"_",end,".Rdata"))
     print("2")
     for (i in 1:length(dist.list)) dist.list[[i]]<-(dist.list[[i]]+dist1.list[[i]])/2
     rm(dist1.list);gc(TRUE)
-    save(dist.list,file=paste0("2_Travail/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+    save(dist.list,file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
   }
 }
 
@@ -2099,7 +2099,7 @@ compute_score_climato<-function(nbdays=3,start="1950-01-01",end="2011-12-31",rea
   
   score<-list(crps=crps,p0=p0,par.gamma=opt$par,opt.gamma=opt,loglik.p0=(1-israin)*log(p0)+israin*log(1-p0),loglik.gamma=loglik.gamma,par.egp=opt.egp$fit$mle,opt.egp=opt.egp,loglik.egp=loglik.egp)
   
-  save(score,file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  save(score,file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
 }
 
 # Calcul des scores RMSE
@@ -2145,10 +2145,10 @@ compute_RMSE_I<-function(k,start="1950-01-01",end="2011-12-31",rean){
 compute_RMSE_II<-function(k,start="1950-01-01",end="2011-12-31",rean){
   
   # Import scores RMSE
-  load(paste0("2_Travail/",rean,"/Rresults/compute_dist/RMSE_I_member1_k",k,"_",start,"_",end,".Rdata"))
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/RMSE_I_member1_k",k,"_",start,"_",end,".Rdata"))
   dist.list.rmseI <- dist.list
   
-  load(paste0("2_Travail/",rean,"/Rresults/compute_dist/RMSE_member1_k",k,"_",start,"_",end,".Rdata"))
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/RMSE_member1_k",k,"_",start,"_",end,".Rdata"))
   dist.list.rmse <- dist.list
   rm(dist.list)
   
@@ -2160,7 +2160,9 @@ compute_RMSE_II<-function(k,start="1950-01-01",end="2011-12-31",rean){
 # Calcul des scores TWS
 compute_TWS<-function(k,start="1950-01-01",end="2011-12-31",rean){
   gradlist<-grad(k,start,end,rean)
-  attach(gradlist)#gradlon,gradlat
+  gradlon <- gradlist$gradlon
+  gradlat <- gradlist$gradlat
+
   N<-dim(gradlon)[3]
   dist.list<-list()
   #tt<-Sys.time()
@@ -2469,33 +2471,33 @@ getdata<-function(k,day0,day1=day0,rean,large_win=F,var="hgt"){
     num0<-date_to_number(nc[[k]],day0,rean)
     num1<-date_to_number(nc[[k]],day1,rean)
     N<-length(num0:num1)
-    infowind<-getinfo_window(k,large_win,var=var)
+    infowind<-getinfo_window(k,large_win,rean=rean,var=var)
     ncvar_get(nc = nc[[k]],varid=var,start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
   }else{
     num0<-date_to_number(nc,day0,rean)
     num1<-date_to_number(nc,day1,rean)
     N<-length(num0:num1)
-    infowind<-getinfo_window(k,large_win,var=var)
+    infowind<-getinfo_window(k,large_win,rean=rean,var=var)
     ncvar_get(nc = nc,varid=var,start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
   }
 }
 
 # Part de la serie de dates complete et ressort seulement le subset voulu
 getdates<-function(start="1950-01-01",end="2011-12-31"){
-  load(file=paste0("2_Travail/20CR/Data/Membre_",member,"/dates.Rdata"))
-  dates[which(dates==start):which(dates==end)]
+  as.character(seq(from=as.Date(start),to=as.Date(end),by="days"))
 }
 
 # Date associee a chaque pas de temps dans le fichier NetCDF
 getdays<-function(nc,rean){
   if(rean == "20CR") orig <- "1800"
   if(rean == "ERA20C" | rean =="ERA20C_18") orig <- "1900"
+  if(rean == "NCEP") orig <- "1950"
   substr(as.POSIXct(nc$dim$time$vals*3600,origin=paste0(orig,'-01-01 00:00'),tz="GMT"),1,10) #format "YYYY-MM-DD"
 }
 
 # Importe la liste contenant la distance souhaitee
-getdist<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,threeday=FALSE){
-  load(file=paste0("2_Travail/",rean,"/Rresults/compute_dist/",ifelse(threeday,"3day_",""),dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+getdist<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,threeday=FALSE,period="present"){
+  load(file=paste0(get.dirstr(k,rean,period),"/Rresults/compute_dist/",ifelse(threeday,"3day_",""),dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
   gc()
   return(dist.list)
 }
@@ -2516,18 +2518,18 @@ getdist4i<-function(i,dist.vec,N,sU){
 }
 
 # Definit la fenetre spatiale d'analogie pour extraire des donnees de data500 et data1000 
-getinfo_window<-function(k,large_win = F,var="hgt"){ 
+getinfo_window<-function(k,large_win = F,rean,var="hgt"){ 
   if(var == "hgt"){
-    nc <- load.nc(var=var)
+    nc <- load.nc(rean,var)
     # lat et lon correspondent aux degres de longitude et latitude pour lesquels on a les donnees des geopot 500 et 1000
-    lon<-nc[[1]]$dim$lon$vals # de -30 a 50 deg E tranches de 2 deg -> 41 valeurs
-    lat<-nc[[1]]$dim$lat$vals #de 24 a 72 deg N tranches de 2 deg -> 25 valeurs
+    lon<-nc[[k]]$dim$lon$vals # de -30 a 50 deg E tranches de 2 deg -> 41 valeurs
+    lat<-nc[[k]]$dim$lat$vals #de 24 a 72 deg N tranches de 2 deg -> 25 valeurs
     # time=data500$dim$time$vals # 58804 valeurs par tranches de 24h (du 01-01-1851 au 31-12-2011), valeurs a 9h chaque jour
     # parametre fenetre d'analogie
   }
   
   if(var =="pwat"){
-    nc <- load.nc(var=var)
+    nc <- load.nc(rean,var)
     lon<-nc$dim$lon$vals
     lat<-nc$dim$lat$vals
   }
@@ -2677,10 +2679,18 @@ get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011
 }
 
 # Modifie le repertoire d'ecriture des resultats selon k et overall/seasonal 
-get.dirstr<-function(k=NULL,rean){
-  if (seasonal) {dirstr<-paste0("2_Travail/",rean,"/Rresults/seasonal/")
-  } else dirstr<-paste0("2_Travail/",rean,"/Rresults/overall/")
+get.dirstr<-function(k=NULL,rean,period="present"){
+  
+  if(period=="present"){
+  if (seasonal) {dirstr<-paste0("2_Travail/0_Present/",rean,"/Rresults/seasonal/")
+  } else dirstr<-paste0("2_Travail/0_Present/",rean,"/Rresults/overall/")
   if (!is.null(k)) dirstr<-paste0(dirstr,"k",k,"/")
+  }
+  
+  if(period=="past") dirstr<-paste0("2_Travail/1_Past/",rean,"/")
+  
+  if(period=="future") dirstr<-paste0("2_Travail/2_Future/",rean,"/")
+  
   dirstr
 }
 
@@ -2835,7 +2845,7 @@ illustr.precip.seq<-function(nbdays,start="1950-01-01",end="2011-12-31"){
   
   rep <- round(table(tmp[sort(precip,decreasing=T,index.return=T)$ix[1:62],1] > quantile(precip0,0.9))/62*100,0) # points noirs dessus/dessous q90
   
-  png(file=paste0("2_Travail/Rresults/illustr.precip.seq/plotseq_",nbdays,"_",start,"_",end,".png"),width=350,heigh=404,units="px",res=72)
+  png(file=paste0("2_Travail/0_Present/Rresults/illustr.precip.seq/plotseq_",nbdays,"_",start,"_",end,".png"),width=350,heigh=404,units="px",res=72)
   plot(range(precip0),range(precip0),type="n",xlab=paste0(nbdays,"-day precip (mm/day)"),ylab="daily precip (mm/day)")
   for (i in 1:ncol(tmp)) points(precip,tmp[,i],col=i,pch=19,cex=0.8)
   abline(v=quantile(precip,1-62/length(precip)),lty=2)
@@ -2883,7 +2893,7 @@ image.cumul<-function(crue=FALSE){
     ind    <- get.ind.extr(10,nei=TRUE)
     event  <- getdates()[ind]
   } else {# Events extremes de crues
-    load("2_Travail/Rresults/image.cumul/crues_1969_2011_Isere_StGervais.Rdata")
+    load("2_Travail/0_Present/Rresults/image.cumul/crues_1969_2011_Isere_StGervais.Rdata")
     crues <- as.data.frame(crues)
     #crues <- as.data.frame(crues[crues[,4]>0.75,]) # on selectionne les events quadriennaux
     event <- as.character(crues[,1]-3) # on prend les pluies de j-3,j-2,j-1 de la crue (car 8hj a 7hj+1)
@@ -2899,7 +2909,7 @@ image.cumul<-function(crue=FALSE){
     rp <- c(tmp[1],NA,NA,tmp[2:38],NA,tmp[39:40])
     pos <- which(rp>0.8)
     
-    png(file = "2_Travail/Rresults/image.cumul/Quant_rain_flood.png",width = 517,height = 369,units = "px",res = 72)
+    png(file = "2_Travail/0_Present/Rresults/image.cumul/Quant_rain_flood.png",width = 517,height = 369,units = "px",res = 72)
     par(mar=c(5,5,1,1))
     plot(ann,qua*100,cex=debit/sd(debit,na.rm=T)/2,ylim=c(0,100),bg="cornflowerblue",pch=21,xlab="Year",ylab="Quantile (%) of 3-day precip \n preceding annual maximum flow rate")
     points(ann[pos],qua[pos]*100,cex=debit[pos]/sd(debit,na.rm=T)/2,bg="red",pch=21)
@@ -2914,7 +2924,7 @@ image.cumul<-function(crue=FALSE){
     qua_ete <- round(distrib(precip[ind]),4)
     
     # Histogramme des crues par mois
-    png(file = "2_Travail/Rresults/image.cumul/Histogram_flood_month.png",width = 419,height = 322,units = "px",res = 72)
+    png(file = "2_Travail/0_Present/Rresults/image.cumul/Histogram_flood_month.png",width = 419,height = 322,units = "px",res = 72)
     tmp <- as.numeric(substr(crues[,1],6,7))
     hist(tmp,0:12,axes = FALSE,xlab="Month",col="cornflowerblue",border = "royalblue",main="Annual max flow rate 1969-2011")
     lines(c(0,12),c(0,0))
@@ -2925,7 +2935,7 @@ image.cumul<-function(crue=FALSE){
   
   for(i in 1:length(event)){
     print(paste0("Carte ",i,"/",length(event)))
-    pdf(file=paste0("2_Travail/Rresults/image.cumul/Map_",ifelse(crue,"flood_","rainfall_"),"event_",i,".pdf"),width=7.5,heigh=7.5)
+    pdf(file=paste0("2_Travail/0_Present/Rresults/image.cumul/Map_",ifelse(crue,"flood_","rainfall_"),"event_",i,".pdf"),width=7.5,heigh=7.5)
     
     # Carte de base
     image.plot(Fx,Fy,Fz,col=gray(seq(0.1,0.99,length=100)),xlab="X (km) - Lambert II extended",ylab="Y (km) - Lambert II extended",
@@ -2966,7 +2976,7 @@ image.cumul<-function(crue=FALSE){
 # Carte de l'Europe avec fenêtres d'analogie, et carte de la region
 image.europe<- function(){
   
-  png(filename = "2_Travail/Rresults/image.europe/image_europe_region.png",width = 1100,height = 500,units = "px")
+  png(filename = "2_Travail/0_Present/Rresults/image.europe/image_europe_region.png",width = 1100,height = 500,units = "px")
   par(mfrow=c(1,2),oma=c(0,1,0,1))
   
   # Carte Europe
@@ -3016,7 +3026,7 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F){
     )
   }
   
-  if(save) pdf(file=paste0("2_Travail/Rresults/image.region/map_region_",ifelse(pluvios,"pluvios_",""),paste0(bv,collapse = "_"),".pdf"),width = 7.5,height = 7.5)
+  if(save) pdf(file=paste0("2_Travail/0_Present/Rresults/image.region/map_region_",ifelse(pluvios,"pluvios_",""),paste0(bv,collapse = "_"),".pdf"),width = 7.5,height = 7.5)
   
   # Fond de carte
   load(file=paste("2_Travail/Data/Carto/griddata_1x1_IsereSavoieHautesAlpes.Rdata",sep=""))
@@ -3089,22 +3099,27 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F){
 load.nc<-function(rean = "20CR",var="hgt"){
   
   if(rean == "20CR" & var == "hgt"){
-    nc500<-nc_open(paste0("2_Travail/20CR/Data/Membre_",member,"/20Crv2c_Membre_",member,"_HGT500_1851-2011_daily.nc"))
-    nc1000<-nc_open(paste0("2_Travail/20CR/Data/Membre_",member,"/20Crv2c_Membre_",member,"_HGT1000_1851-2011_daily.nc"))
+    nc500<-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/Membre_",member,"/20Crv2c_Membre_",member,"_HGT500_1851-2011_daily.nc"))
+    nc1000<-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/Membre_",member,"/20Crv2c_Membre_",member,"_HGT1000_1851-2011_daily.nc"))
   }
   
   if(rean == "20CR" & var == "pwat"){
-    nc<-nc_open(paste0("2_Travail/20CR/Data/PWAT/20Crv2_EnsembleMean_PWAT_1851-2014_daily.nc"))
+    nc<-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/PWAT/20Crv2_EnsembleMean_PWAT_1851-2014_daily.nc"))
   }
   
   if(rean == "ERA20C"){
-    nc500<-nc_open("2_Travail/ERA20C/Data/ERA20C_HGT500_1900_2010_daily.nc")
-    nc1000<-nc_open("2_Travail/ERA20C/Data/ERA20C_HGT1000_1900_2010_daily.nc")
+    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_daily.nc")
+    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT1000_1900_2010_daily.nc")
   }
   
   if(rean == "ERA20C_18"){
-    nc500<-nc_open("2_Travail/ERA20C_18/Data/ERA20C_HGT500_1900_2010_18h.nc")
-    nc1000<-nc_open("2_Travail/ERA20C_18/Data/ERA20C_HGT1000_1900_2010_18h.nc")
+    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C_18/ERA20C_HGT500_1900_2010_18h.nc")
+    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA20C_18/ERA20C_HGT1000_1900_2010_18h.nc")
+  }
+  
+  if(rean == "NCEP"){
+    nc500<-nc_open("2_Travail/Data/Reanalysis/NCEP/NCEP_HGT500_1950_2010_daily.nc")
+    nc1000<-nc_open("2_Travail/Data/Reanalysis/NCEP/NCEP_HGT1000_1950_2010_daily.nc")
   }
   
   if(var=="hgt") nc<-list(nc500=nc500,nc1000=nc1000)
@@ -3196,7 +3211,7 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F){
   
   # Import des donnees
   nc <- load.nc(rean)
-  fen <- getinfo_window(k)
+  fen <- getinfo_window(k,rean=rean)
   
   if(k==1){nc <- nc$nc500
   }else{nc <- nc$nc1000}
@@ -3484,7 +3499,7 @@ plot.bilan<-function(k,dist,val=c(5,5,5,5),type="fort"){
   
   descr <- c("celnei","persnei","singnei","rsingnei")
   
-  png(filename = paste0("2_Travail/Rresults/plot.bilan/plot_bilan_k",k,"_",dist,"_",type,".png"),width = 400,height = 400,units = "px")
+  png(filename = paste0("2_Travail/0_Present/Rresults/plot.bilan/plot_bilan_k",k,"_",dist,"_",type,".png"),width = 400,height = 400,units = "px")
   par(pty="s")
   
   plot(c(1,4),c(1,10),type="n",ylim=c(1,10),pch=19,xaxt="n",yaxt="n",xlab="",ylab="")
@@ -3670,10 +3685,10 @@ plot.cloud<-function(){
   ampl_sing <- range(sing)
   ampl_rsing <- range(c(rsing,0.7))
   
-  pdf("2_Travail/Rresults/plot.cloud/plot_sing.pdf",width = 7.5,height = 7.5)
+  pdf("2_Travail/0_Present/Rresults/plot.cloud/plot_sing.pdf",width = 7.5,height = 7.5)
   points3D(mat[,1],mat[,2],mat[,3],cex=0.6,pch=19,bty="g",colvar=sing,main="all sing")
   graphics.off()
-  pdf("2_Travail/Rresults/plot.cloud/plot_rsing.pdf",width = 7.5,height = 7.5)
+  pdf("2_Travail/0_Present/Rresults/plot.cloud/plot_rsing.pdf",width = 7.5,height = 7.5)
   points3D(mat[,1],mat[,2],mat[,3],cex=0.6,pch=19,bty="g",colvar=rsing,clim=ampl_rsing,main="all rsing")
   graphics.off()
   
@@ -3687,10 +3702,10 @@ plot.cloud<-function(){
     rsing[i] <- mean(count)/count[length(count)]
   }
   
-  pdf("2_Travail/Rresults/plot.cloud/plot_sing_uni.pdf",width = 7.5,height = 7.5)
+  pdf("2_Travail/0_Present/Rresults/plot.cloud/plot_sing_uni.pdf",width = 7.5,height = 7.5)
   points3D(mat[,1],mat[,2],mat[,3],cex=0.6,pch=19,bty="g",colvar=sing,clim=ampl_sing,main="all sing")
   graphics.off()
-  pdf("2_Travail/Rresults/plot.cloud/plot_rsing_uni.pdf",width = 7.5,height = 7.5)
+  pdf("2_Travail/0_Present/Rresults/plot.cloud/plot_rsing_uni.pdf",width = 7.5,height = 7.5)
   points3D(mat[,1],mat[,2],mat[,3],cex=0.6,pch=19,bty="g",colvar=rsing,clim=ampl_rsing,main="all rsing")
   graphics.off()
   
@@ -3716,7 +3731,7 @@ plot.common.quant<-function(type=1,dist1="TWS",dist2="RMSE",descr=c("celnei","si
   
   if(type %in% c(1,3)){
     load(file = paste0(get.dirstr(k,rean),"compute_common/common_ana_",comp,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,"_nrn",str,".Rdata"))
-  }else{load(file = paste0("2_Travail/",rean,"/Rresults/overall/compute_common/common_ana_",dist1,"_member",member,"_k1_k2_mean",nbdays,"day_",start,"_",end,"_nrn",str,".Rdata"))}
+  }else{load(file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/compute_common/common_ana_",dist1,"_member",member,"_k1_k2_mean",nbdays,"day_",start,"_",end,"_nrn",str,".Rdata"))}
   
   precip <- get.precip(nbdays,start,end)
   
@@ -3750,7 +3765,7 @@ plot.common.quant<-function(type=1,dist1="TWS",dist2="RMSE",descr=c("celnei","si
   if(type %in% c(1,3)){
     ggsave(filename = paste0(get.dirstr(k,rean),"plot.common/plot_common_ana_",comp,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,"_nrn",str,".png"),
            width = 28,height = 15,units = "cm")
-  }else{ggsave(filename = paste0("2_Travail/",rean,"/Rresults/overall/plot.common/plot_common_ana_",dist1,"_member",member,"_k1_k2_mean",nbdays,"day_",start,"_",end,"_nrn",str,".png"),
+  }else{ggsave(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/plot.common/plot_common_ana_",dist1,"_member",member,"_k1_k2_mean",nbdays,"day_",start,"_",end,"_nrn",str,".png"),
                width = 28,height = 15,units = "cm")}
   
   graphics.off()
@@ -3765,10 +3780,10 @@ plot.crps<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="201
   crps_ind <- crps[,"pos ecdf"]
   
   load(file=paste0(get.dirstr(k,rean),"compute_crps-CV.A/",str,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
-  #load(file=paste0("2_Travail/",rean,"/Rresults/overall/k3/compute_crps-CV.A/05_TWS_member1_k3_mean3day_1950-01-01_2011-12-31.Rdata"))
+  #load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k3/compute_crps-CV.A/05_TWS_member1_k3_mean3day_1950-01-01_2011-12-31.Rdata"))
   crps_ana <- crps[,"pos ecdf"]
   
-  load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
   crps_clim <- score$crps[,"pos ecdf"]
   
   rm(crps,score)
@@ -3861,7 +3876,7 @@ plot.crps.ana<-function(rean,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31"
   load(file=paste0(get.dirstr(k,rean),"compute_crps-CV.A/",str,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
   crps_ana <- crps[,"pos ecdf"]
   
-  load(file=paste0("2_Travail/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_score_climato/score_mean",nbdays,"day_",start,"_",end,".Rdata"))
   crps_clim <- score$crps[,"pos ecdf"]
   
   rm(crps,score)
@@ -4447,7 +4462,7 @@ plot.lorenz <- function(){
     rsing[i] <- sing[i]/max(nei)
   }
   
-  pdf("2_Travail/Rresults/plot.lorenz/plot_sing_rsing.pdf",width = 7.5,height = 7.5)
+  pdf("2_Travail/0_Present/Rresults/plot.lorenz/plot_sing_rsing.pdf",width = 7.5,height = 7.5)
   lines3D(x = out[,2],y = out[,3],z=out[,4],colvar=sing,bty="g",theta=-60,phi=40,main="sing")
   lines3D(x = out[,2],y = out[,3],z=out[,4],colvar=rsing,bty="g",theta=-60,phi=40,main="rsing")
   
@@ -4469,7 +4484,7 @@ plot.lorenz <- function(){
 plot.p0.wp <- function(){
   
   # Import
-  load("2_Travail/Rresults/save.wp.ind/WP_ind.Rdata")
+  load("2_Travail/0_Present/Rresults/save.wp.ind/WP_ind.Rdata")
   precip <- get.precip(1)
   
   # Calcul
@@ -4478,7 +4493,7 @@ plot.p0.wp <- function(){
   dim(p0) <- c(8,2)
   
   # Graphique
-  png(filename = "2_Travail/Rresults/plot.p0.wp/plot_p0_wp.png",width = 580,height = 440,units = "px")
+  png(filename = "2_Travail/0_Present/Rresults/plot.p0.wp/plot_p0_wp.png",width = 580,height = 440,units = "px")
   plot(p0[,1],pch=19,ylim=c(0,0.8),col="red",xlab="Weather Pattern",ylab="p0")
   lines(p0[,1],col="red")
   points(p0[,2],pch=19)
@@ -4567,7 +4582,7 @@ plot.rain <- function(nbdays=3,ann.max=F,start="1950-01-01",end="2011-12-31"){
     supp <- "Annual"
     }
   
-  pdf(file = paste0("2_Travail/Rresults/plot.rain/Hietograph_",supp,"_max_",nbdays,"day_",start,"_",end,".pdf"))
+  pdf(file = paste0("2_Travail/0_Present/Rresults/plot.rain/Hietograph_",supp,"_max_",nbdays,"day_",start,"_",end,".pdf"))
   layout(matrix(1:20,4,5,byrow=TRUE))
   for(i in 1:length(ind)){
     barplot(precip[ind[i]:(ind[i]+nbdays-1)],space=0,col="cornflowerblue",main = dates[ind[i]],names.arg = c("D1","D2","D3"),ylab="Precip (mm)",cex.names = 0.8)
@@ -4575,7 +4590,7 @@ plot.rain <- function(nbdays=3,ann.max=F,start="1950-01-01",end="2011-12-31"){
   graphics.off()
   
   # Frequence d'occurence des sequences de pluie fortes dans l'annee
-  png(file = paste0("2_Travail/Rresults/plot.rain/Histogram_",supp,"_max_",nbdays,"day_",start,"_",end,".png"),width = 419,height = 322,units = "px",res = 72)
+  png(file = paste0("2_Travail/0_Present/Rresults/plot.rain/Histogram_",supp,"_max_",nbdays,"day_",start,"_",end,".png"),width = 419,height = 322,units = "px",res = 72)
   tmp <- as.numeric(substr(dates[ind],6,7))
   hist(tmp,0:12,axes = FALSE,xlab="Month",col="cornflowerblue",border = "royalblue",
        main=paste0(supp," max ",nbdays,"-day precip ",substr(start,1,4),"-",substr(end,1,4)))
@@ -4585,7 +4600,7 @@ plot.rain <- function(nbdays=3,ann.max=F,start="1950-01-01",end="2011-12-31"){
   graphics.off()
   
   # Hyetogramme des cumuls de pluie sur l'annee
-  png(file = paste0("2_Travail/Rresults/plot.rain/Histogram_all_",nbdays,"day_",start,"_",end,".png"),width = 460,height = 322,units = "px",res = 72)
+  png(file = paste0("2_Travail/0_Present/Rresults/plot.rain/Histogram_all_",nbdays,"day_",start,"_",end,".png"),width = 460,height = 322,units = "px",res = 72)
   precip <- get.precip(1,start,end)
   dates <- getdates(start,end)
   month <- substr(dates,6,7)
@@ -4631,7 +4646,7 @@ plot.ratio.BV <- function(nbdays=3,start="1950-01-01",end="2011-12-31",rain=FALS
   
   # Plus fortes crues
   if(flood){
-    load("2_Travail/Rresults/image.cumul/crues_1969_2011_Isere_StGervais.Rdata")
+    load("2_Travail/0_Present/Rresults/image.cumul/crues_1969_2011_Isere_StGervais.Rdata")
     crues <- as.data.frame(crues[crues[,4]>0.75,]) # on selectionne les events quadriennaux
     event <- as.character(crues[,1]-3) # on prend les pluies de j-3,j-2,j-1 de la crue (car 8hj a 7hj+1)
     pos   <- match(event,getdates())
@@ -4643,7 +4658,7 @@ plot.ratio.BV <- function(nbdays=3,start="1950-01-01",end="2011-12-31",rain=FALS
   }
   
   
-  png(file=paste0("2_Travail/Rresults/plot.ratio.BV/plotratio_",supp0,"_",supp,nbdays,"days_",start,"_",end,".png"),width=520,heigh=480,units="px",res=72)
+  png(file=paste0("2_Travail/0_Present/Rresults/plot.ratio.BV/plotratio_",supp0,"_",supp,nbdays,"days_",start,"_",end,".png"),width=520,heigh=480,units="px",res=72)
   plot(range(precip_BV),range(ratio,na.rm=T),log="y",type="n",xlab=paste0(supp0," ","3-day precip (mm/day)"),ylab="precip Isere / precip Drac")
   if(nbdays==1) {
     for (i in 1:ncol(tmp)) points(precip_BV,tmp[,i],col=i,pch=19,cex=0.9)
@@ -4698,7 +4713,7 @@ plot.ratio.pluvios <- function(nbdays,seuil=0,start="1950-01-01",end="2011-12-31
     ylab(paste0("% of stations with positive \n",nbdays,"-day precipitation"))+
     scale_x_discrete(limits = 1:10,labels=xlabel)
   
-  ggsave(filename = paste0("2_Travail/Rresults/plot.ratio.pluvios/ratio_",nbdays,"day_seuil",seuil,"_",start,"_",end,".png"),
+  ggsave(filename = paste0("2_Travail/0_Present/Rresults/plot.ratio.pluvios/ratio_",nbdays,"day_seuil",seuil,"_",start,"_",end,".png"),
          width = 28,height = 15,units = "cm")
   graphics.off()
 }
@@ -4959,7 +4974,7 @@ plot.wp.extr<-function(bv1,bv2,nbdays,start="1950-01-01",end="2011-12-31",spazm=
     ind.extr2 <- ind.extr2[-which(ind.extr2 %in% commun)]
   }
   
-  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_62_max_",bv1,"_",bv2,ifelse(spazm[1]!=spazm[2],"_spazm",""),ifelse(comm,"_comm",""),".png"),width = 700,height = 600,units = "px")
+  png(filename = paste0("2_Travail/0_Present/Rresults/plot.wp.extr/plot_wp_62_max_",bv1,"_",bv2,ifelse(spazm[1]!=spazm[2],"_spazm",""),ifelse(comm,"_comm",""),".png"),width = 700,height = 600,units = "px")
   par(mfrow=c(2,1))
   
   tmp <- hist(wp[ind.extr1],0:8,plot=F)$counts
@@ -4985,7 +5000,7 @@ plot.wp.extr<-function(bv1,bv2,nbdays,start="1950-01-01",end="2011-12-31",spazm=
     ind.extr2 <- ind.extr2[-commun]
   }
   
-  png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_annual_max_",bv1,"_",bv2,ifelse(spazm[1]!=spazm[2],"_spazm",""),ifelse(comm,"_comm",""),".png"),width = 700,height = 600,units = "px")
+  png(filename = paste0("2_Travail/0_Present/Rresults/plot.wp.extr/plot_wp_annual_max_",bv1,"_",bv2,ifelse(spazm[1]!=spazm[2],"_spazm",""),ifelse(comm,"_comm",""),".png"),width = 700,height = 600,units = "px")
   par(mfrow=c(2,1))
   
   tmp <- hist(wp[ind.extr1],0:8,plot=F)$counts
@@ -5004,7 +5019,7 @@ plot.wp.extr<-function(bv1,bv2,nbdays,start="1950-01-01",end="2011-12-31",spazm=
   # max mensuel
   #ind.max <- get.ind.max(type = "month",nbdays,start,end,bv,spazm)
   #
-  #png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_monthly_max_",bv,ifelse(spazm,"_spazm",""),".png"),width = 800,height = 400,units = "px")
+  #png(filename = paste0("2_Travail/0_Present/Rresults/plot.wp.extr/plot_wp_extr_monthly_max_",bv,ifelse(spazm,"_spazm",""),".png"),width = 800,height = 400,units = "px")
   #tmp <- hist(wp[ind.max],0:8,plot=F)$counts
   #tmp <- tmp/sum(tmp)*100 # pourcentage
   #barplot(height = tmp,ylim=c(0,round(max(tmp)*0.1,0)*10),space = 0,names.arg = xlabel,
@@ -5014,7 +5029,7 @@ plot.wp.extr<-function(bv1,bv2,nbdays,start="1950-01-01",end="2011-12-31",spazm=
   # 62 max dP
   #dP <- get.dP(1,3,start,end,"20CR")
   #
-  #png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_dP_max_",bv,".png"),width = 800,height = 400,units = "px")
+  #png(filename = paste0("2_Travail/0_Present/Rresults/plot.wp.extr/plot_wp_extr_dP_max_",bv,".png"),width = 800,height = 400,units = "px")
   #ind.max <- sort(dP,decreasing=T,index.return=T)$ix[1:62]
   #ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
   #tmp <- hist(wp[ind.max],0:8,plot=F)$counts
@@ -5029,7 +5044,7 @@ plot.wp.extr<-function(bv1,bv2,nbdays,start="1950-01-01",end="2011-12-31",spazm=
   #rsingnei.tws <- get.descriptor(descriptor = "rsingnei",k = 1,dist = "TWS",nbdays = 3,start = start,end = end,standardize = F,"20CR")
   #rsingnei.rmse <- get.descriptor(descriptor = "rsingnei",k = 1,dist = "RMSE",nbdays = 3,start = start,end = end,standardize = F,"20CR")
   
-  #png(filename = paste0("2_Travail/Rresults/plot.wp.extr/plot_wp_extr_dP_max_rsingnei_",bv,".png"),width = 800,height = 400,units = "px")
+  #png(filename = paste0("2_Travail/0_Present/Rresults/plot.wp.extr/plot_wp_extr_dP_max_rsingnei_",bv,".png"),width = 800,height = 400,units = "px")
   #ind.max <- which(rsingnei.tws < quantile(rsingnei.tws,0.02) & rsingnei.rmse < quantile(rsingnei.rmse,0.02))
   #ind.max <- sort(unique(c(ind.max,ind.max+1,ind.max+2))) # pour prendre tous les jours des seq les plus fortes
   #tmp <- hist(wp[ind.max],0:8,plot=F)$counts
@@ -5083,18 +5098,18 @@ plot.wp.occurence<-function(start="1950-01-01",end="2011-12-31"){
     ylab("Percentage (%)")+
     scale_x_discrete(limits = 1:8,labels=xlabel)
   
-  ggsave(filename = paste0("2_Travail/Rresults/plot.wp.occurence/plot_wp_occurence_",start,"_",end,".png"),width = 28,height = 14,units="cm",dpi = 200)
+  ggsave(filename = paste0("2_Travail/0_Present/Rresults/plot.wp.occurence/plot_wp_occurence_",start,"_",end,".png"),width = 28,height = 14,units="cm",dpi = 200)
   graphics.off()
   
 }
 
-# Concatenation et aggregation de netcdf sous R
-reshape.netcdf <- function(z = "1000"){
+# Concatenation et aggregation de ERA20C
+reshape.ERA20C <- function(z = "1000"){
   
   stock <- list()
   for(i in 1:4){ # Importation et stockage des arrays
     print(paste0("Importation ",i,"/4"))
-    tmp        <- nc_open(paste0("2_Travail/ERA-20C/Data/Z",z,"_era20c",i,".nc"))
+    tmp        <- nc_open(paste0("2_Travail/Data/Reanalysis/ERA-20C/Z",z,"_era20c",i,".nc"))
     stock[[i]] <- ncvar_get(nc = tmp, varid = "z", start = c(1,1,1), count = c(tmp$dim$longitude$len,tmp$dim$latitude$len,tmp$dim$time$len))
   }
   
@@ -5119,7 +5134,30 @@ reshape.netcdf <- function(z = "1000"){
   dim3 <- ncdim_def(name = "time", units = tmp$dim$time$units, vals = as.integer(time.seq), calendar = "gregorian")
   
   res.form   <- ncvar_def(name = "hgt", units = "gpm", dim = list(dim1,dim2,dim3),prec = "double",longname = "Geopotential")
-  res.create <- nc_create(filename = paste0("2_Travail/ERA-20C/Data/ERA20C_HGT",z,"_1900_2010_daily.nc"), vars = res.form)
+  res.create <- nc_create(filename = paste0("2_Travail/Data/Reanalysis/ERA-20C/ERA20C_HGT",z,"_1900_2010_daily.nc"), vars = res.form)
+  ncvar_put(nc = res.create, varid = res.form,vals = arr_final)
+  
+}
+
+# Aggregation de NCEP
+reshape.NCEP <- function(z = "500"){
+  
+  # Import reanalyse brute
+  nc <- nc_open(filename = paste0("2_Travail/Data/Reanalysis/NCEP/nnr-12h_HGT-",z,".nc"))
+  arr <- ncvar_get(nc = nc,varid = "HGT",start = c(1,1,1),count=c(length(nc$dim$lon$vals),length(nc$dim$lat$vals),length(nc$dim$time$vals)))
+  dim1 <- nc$dim$lon     
+  
+     
+  # Aggregation
+  fourth_dim <- dim(arr)[3]/2
+  dim(arr)   <- c(dim(arr)[1:2],2,fourth_dim)
+  arr_final  <- apply(arr,c(1,2,4),mean)
+  
+  # Export
+  nc$dim$time$vals <- nc$dim$time$vals[seq(1,length(nc$dim$time$vals),2)] # modif dimension temps (journalier au lieu de 12h)
+  nc$dim$time$len <- nc$dim$time$len/2 # modif dimension temps (journalier au lieu de 12h)
+  res.form   <- ncvar_def(name = "hgt", units = "gpm", dim = list(nc$dim$lon,nc$dim$lat,nc$dim$time),prec = "double",longname = "Geopotential")
+  res.create <- nc_create(filename = paste0("2_Travail/Data/Reanalysis/NCEP/NCEP_HGT",z,"_1950_2010_daily.nc"), vars = res.form)
   ncvar_put(nc = res.create, varid = res.form,vals = arr_final)
   
 }
@@ -5342,16 +5380,16 @@ save.wp.ind <- function(start="1950-01-01",end="2011-12-31"){
   
   for(i in 1:16){
     wp.ind[[i]] <- which(wp==i)
-    write(x = wp.ind[[i]]+delta, file = paste0("2_Travail/Rresults/save.wp.ind/WP",i,".txt"), ncolumns = length(wp.ind[[i]]),sep = ",")
+    write(x = wp.ind[[i]]+delta, file = paste0("2_Travail/0_Present/Rresults/save.wp.ind/WP",i,".txt"), ncolumns = length(wp.ind[[i]]),sep = ",")
   }
   
-  save(wp.ind,file="2_Travail/Rresults/save.wp.ind/WP_ind.Rdata")
+  save(wp.ind,file="2_Travail/0_Present/Rresults/save.wp.ind/WP_ind.Rdata")
   
 }
 
 # Tranforme la liste de score en matrice diagonale
 score.to.mat <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
-  load(file=paste0("2_Travail/",rean,"/Rresults/compute_dist/",ifelse(nbdays>1,paste0(nbdays,"day_"),""),dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+  load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",ifelse(nbdays>1,paste0(nbdays,"day_"),""),dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
   for(i in 1:length(dist.list)) dist.list[[i]] <- c(rep(0,length(dist.list)+1-length(dist.list[[i]])),dist.list[[i]])
   dist.list <- do.call(rbind,dist.list)
   last <- rep(0,ncol(dist.list))
@@ -5366,7 +5404,7 @@ season.at.risk <- function(start="1950-01-01",end="2011-12-31"){
   precip <- get.precip(1,start,end)
   mon_max <- aggregate(precip,by=list(substr(getdates(start,end),1,7)),FUN=max)
   
-  png("2_Travail/Rresults/season.at.risk/boxplot_daily_rainfall.png",width = 670,height = 500,units = "px")
+  png("2_Travail/0_Present/Rresults/season.at.risk/boxplot_daily_rainfall.png",width = 670,height = 500,units = "px")
   boxplot(mon_max[,2]~as.factor(substr(mon_max[,1],6,7)),outline=F,names=month.abb,xlab="Month",ylab="Precipitation (mm)")
   points(aggregate(mon_max[,2],by=list(substr(mon_max[,1],6,7)),FUN=quantile,probs=0.9),col="red",pch=19) # on ajoute le quantile 90%
   abline(v = 2.5,col="red",lty=2)
@@ -5622,7 +5660,7 @@ time.extr <- function(start="1950-01-01",end="2011-12-31"){
   ann <- as.numeric(format(dates.extr,"%Y"))
   mois <- as.numeric(format(dates.extr,"%m"))
   
-  pdf(file=paste0("2_Travail/Rresults/time.extr/repartition_extr_",start,"_",end,".pdf"),width = 7,height = 4)
+  pdf(file=paste0("2_Travail/0_Present/Rresults/time.extr/repartition_extr_",start,"_",end,".pdf"),width = 7,height = 4)
   hist(x = ann,breaks = seq(1950.5,2011.5,1),col="cornflowerblue",border = "royalblue",
        xlab = "Year",main="62 max 3-days precipitations")
   hist(mois,breaks=0:12,col="cornflowerblue",border = "royalblue",
@@ -5631,7 +5669,7 @@ time.extr <- function(start="1950-01-01",end="2011-12-31"){
   graphics.off()
   
   # cumul mensuel
-  png(filename = paste0("2_Travail/Rresults/time.extr/repartition_extr_ann_",start,"_",end,".png"),width = 1000,height = 400,units = "px")
+  png(filename = paste0("2_Travail/0_Present/Rresults/time.extr/repartition_extr_ann_",start,"_",end,".png"),width = 1000,height = 400,units = "px")
   par(mfrow=c(1,2))
   precip1 <- get.precip(1,start,end)
   sais <- aggregate(precip1,by=list(substr(dates,6,7)),sum)[,2]/62

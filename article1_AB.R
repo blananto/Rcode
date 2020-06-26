@@ -26,7 +26,7 @@ combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="20
   
   # plot.desais.descr
   if(fun==1){
-    png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.desais.descr/plot_desais_",descr[1],"_",descr[2],"_",
+    png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.desais.descr/plot_desais_",descr[1],"_",descr[2],"_",
                           dist,"_member",member,"_k",k,"mean",nbdays,"day_",start,"_",end,".png"),width = 550,height = 250,units = "px")
     plot.desais.1 <- plot.desais.descr(descr[1],k,dist,nbdays,start,end,rean)
     plot.desais.2 <- plot.desais.descr(descr[2],k,dist,nbdays,start,end,rean)
@@ -36,7 +36,7 @@ combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="20
   
   # plot.empir.dp.sais
   if(fun==2){
-      png(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.dP.sais-CV/plot_combine",ifelse(quant,"_quant",""),".png"),width=8,height=9,units = "in",res=1200)
+      png(file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.empir.dP.sais-CV/plot_combine",ifelse(quant,"_quant",""),".png"),width=8,height=9,units = "in",res=1200)
       layout(matrix(c(rep(1,3),2:4,rep(5,3),6:8,rep(9,3),10:12),nrow = 6,ncol = 3,byrow = T),widths = rep(1,3),heights = c(0.1,1.2,0.1,1.2,0.1,1.2))
       let <- list(c("a)","b)","c)"),c("d)","e)","f)"),c("g)","h)","i)"))
 
@@ -64,7 +64,7 @@ combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="20
     d <- get_legend(a)
     final <- ggarrange(a, b, c, as_ggplot(d), nrow=2,ncol=2, legend = "none",
                        labels = c("Celerity","Singularity","Relative singularity"),hjust = c(-3.3,-2.2,-1.1))
-    ggsave(filename = paste0("2_Travail/",rean,"/Rresults/overall/plot.quant.descr/plot_combine.png"),plot = final,width = 10,height = 6)
+    ggsave(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/plot.quant.descr/plot_combine.png"),plot = final,width = 10,height = 6)
     graphics.off()
   }
 }
@@ -128,7 +128,7 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
     ylab("Percentile (%)")+
     labs(fill="Catchment")#,title = namdescr
   
-  ggsave(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compare.descr.bv/plot_",bv1,"_",bv2,"_",nbdays,"day_",start,"_",end,ifelse(comm,"_commun",""),ifelse(flow!=F,paste0("_",namflow),""),".png"),width = 20,height = 11,units="cm",dpi = 200)
+  ggsave(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compare.descr.bv/plot_",bv1,"_",bv2,"_",nbdays,"day_",start,"_",end,ifelse(comm,"_commun",""),ifelse(flow!=F,paste0("_",namflow),""),".png"),width = 20,height = 11,units="cm",dpi = 200)
   graphics.off()
 }
 
@@ -185,7 +185,7 @@ compare.descr.flow <- function(flow=c(1,2),descr=c("celnei","singnei","rsingnei"
     ylab("Percentile (%)")+
     labs(fill="Flow")#,title = namdescr
   
-  ggsave(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compare.descr.flow/plot_",namflow[1],"_",namflow[2],"_",nbdays,"day_",start,"_",end,".png"),width = 20,height = 11,units="cm",dpi = 200)
+  ggsave(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compare.descr.flow/plot_",namflow[1],"_",namflow[2],"_",nbdays,"day_",start,"_",end,".png"),width = 20,height = 11,units="cm",dpi = 200)
   graphics.off()
 }
 
@@ -215,7 +215,7 @@ compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",
   }
   print(paste0("min density: ",min(nb)))
   print(paste0("max density: ",max(nb)))
-  save(nb,file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/compute.density/nbnei_",ifelse(quant,"quant_",""),ifelse(wp!=F,paste0("wp",wp,"_"),""),descriptors[1],"_",descriptors[2],"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  save(nb,file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.density/nbnei_",ifelse(quant,"quant_",""),ifelse(wp!=F,paste0("wp",wp,"_"),""),descriptors[1],"_",descriptors[2],"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
 }
 
 # Compte le % de sequences d'un meme flux en dessous d'un certain quantile de deux descripteurs
@@ -378,7 +378,7 @@ map.corner <- function(k, rean){
   }
   
   # Cartes
-  png(file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.corner/map_corner_celnei.png"),width = 8,height = 14,units = "in",res = 1200)
+  png(file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.corner/map_corner_celnei.png"),width = 8,height = 14,units = "in",res = 1200)
   layout(matrix(c(1:12,rep(13,3)),nrow = 5,ncol = 3,byrow = T),widths = rep(1,3),heights = c(rep(1,4),0.5))
 
   for(i in 1:4){
@@ -417,7 +417,7 @@ map.descr.gif <- function(type="all",descr,k,dist,nbdays,start="1950-01-01",end=
   # Cartes
   for(i in 1:length(ran)){
     print(i)
-    png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.descr.gif/",descr,"_",i,ifelse(type!="all","_max",""),"_k",k,"_",nbdays,"day.png"),
+    png(filename = paste0("2_Travail/0_Present/20CR/Rresults/overall/k",k,"/map.descr.gif/",descr,"_",i,ifelse(type!="all","_max",""),"_k",k,"_",nbdays,"day.png"),
                        width = ifelse(nbdays==3,1050,350),height = 350,units = "px")
     layout(matrix(1:nbdays,1,nbdays))
     map.geo(date = dates[ran[i]],rean = rean,k = k,nbdays = nbdays,save=F,win = T,let = F,leg = F,iso = T)
@@ -449,7 +449,7 @@ map.extr.dry <- function(k, rean){
   }
   
   # Cartes
-  png(file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.extr.dry/map_extr_dry.png"),width = 6,height = 7,units = "in",res = 1200)
+  png(file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.extr.dry/map_extr_dry.png"),width = 6,height = 7,units = "in",res = 1200)
   layout(matrix(c(1:4,rep(5,2)),nrow = 3,ncol = 2,byrow = T),widths = rep(1,2),heights = c(rep(1,2),0.5))
   
   for(i in 1:4){
@@ -485,7 +485,7 @@ map.min.max <- function(descr,k,dist,nbdays,start,end,rean,poster=F){
   }
   
   # Cartes
-  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.min.max/map_min_max_",descr,ifelse(!poster,"","_poster"),".png"),width = 6,height = 6,units = "in",res = 1200)
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.min.max/map_min_max_",descr,ifelse(!poster,"","_poster"),".png"),width = 6,height = 6,units = "in",res = 1200)
   layout(matrix(c(1:6,rep(7,3)),nrow = 3,ncol = 3,byrow = T),widths = rep(1,3),heights = c(rep(1,2),0.5))
   if(poster) par(mar=c(0.5,0.5,0.5,0.5))
 
@@ -528,7 +528,7 @@ map.min.max.all <- function(descr=c("celnei","singnei","rsingnei"),k,dist,nbdays
   }
   
   # Graphiques
-  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.min.max.all/map_min_max_",paste(descr,collapse = "_"),".png"),width = 10,height = 8,units = "in",res = 200)
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.min.max.all/map_min_max_",paste(descr,collapse = "_"),".png"),width = 10,height = 8,units = "in",res = 200)
   layout(matrix(c(rep(1,7),2:8,rep(9,7),10:16,rep(17,7),18:24,rep(25,7)),nrow = 7,ncol = 7,byrow = T),widths = c(rep(1,3),0.4,rep(1,3)),heights = c(0.2,1.2,0.2,1.2,0.2,1.2,0.5))
   
   for(i in 1:length(descr)){
@@ -595,7 +595,7 @@ map.pwat <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T){
   
   # Carte
   if(save) {
-    png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.pwat/",date,"_k",k,"_",nbdays,"day.png"),
+    png(filename = paste0("2_Travail/0_Present/20CR/Rresults/overall/k",k,"/map.pwat/",date,"_k",k,"_",nbdays,"day.png"),
         width = ifelse(nbdays==3,1050,350),height = 350,units = "px")
     layout(matrix(1:nbdays,1,nbdays))
   }
@@ -642,7 +642,7 @@ map.wp.flow <- function(flow=c(1,2),agreg=T,k,rean,start="1950-01-01",end="2011-
   namflow <- namflow[flow]
   
   # Graphique
-  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/map.wp.flow/map_wp_flow_",namflow[1],"_",namflow[2],"_wp","_","_member",member,"_k",k,"_",start,"_",end,".png"),width = 6,height = 5,units = "in",res=200)
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.wp.flow/map_wp_flow_",namflow[1],"_",namflow[2],"_wp","_","_member",member,"_k",k,"_",start,"_",end,".png"),width = 6,height = 5,units = "in",res=200)
   layout(matrix(1:6,2,3,byrow=F),width=c(1.3,1.3,0.4))
   par(pty="s",mar=c(0,3,1,1))
   let <- list(c("a)","c)"),c("b)","d)"))
@@ -855,11 +855,11 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
   
   # Definition du repertoire de travail (lecture et ecriture)
   if(rean[1] != rean[2]){ 
-    path1 <- paste0("2_Travail/Comparaison_reanalyses/")
+    path1 <- paste0("2_Travail/0_Present/Comparaison_reanalyses/")
     path2 <- paste0(descriptors[1],"_",descriptors[2],"_",rean[1],"_",rean[2],"_",dist[1],"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
   }
   if(k[1] != k[2]){
-    path1 <- paste0("2_Travail/",rean[1],"/Rresults/overall/")
+    path1 <- paste0("2_Travail/0_Present/",rean[1],"/Rresults/overall/")
     path2 <- paste0(descriptors[1],"_",descriptors[2],"_k",k[1],"_k",k[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
   } 
   if(rean[1] == rean[2] & k[1] == k[2]){
@@ -884,7 +884,7 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
     load(file=paste0(path1,"fit.empir",get.CVstr(CV),"/",path2,comp,".Rdata"))
     nb<-param[,"nbnei"]
   }else{
-    load(file = paste0("2_Travail/",rean[1],"/Rresults/overall/k",k[1],"/compute.density/nbnei_",ifelse(quant,"quant_",""),descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    load(file = paste0("2_Travail/0_Present/",rean[1],"/Rresults/overall/k",k[1],"/compute.density/nbnei_",ifelse(quant,"quant_",""),descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,".Rdata"))
   }
   
   # Nom propre des indicateurs
@@ -1010,7 +1010,7 @@ plot.empir.bv.combine <- function(){
   CV=TRUE;threeday=c(F,F);spazm=c(F,F);save=F;quant=T;sea=F;pwat=F;comm=F
   
   # Graphique
-  png(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.bv-CV/plot_combine_",bv1,"_",bv2,ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=200)
+  png(file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.empir.bv-CV/plot_combine_",bv1,"_",bv2,ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=200)
   layout(matrix(c(rep(1,2),2:3,rep(4,2),5:6,rep(7,2),8:9),nrow = 6,ncol = 2,byrow = T),widths = rep(1,2),heights = c(0.1,1.2,0.1,1.2,0.1,1.2))
 
   for(i in 1:length(descr)){
@@ -1032,11 +1032,11 @@ plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
   
   # Definition du repertoire de travail (lecture et ecriture)
   if(rean[1] != rean[2]){ 
-    path1 <- paste0("2_Travail/Comparaison_reanalyses/")
+    path1 <- paste0("2_Travail/0_Present/Comparaison_reanalyses/")
     path2 <- paste0(descriptors[1],"_",descriptors[2],"_",rean[1],"_",rean[2],"_",dist[1],"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
   }
   if(k[1] != k[2]){
-    path1 <- paste0("2_Travail/",rean[1],"/Rresults/overall/")
+    path1 <- paste0("2_Travail/0_Present/",rean[1],"/Rresults/overall/")
     path2 <- paste0(descriptors[1],"_",descriptors[2],"_k",k[1],"_k",k[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
   } 
   if(rean[1] == rean[2] & k[1] == k[2]){
@@ -1064,7 +1064,7 @@ plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
   load(file=paste0(path1,"fit.empir",get.CVstr(CV),"/",path2,comp,".Rdata"))
   nb<-param[,"nbnei"]
   }else{
-    load(file = paste0("2_Travail/",rean[1],"/Rresults/overall/k",k[1],"/compute.density/nbnei_",ifelse(quant,"quant_",""),descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    load(file = paste0("2_Travail/0_Present/",rean[1],"/Rresults/overall/k",k[1],"/compute.density/nbnei_",ifelse(quant,"quant_",""),descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,".Rdata"))
   }
   
   # Nom propre des indicateurs
@@ -1151,11 +1151,11 @@ plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01
   
   # Definition du repertoire de travail (lecture et ecriture)
   if(rean[1] != rean[2]){ 
-    path1 <- paste0("2_Travail/Comparaison_reanalyses/")
+    path1 <- paste0("2_Travail/0_Present/Comparaison_reanalyses/")
     path2 <- paste0(descriptors[1],"_",descriptors[2],"_",rean[1],"_",rean[2],"_",dist[1],"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
   }
   if(k[1] != k[2]){
-    path1 <- paste0("2_Travail/",rean[1],"/Rresults/overall/")
+    path1 <- paste0("2_Travail/0_Present/",rean[1],"/Rresults/overall/")
     path2 <- paste0(descriptors[1],"_",descriptors[2],"_k",k[1],"_k",k[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
   } 
   if(rean[1] == rean[2] & k[1] == k[2]){
@@ -1199,7 +1199,7 @@ plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01
   
   for(i in wp){
     # Import densite de pts
-    load(file = paste0("2_Travail/",rean[1],"/Rresults/overall/k",k[1],"/compute.density/nbnei_",ifelse(quant,"quant_",""),"wp",i,"_",descriptors[1],"_",descriptors[2],"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    load(file = paste0("2_Travail/0_Present/",rean[1],"/Rresults/overall/k",k[1],"/compute.density/nbnei_",ifelse(quant,"quant_",""),"wp",i,"_",descriptors[1],"_",descriptors[2],"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,".Rdata"))
     occ <- round(sum(tt==i)/length(tt)*100,0)
     cex <- 1.5
     
@@ -1255,7 +1255,7 @@ plot.empir.wp.combine <- function(){
   CV=TRUE;threeday=c(F,F);spazm=c(F,F);save=F;quant=T;sea=F;pwat=F;comm=F
   
   # Graphique
-  png(file=paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.empir.wp-CV/plot_combine_",namflow[1],"_",namflow[2],ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=200)
+  png(file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.empir.wp-CV/plot_combine_",namflow[1],"_",namflow[2],ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=200)
   layout(matrix(c(rep(1,2),2:3,rep(4,2),5:6,rep(7,2),8:9),nrow = 6,ncol = 2,byrow = T),widths = rep(1,2),heights = c(0.1,1.2,0.1,1.2,0.1,1.2))
   
   for(i in 1:length(descr)){
@@ -1306,7 +1306,7 @@ plot.pwat <- function(bv1,bv2,start,end,rean,spazm=c(F,F)){
   year <- substr(seq(as.Date("2020-01-01"),as.Date("2020-12-31"),"days"),6,10) # pour ajouter les pts sur la saisonalite
   
   # Graphiques
-  png(filename = paste0("2_Travail/Rresults/plot.pwat/plot_pwat_",bv1,"_",bv2,"_spazm_",spazm[1],"_",spazm[2]),width = 11,height = 5,units = "in",res = 1200)
+  png(filename = paste0("2_Travail/0_Present/Rresults/plot.pwat/plot_pwat_",bv1,"_",bv2,"_spazm_",spazm[1],"_",spazm[2]),width = 11,height = 5,units = "in",res = 1200)
   par(mfrow=c(1,2))
   
   plot.sais.quantile(dates = dates,vec = pw,label = "PW percentile (%)")
@@ -1375,7 +1375,7 @@ plot.pwat.flow <- function(nbdays,start,end,rean){
     xlab("")+
     ylab("PW Percentile (%)")
   
-  ggsave(filename = "2_Travail/Rresults/plot.pwat.flow/plot_pwat_flow.png",width = 5,height = 4)
+  ggsave(filename = "2_Travail/0_Present/Rresults/plot.pwat.flow/plot_pwat_flow.png",width = 5,height = 4)
   graphics.off()
 }
 
@@ -1412,7 +1412,7 @@ plot.quant.descr.desais <- function(descr=c("celnei","singnei","rsingnei","dP"),
     ind <- ind[-comm]
   }
   
-  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.quant.descr.desais/plot_",bv,"_",nbdays,"day_",start,"_",end,ifelse(bvcomm!=F,"_comm",""),".png"),width = 700,height = 500,units = "px")
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.quant.descr.desais/plot_",bv,"_",nbdays,"day_",start,"_",end,ifelse(bvcomm!=F,"_comm",""),".png"),width = 700,height = 500,units = "px")
   boxplot(tab[ind,],col="cornflowerblue",main=bv)
   abline(v=seq(2.5,length(descr)*2+0.5,by=2),lty=2,col="grey")
   graphics.off()
@@ -1436,7 +1436,7 @@ plot.sais.all <- function(descr,k,nbdays=3,start="1950-01-01",end="2011-12-31",r
   ind.chro <- match(dates.chro,dates)
   
   # Figure
-  png(file = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.sais.all/plot_sais_all_",descr,".png"),width = 8,height = 6,units = "in",res = 1200)
+  png(file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.sais.all/plot_sais_all_",descr,".png"),width = 8,height = 6,units = "in",res = 1200)
   par(mfrow=c(2,3),mar=c(2.5,2,2.5,2))
   plot.sais.quantile(dates = dates.all,vec = dP,label = "Pressure Gradient (m)")
   title("Pressure gradient")
@@ -1472,7 +1472,7 @@ plot.sais.extr <- function(nbdays,start,end,bv1,bv2,comm=F){
   }
   
   # Graphique
-  png(filename = paste0("2_Travail/Rresults/plot.sais.extr/plot_ann_max_",bv1,"_",bv2,ifelse(comm,"_comm",""),".png"),width = 9,height = 3.5,units = "in",res=200)
+  png(filename = paste0("2_Travail/0_Present/Rresults/plot.sais.extr/plot_ann_max_",bv1,"_",bv2,ifelse(comm,"_comm",""),".png"),width = 9,height = 3.5,units = "in",res=200)
   par(mfrow=c(1,2),lwd=2,mar=c(2,4,3,1))
   
   hist(month.bv1,axes=F,breaks=0:12,col="azure3",
@@ -1503,7 +1503,7 @@ plot.sais.extr <- function(nbdays,start,end,bv1,bv2,comm=F){
 plot.wp <- function(wp=c(1,2),rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),quant=F,agreg=F,title=""){
   
   # Graphique
-  png(filename = paste0("2_Travail/",rean,"/Rresults/overall/k",k,"/plot.wp/plot_wp_",descriptors[1],"_",descriptors[2],"_wp",wp[1],"_wp",wp[2],"_",ifelse(agreg,"agreg_",""),dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 8,height = 7,units = "in",res=1200)
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.wp/plot_wp_",descriptors[1],"_",descriptors[2],"_wp",wp[1],"_wp",wp[2],"_",ifelse(agreg,"agreg_",""),dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 8,height = 7,units = "in",res=1200)
   layout(matrix(1:6,2,3,byrow=F),width=c(1.3,1.3,0.4))
   par(pty="s",mar=c(5,7,6,1))
   let <- list(c("a)","c)"),c("b)","d)"))
