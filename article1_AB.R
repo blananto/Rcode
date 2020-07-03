@@ -69,6 +69,85 @@ combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="20
   }
 }
 
+# Comparaison de la densite des max annuels de precip par rapport a la densite de tous les points, pour deux BVs
+compare.density.bv <- function(descr=c("celnei","dP"),bv=c("Isere-seul","Drac-seul"),k,dist,nbdays,start,end,rean,quant=F){
+  
+  # Import des densites de pts pour un couple d'indicateur
+  load(paste0(get.dirstr(k,rean),"compute.density/nbnei_",ifelse(quant,"quant_",""),descr[1],"_",descr[2],"_",
+                ifelse(length(descr)==3,paste0(descr[3],"_"),""),dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  
+  # Max annuels de precip
+  ind.bv1 <- get.ind.max(type = "year",nbdays,start,end,bv = bv[1],spazm = F)
+  ind.bv2 <- get.ind.max(type = "year",nbdays,start,end,bv = bv[2],spazm = F)
+  
+  # Mise en forme
+  data <- data.frame(Ind = c(rep("all",length(nb)),rep(nam2str(bv[1]),length(ind.bv1)),rep(nam2str(bv[2]),length(ind.bv2))),
+                     Nbnei = c(nb,nb[ind.isere],nb[ind.drac]))
+  data$Ind <- factor(data$Ind,levels = c(nam2str(bv[1]),nam2str(bv[2]),"all"))
+  
+  # boxplot
+  ggplot(data, aes(x=Ind, y=Nbnei, fill=Ind)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12),
+          axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
+          legend.position = "none",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
+          legend.title = element_text(hjust=1,vjust=2,size = 12,face = "bold"))+
+    stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
+    geom_boxplot(outlier.shape = NA,col="darkblue")+
+    scale_fill_manual(values=c("cornflowerblue","burlywood1","orange"))+
+    geom_vline(xintercept=c(1.5,2.5,3.5), linetype="dashed")+
+    xlab("BV")+
+    ylab("nbnei")
+  
+  ggsave(filename = paste0(get.dirstr(k,rean),"compare.density.bv/compare_density_",descr[1],"_",descr[2],"_",
+                           ifelse(length(descr)==3,paste0(descr[3],"_"),""),ifelse(quant,"quant_",""),bv[1],"_",bv[2],"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png"))
+  
+}
+
+# Comparaison de la densite des max annuels de precip par rapport a la densite des points du meme WP
+compare.density.wp <- function(descr=c("celnei","dP"),wp=c(1,2),agreg=T,k,dist,nbdays,start,end,rean,quant=F){
+  
+  # Import des densites de pts pour un couple d'indicateur
+  nbnei <- list()
+  for(i in 1:length(wp)){
+  load(paste0(get.dirstr(k,rean),"compute.density/nbnei_",ifelse(quant,"quant_",""),"wp",wp[i],"_",descr[1],"_",descr[2],"_",
+              ifelse(length(descr)==3,paste0(descr[3],"_"),""),ifelse(agreg,"agreg_",""),dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  nbnei[[i]] <- nb
+  }
+  
+  # Max annuels de precip
+  ind.wp1 <- get.ind.max.flow(flow = wp[1],agreg,nbdays,start,end)
+  ind.wp2 <- get.ind.max.flow(flow = wp[2],agreg,nbdays,start,end)
+  tt <- get.wp(nbdays,start,end,agreg=agreg)
+  
+  # Mise en forme
+  data <- data.frame(Ind = c(rep(paste0("All wp",wp[1]),length(nbnei[[1]])),rep(paste0("wp",wp[1]),length(ind.wp1)),
+                             rep(paste0("All wp",wp[2]),length(nbnei[[2]])),rep(paste0("wp",wp[2]),length(ind.wp2))),
+                     Nbnei = c(nbnei[[1]],nbnei[[1]][match(ind.wp1,which(tt==wp[1]))],
+                               nbnei[[2]],nbnei[[2]][match(ind.wp2,which(tt==wp[2]))]))
+  data$Ind <- factor(data$Ind,levels = c(paste0("wp",wp[1]),paste0("All wp",wp[1]),paste0("wp",wp[2]),paste0("All wp",wp[2])))
+  
+  # boxplot
+  ggplot(data, aes(x=Ind, y=Nbnei, fill=Ind)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12),
+          axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
+          legend.position = "none",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
+          legend.title = element_text(hjust=1,vjust=2,size = 12,face = "bold"))+
+    stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
+    geom_boxplot(outlier.shape = NA,col="darkblue")+
+    scale_fill_manual(values=c(rep("cornflowerblue",2),rep("burlywood1",2)))+
+    geom_vline(xintercept=c(1.5,2.5,3.5), linetype="dashed")+
+    xlab("BV")+
+    ylab("nbnei")
+  
+  ggsave(filename = paste0(get.dirstr(k,rean),"compare.density.wp/compare_density_",descr[1],"_",descr[2],"_",
+                           ifelse(length(descr)==3,paste0(descr[3],"_"),""),ifelse(quant,"quant_",""),"wp",wp[1],"_wp",wp[2],"_",ifelse(agreg,"agreg_",""),dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png"))
+  
+}
+
 # Comparaison des percentiles d'indicateurs pour deux bassins versants
 compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,comm=F,spazm=c(F,F),flow=F){
   
@@ -193,29 +272,29 @@ compare.descr.flow <- function(flow=c(1,2),descr=c("celnei","singnei","rsingnei"
 compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",quant=F,wp=F,agreg=F){
   
   # Import des descripteurs
-  descr1<-get.descriptor(descriptors[1],k,dist[1],nbdays,start,end,standardize=T,rean)
-  descr2<-get.descriptor(descriptors[2],k,dist[2],nbdays,start,end,standardize=T,rean)
-  descr <- cbind(descr1,descr2)
+  N <- length(getdates(start,end))-nbdays+1
+  descr <- matrix(NA,N,length(descriptors))
   
-  if(quant){
-    descr1 <- ecdf(descr1)(descr1)*100
-    descr2 <- ecdf(descr2)(descr2)*100
-    descr1 <- descr1/sd(descr1)
-    descr2 <- descr2/sd(descr2)
-    descr <- cbind(descr1,descr2)
+  for(i in 1:length(descriptors)){
+    descr[,i] <- get.descriptor(descriptors[i],k,dist[i],nbdays,start,end,standardize=T,rean)
   }
   
-  if(wp!=F) tt <- get.wp(nbdays,start,end,risk=F,bv="Isere",agreg=agreg); descr <- descr[tt==wp,]
+  if(quant){
+    descr <- apply(descr,2,function(v) ecdf(v)(v)*100)
+  }
   
+  if(wp!=F) {tt <- get.wp(nbdays,start,end,risk=F,bv="Isere",agreg=agreg); descr <- descr[tt==wp,]}
+  
+  # Calcul du voisinage
   nb <- NULL
   for(i in 1:nrow(descr)){
     if (i %%50==0) print(i)
-    count <- nn2(data = descr,query = t(descr[i,]),searchtype = "radius",radius =  0.5,k = nrow(descr)) # nombre de voisins dans le rayon (tmp$idef: indices ou les deux descr sont non NA)
+    count <- nn2(data = descr,query = t(descr[i,]),searchtype = "radius",radius =  0.5*sd(descr[,1]),k = nrow(descr)) # nombre de voisins dans le rayon (tmp$idef: indices ou les deux descr sont non NA)
     nb[i] <- rowSums(count$nn.idx>0)-1
   }
   print(paste0("min density: ",min(nb)))
   print(paste0("max density: ",max(nb)))
-  save(nb,file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.density/nbnei_",ifelse(quant,"quant_",""),ifelse(wp!=F,paste0("wp",wp,"_"),""),descriptors[1],"_",descriptors[2],"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  save(nb,file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.density/nbnei_",ifelse(quant,"quant_",""),ifelse(wp!=F,paste0("wp",wp,"_"),""),descriptors[1],"_",descriptors[2],ifelse(length(descriptors)==3,paste0("_",descriptors[3]),""),"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
 }
 
 # Compte le % de sequences d'un meme flux en dessous d'un certain quantile de deux descripteurs
@@ -404,20 +483,18 @@ map.descr.gif <- function(type="all",descr,k,dist,nbdays,start="1950-01-01",end=
   des <- get.descriptor(descr,k,dist,nbdays,start,end,standardize = F,rean)
   dates <- getdates(start,end)
   
-  
   # Traitement
-  tri <- sort(des,decreasing = T,index.return=T)$ix
+  tri <- sort(des,decreasing=ifelse(type %in% c("all","max"),T,F),index.return=T)$ix
   if(type=="all"){
   ran <- tri[seq(1,length(tri),length.out = 60)]
-  }
-  if(type=="max"){
+  }else{
     ran <- tri[(length(tri)-59):(length(tri))]
   }
   
   # Cartes
   for(i in 1:length(ran)){
     print(i)
-    png(filename = paste0("2_Travail/0_Present/20CR/Rresults/overall/k",k,"/map.descr.gif/",descr,"_",i,ifelse(type!="all","_max",""),"_k",k,"_",nbdays,"day.png"),
+    png(filename = paste0("2_Travail/0_Present/20CR/Rresults/overall/k",k,"/map.descr.gif/",descr,"_",i,"_",type,"_k",k,"_",nbdays,"day.png"),
                        width = ifelse(nbdays==3,1050,350),height = 350,units = "px")
     layout(matrix(1:nbdays,1,nbdays))
     map.geo(date = dates[ran[i]],rean = rean,k = k,nbdays = nbdays,save=F,win = T,let = F,leg = F,iso = T)
@@ -528,8 +605,9 @@ map.min.max.all <- function(descr=c("celnei","singnei","rsingnei"),k,dist,nbdays
   }
   
   # Graphiques
-  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.min.max.all/map_min_max_",paste(descr,collapse = "_"),".png"),width = 10,height = 8,units = "in",res = 200)
-  layout(matrix(c(rep(1,7),2:8,rep(9,7),10:16,rep(17,7),18:24,rep(25,7)),nrow = 7,ncol = 7,byrow = T),widths = c(rep(1,3),0.4,rep(1,3)),heights = c(0.2,1.2,0.2,1.2,0.2,1.2,0.5))
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.min.max.all/map_min_max_",paste(descr,collapse = "_"),".png"),width = 5.5,height = 12,units = "in",res = 200)
+  #layout(matrix(c(rep(1,7),2:8,rep(9,7),10:16,rep(17,7),18:24,rep(25,7)),nrow = 7,ncol = 7,byrow = T),widths = c(rep(1,3),0.4,rep(1,3)),heights = c(0.2,1.2,0.2,1.2,0.2,1.2,0.5))
+  layout(matrix(c(rep(1,3),2:7,rep(8,3),9:14,rep(15,3),16:21,rep(22,3)),nrow = 10,ncol = 3,byrow = T),widths = rep(1,3),heights = c(0.3,1.2,1.2,0.3,1.2,1.2,0.3,1.2,1.2,0.7))
   
   for(i in 1:length(descr)){
     
@@ -544,23 +622,23 @@ map.min.max.all <- function(descr=c("celnei","singnei","rsingnei"),k,dist,nbdays
     ind.max <- which.max(des)
     
     # Cartes
-    par(mar=c(0.2,0.5,0.2,0.5))
+    par(mar=c(0.3,2,0.3,0))
     
     # min
     ind <- ind.min
       for(j in 1:3){
         date <- getdates()[ind+j-1]
         map.geo.condens(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = F,leg=F,iso = T)
-        if(j==1) mtext(let[(i-1)*2+1], side=3, at=-10,line = 0.8,cex=1.2)
+        if(j==1) mtext(let[(i-1)*2+1], side=3, at=-25,line = -3,cex=1.2)
         }
-    plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+    #plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
     
     # max
     ind <- ind.max
     for(j in 1:3){
       date <- getdates()[ind+j-1]
       map.geo.condens(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = F,leg=F,iso = T)
-      if(j==1) mtext(let[(i-1)*2+2], side=3, at=-10,line = 0.8,cex=1.2)
+      if(j==1) mtext(let[(i-1)*2+2], side=3, at=-25,line = -3,cex=1.2)
       }
   }
   
@@ -1007,7 +1085,7 @@ plot.empir.bv.combine <- function(){
   end="2011-12-31"
   let <- list(c("a)","b)"),c("c)","d)"),c("e)","f)"))
   radtype="nrn05"
-  CV=TRUE;threeday=c(F,F);spazm=c(F,F);save=F;quant=T;sea=F;pwat=F;comm=F
+  CV=TRUE;threeday=c(F,F);spazm=c(F,F);save=F;quant=F;sea=F;pwat=F;comm=F
   
   # Graphique
   png(file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.empir.bv-CV/plot_combine_",bv1,"_",bv2,ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=200)
@@ -1252,7 +1330,7 @@ plot.empir.wp.combine <- function(){
   let <- list(c("a)","b)"),c("c)","d)"),c("e)","f)"))
   radtype="nrn05"
   agreg=T
-  CV=TRUE;threeday=c(F,F);spazm=c(F,F);save=F;quant=T;sea=F;pwat=F;comm=F
+  CV=TRUE;threeday=c(F,F);spazm=c(F,F);save=F;quant=F;sea=F;pwat=F;comm=F
   
   # Graphique
   png(file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.empir.wp-CV/plot_combine_",namflow[1],"_",namflow[2],ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=200)
@@ -1460,7 +1538,7 @@ plot.sais.all <- function(descr,k,nbdays=3,start="1950-01-01",end="2011-12-31",r
 # Saisonnalite des extremes
 plot.sais.extr <- function(nbdays,start,end,bv1,bv2,comm=F){
   
-  # Import
+  # Extremes
   dates <- getdates(start,end)
   month.bv1 <- as.numeric(substr(dates[get.ind.max(type = "year",nbdays,start,end,bv1,spazm=T)],6,7))
   month.bv2 <- as.numeric(substr(dates[get.ind.max(type = "year",nbdays,start,end,bv2,spazm=T)],6,7))
@@ -1471,30 +1549,44 @@ plot.sais.extr <- function(nbdays,start,end,bv1,bv2,comm=F){
     month.bv2 <- month.bv2[-commun]
   }
   
+  # Cumuls mensuels
+  ny <- as.numeric(substr(dates[length(dates)],1,4)) - as.numeric(substr(dates[1],1,4)) + 1
+  cum.bv1 <- aggregate(get.precip(nbdays=1,start,end,bv1,spazm=F),by=list(substr(dates,6,7)),function(v) sum(v)/ny)
+  cum.bv2 <- aggregate(get.precip(nbdays=1,start,end,bv2,spazm=F),by=list(substr(dates,6,7)),function(v) sum(v)/ny)
+  
   # Graphique
   png(filename = paste0("2_Travail/0_Present/Rresults/plot.sais.extr/plot_ann_max_",bv1,"_",bv2,ifelse(comm,"_comm",""),".png"),width = 9,height = 3.5,units = "in",res=200)
-  par(mfrow=c(1,2),lwd=2,mar=c(2,4,3,1))
+  par(mfrow=c(1,2),lwd=2,mar=c(2,3,3,6))
   
   hist(month.bv1,axes=F,breaks=0:12,col="azure3",
-       xlab="",ylab="Count",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv1))
+       xlab="",ylab="",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv1))
   abline(h = c(5,10,15), col = "grey", lty = "dotted",lwd=1)
   abline(v = c(2,5,8,11), col = "grey", lty = "dotted",lwd=1)
   hist(month.bv1,axes=F,breaks=0:12,col="azure3",
        xlab="Month",ylab="Count",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv1),add=T)
   lines(c(0,12),c(0,0))
   axis(2)
+  title(ylab="Count", line=2)
   text(0.5:11.5,par("usr")[3]-0.3, labels = month.abb, srt = -45, pos = 1, xpd = TRUE)
-  
+  points(0.5:11.5,cum.bv1[,2]/8,pch=19)
+  lines(0.5:11.5,cum.bv1[,2]/8)
+  axis(side = 4,at = c(0,5,10,15),labels = c(c(0,5*8,10*8,15*8)))
+  text(15,par("usr")[1]+8,"Precipitation (mm)", srt=90,xpd=T)
   
   hist(month.bv2,axes=F,breaks=0:12,col="azure3",
-      xlab="",ylab="Count",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv2))
+      xlab="",ylab="",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv2))
   abline(h = c(5,10,15), col = "grey", lty = "dotted",lwd=1)
   abline(v = c(2,5,8,11), col = "grey", lty = "dotted",lwd=1)
   hist(month.bv2,axes=F,breaks=0:12,col="azure3",
        xlab="Month",ylab="Count",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv2),add=T)
   lines(c(0,12),c(0,0))
   axis(2)
+  title(ylab="Count", line=2)
   text(0.5:11.5,par("usr")[3]-0.3, labels = month.abb, srt = -45, pos = 1, xpd = TRUE)
+  points(0.5:11.5,cum.bv2[,2]/8,pch=19)
+  lines(0.5:11.5,cum.bv2[,2]/8)
+  axis(side = 4,at = c(0,5,10,15),labels = c(c(0,5*8,10*8,15*8)))
+  text(15,par("usr")[1]+8,"Precipitation (mm)", srt=90,xpd=T)
   
   graphics.off()
 }

@@ -2497,7 +2497,7 @@ getdays<-function(nc,rean){
 
 # Importe la liste contenant la distance souhaitee
 getdist<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,threeday=FALSE,period="present"){
-  load(file=paste0(get.dirstr(k,rean,period),"/Rresults/compute_dist/",ifelse(threeday,"3day_",""),dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+  load(file=paste0(get.dirstr(k,rean,period),"compute_dist/",ifelse(threeday,"3day_",""),dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
   gc()
   return(dist.list)
 }
@@ -2654,15 +2654,14 @@ get.delta <- function(ref = "1949-12-31", start = "1950-01-01"){
 # Import et mise en forme des indicateurs: calculs supplementaires, moyenne glissante sur trois jours
 get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,rean,threeday=FALSE){
   
+  load(file=paste0(get.dirstr(k,rean),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+  
   # Cas speciaux
   if (descriptor=="celcelnei") descr<-criteria[,"cel"]/criteria[,"celnei"]
   else if (descriptor=="accnew") descr <- get.acc(k,dist,start,end,rean)
   
   # Cas classique
-  else{
-    load(file=paste0(get.dirstr(k,rean),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
-    descr<-criteria[,descriptor]
-  } 
+  else{descr<-criteria[,descriptor]} 
   
   # Si periode differente
   if(rean == "20CR" && end != "2011-12-31"){
@@ -3281,7 +3280,7 @@ map.geo.condens <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F)
   
   # Import des donnees
   nc <- load.nc(rean)
-  fen <- getinfo_window(k)
+  fen <- getinfo_window(k,rean = rean)
   
   if(k==1){nc <- nc$nc500
   }else{nc <- nc$nc1000}

@@ -1,7 +1,7 @@
 source('2_Travail/Rcode/utils_AB.R', encoding = 'UTF-8')
 
 # Calcul des distances de maniere generique
-compute_dist.gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,period="past"){
+compute_dist_gen_past<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,period="past"){
   if (k %in% 1:2) {
     if (dist %in% c("TWS","RMSE","RMSE_I","RMSE_II","Mahalanobis")){
       if (dist=="TWS") dist.list<-compute_TWS(k,start,end,rean)
@@ -9,11 +9,11 @@ compute_dist.gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,perio
       if (dist=="RMSE_I") dist.list<-compute_RMSE_I(k,start,end,rean)
       if (dist=="RMSE_II") dist.list<-compute_RMSE_II(k,start,end,rean)
       if (dist=="Mahalanobis") dist.list<-compute_mahalanobis(k,start,end,rean)
-      save(dist.list,file=paste0(get.dirstr(k,rean,period),"/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+      save(dist.list,file=paste0(get.dirstr(k,rean,period),"compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
     }
     else{ # si on demande un nTWS, sTWS, nRMSE ou sRMSE, les distances sont normalisees par la moyenne ou l'ecart type des distances
       dist0<-substr(dist,2,nchar(dist))
-      load(file=paste0(get.dirstr(k,rean,period),"/compute_dist/",dist0,"_member",member,"_Z",Z,"_",start,"_",end,".Rdata"))
+      load(file=paste0(get.dirstr(k,rean,period),"compute_dist/",dist0,"_member",member,"_Z",Z,"_",start,"_",end,".Rdata"))
       type<-substr(dist,1,1)
       print(type)
       if (type=="n") norm<-mean(unlist(dist.list))
@@ -21,13 +21,13 @@ compute_dist.gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,perio
       print(norm)
       for (i in 1:length(dist.list)) dist.list[[i]]<-dist.list[[i]]/norm
       
-      save(dist.list,file=paste0(get.dirstr(k,rean,period),"/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+      save(dist.list,file=paste0(get.dirstr(k,rean,period),"compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
     }
   }
 }
 
 # Calcul des indicateurs
-compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FALSE,rean,threeday=FALSE,rev=FALSE,period="past"){
+compute_criteria_past<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FALSE,rean,threeday=FALSE,rev=FALSE,period="past"){
   gc()
   
   print(paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
@@ -133,3 +133,5 @@ get.dP <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
 #   comment évolue la proba de precip annuelle (RP1an)? On va chercher les plus proches en celerite,
 #   singularite et singularite relative dans la periode d'obs de 1950 a 2010 en gardant le fait d'avoir
 #   calcule les analogues sur toute la periode de la reanalyse.
+
+compute_dist_gen_past(k = 1,dist = "TWS",start = "1900-01-01",end = "2010-12-31",rean = "ERA20C",period = "past")
