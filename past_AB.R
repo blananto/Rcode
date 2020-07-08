@@ -75,16 +75,16 @@ compute_criteria_past<-function(k,dist,start="1950-01-01",end="2011-12-31",updat
     
     for (cc in coln.new){
       # Celerite
-      if (cc=="cel") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i-1])}
-      #if (cc=="celnei") tmp<-c(tmp,mean(criteria[idi05,"cel"],na.rm=TRUE))
+      #if (cc=="cel") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i-1])}
+      if (cc=="celnei") tmp<-c(tmp,mean(criteria[idi05,"cel"],na.rm=TRUE))
       
       ## Singularite
-      if (cc=="sing05") tmp<-c(tmp,mean(di[idi05]))
-      #if (cc=="singnei") tmp <- c(tmp,mean(criteria[idi05,"sing05"],na.rm=TRUE))
+      #if (cc=="sing05") tmp<-c(tmp,mean(di[idi05]))
+      if (cc=="singnei") tmp <- c(tmp,mean(criteria[idi05,"sing05"],na.rm=TRUE))
       
       #Singularite relative
-      if (cc=="q05") tmp<-c(tmp,qi05)
-      #if (cc=="rsingnei") tmp <- c(tmp,mean(criteria[idi05,"rsing05"],na.rm=TRUE))
+      #if (cc=="q05") tmp<-c(tmp,qi05)
+      if (cc=="rsingnei") tmp <- c(tmp,mean(criteria[idi05,"rsing05"],na.rm=TRUE))
       
       # dP
       #if (cc=="dPnei") tmp <- c(tmp,mean(criteria[idi05,"dP"],na.rm=TRUE))
@@ -133,5 +133,3 @@ get.dP <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
 #   comment évolue la proba de precip annuelle (RP1an)? On va chercher les plus proches en celerite,
 #   singularite et singularite relative dans la periode d'obs de 1950 a 2010 en gardant le fait d'avoir
 #   calcule les analogues sur toute la periode de la reanalyse.
-
-compute_dist_gen_past(k = 1,dist = "TWS",start = "1900-01-01",end = "2010-12-31",rean = "ERA20C",period = "past")

@@ -1457,6 +1457,30 @@ plot.pwat.flow <- function(nbdays,start,end,rean){
   graphics.off()
 }
 
+# Graphique de la saisonnalite de pwat avec les max annuels des deux influences Z et M
+plot.pwat.sais <- function(flow=c(1,2),agreg=T,start,end,rean,spazm=c(F,F)){
+  
+  # Imports
+  dates <- getdates(start,end)
+  year <- substr(seq(as.Date("2020-01-01"),as.Date("2020-12-31"),"days"),6,10) # pour ajouter les pts sur la saisonalite
+  
+  pw <- get.pwat(k = 1,nbdays = 1,start,end,rean)
+  pw <- ecdf(pwat)(pwat)*100
+  
+  ind.1 <- get.ind.max.flow(flow = flow[1],agreg = agreg,nbdays = 3,start = start,end = end,spazm = spazm[1])
+  ind.2 <- get.ind.max.flow(flow = flow[2],agreg = agreg,nbdays = 3,start = start,end = end,spazm = spazm[2])
+  
+  # Graphique
+  png(filename = paste0("2_Travail/0_Present/Rresults/plot.pwat.sais/plot_pwat_sais.png"),width = 7,height = 4,units = "in",res = 200)
+  par(mar=c(2,4,1,1))
+  plot.sais.quantile(dates = dates,vec = pw,label = "PW percentile (%)")
+  points(match(substr(dates[ind.1],6,10),year),pw[ind.1],pch=21,bg="cornflowerblue",cex=1.2)
+  points(match(substr(dates[ind.2],6,10),year),pw[ind.2],pch=21,bg="burlywood1",cex=1.2)
+  legend("topleft",inset=.02,bty="n",pt.bg=c("cornflowerblue","burlywood1"),pch=21,pt.cex = 1.2,
+          c("Zonal","Meridional"))
+  graphics.off()
+}
+
 # Boxplot des percentiles des indicateurs avant et apres desaisonalisation
 plot.quant.descr.desais <- function(descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,bv,bvcomm=F){
   
