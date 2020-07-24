@@ -116,7 +116,42 @@ get.dP <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
   des <- rollapply(des,nbdays,mean)
 }
 
-
+# Trace l'evolution dans le temps d'un indicateur, pour les trois reanalyses
+plot.evolution.descr <- function(descr,k,dist,liss=5){
+  
+  # Variables
+  rean <- c("20CR","ERA20C","NCEP")
+  dates <- list(
+    c("1851-01-01","2010-12-31"),
+    c("1900-01-01","2010-12-31"),
+    c("1950-01-01","2010-12-29")
+  )
+  
+  # Import
+  des <- list()
+  for(i in 1:length(rean)){
+    des[[i]] <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = dates[[i]][1],end = dates[[i]][2],
+                               standardize = F,rean = rean[i],threeday = F,period = "past")
+    des[[i]] <- rollapply(des[[i]],liss*365,mean,partial=T)
+  }
+  
+  # Graphique
+  dat <- seq(as.Date(dates[[1]][1]),as.Date(dates[[1]][2]),"days")
+  pos <- c(1,match(as.character(seq(1850,2010,10)),substr(as.character(dat),1,4))[-1])
+  
+  
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.evolution.descr/plot_evolution_",descr,"_liss=",liss,".png"),width = 8,height = 5,units = "in",res = 200)
+  plot(dat,des[[1]],type="n",ylim=range(des),
+       xlab="Year",ylab=nam2str(descr))
+  
+  
+  
+  axis(1,pos,as.character(seq(1850,2010,10)))
+  lines(seq(as.Date(dates[[2]][1]),as.Date(dates[[2]][2]),"days"),des[[2]],col="red",lwd=2)
+  lines(seq(as.Date(dates[[3]][1]),as.Date(dates[[3]][2]),"days"),des[[3]],col="blue")
+  grid()
+  graphics.off()
+}
 
 # Travail passé:
 

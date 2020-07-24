@@ -2652,9 +2652,9 @@ get.delta <- function(ref = "1949-12-31", start = "1950-01-01"){
 }
 
 # Import et mise en forme des indicateurs: calculs supplementaires, moyenne glissante sur trois jours
-get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,rean,threeday=FALSE){
+get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,rean,threeday=FALSE,period="present"){
   
-  load(file=paste0(get.dirstr(k,rean),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+  load(file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
   
   # Cas speciaux
   if (descriptor=="celcelnei") descr<-criteria[,"cel"]/criteria[,"celnei"]
@@ -2664,10 +2664,10 @@ get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011
   else{descr<-criteria[,descriptor]} 
   
   # Si periode differente
-  if(rean == "20CR" && end != "2011-12-31"){
-    end_diff <- length(seq(as.Date(end),as.Date("2011-12-31"),"days"))
-    descr <- descr[1:(length(descr) - end_diff + 1)]
-  }
+  #if(rean == "20CR" && end != "2011-12-31"){
+  #  end_diff <- length(seq(as.Date(end),as.Date("2011-12-31"),"days"))
+  #  descr <- descr[1:(length(descr) - end_diff + 1)]
+  #}
     
   # Moyenne glissante 3 jours
   if (nbdays>1 && !threeday && descriptor!="accnew") descr<-rollapply(descr,width=nbdays,FUN=mean) # moyenne glissante de l'indicateur sur nbdays jours
@@ -5134,6 +5134,39 @@ reshape.ERA20C <- function(z = "1000"){
   
   res.form   <- ncvar_def(name = "hgt", units = "gpm", dim = list(dim1,dim2,dim3),prec = "double",longname = "Geopotential")
   res.create <- nc_create(filename = paste0("2_Travail/Data/Reanalysis/ERA-20C/ERA20C_HGT",z,"_1900_2010_daily.nc"), vars = res.form)
+  ncvar_put(nc = res.create, varid = res.form,vals = arr_final)
+  
+}
+
+# Aggregation de ERA5
+reshape.ERA5 <- function(z = "500"){
+  
+  # Attention: ERA5 a 4 dimensions
+  # expver=1: donnees ERA5
+  # expver=5: donnees ERA5T (near real time), qui permet de boucher le trou entre la fin d'ERA5
+  # jusqu'à 5 jours avant le telechargement.
+  # Le netcdf peut donc contenir les deux dimensions. Ici:
+  # ERA5 (expver=1) de 1979-01-01 00:00 à 2020-04-30 18:00
+  # ERAT (expver=5) de 2020-05-01 00:00 à 2020-07-05 18:00
+  # je ne prend que les donnees ERA jusqu'a avril 2020
+  
+  # Import reanalyse brute
+  nc <- nc_open(filename = paste0("2_Travail/Data/Reanalysis/ERA5/ERA5_",z,"HGT_1979_2019_6h.nc"))
+  len.time <- length(seq(as.Date("1979-01-01"),as.Date("2020-04-30"),by="days"))*4
+  arr <- ncvar_get(nc = nc,varid = "z",start = c(1,1,1,1),count=c(length(nc$dim$lon$vals),length(nc$dim$lat$vals),1,len.time))
+  
+  # Aggregation
+  fourth_dim <- dim(arr)[3]/4
+  arr_final <- arr
+  dim(arr_final)   <- c(dim(arr_final)[1:2],4,fourth_dim)
+  arr_final  <- apply(arr_final,c(1,2,4),mean)
+  arr_final <- round(arr_final/9.81,2)
+  
+  # Export
+  nc$dim$time$vals <- nc$dim$time$vals[seq(1,len.time,4)]+9 # modif dimension temps (journalier au lieu de 6h)
+  nc$dim$time$len <- len.time/4 # modif dimension temps
+  res.form   <- ncvar_def(name = "hgt", units = "gpm", dim = list(nc$dim$lon,nc$dim$lat,nc$dim$time),prec = "double",longname = "Geopotential")
+  res.create <- nc_create(filename = paste0("2_Travail/Data/Reanalysis/ERA5/ERA5_HGT",z,"_1979-01-01_2020-04-30_daily.nc"), vars = res.form)
   ncvar_put(nc = res.create, varid = res.form,vals = arr_final)
   
 }

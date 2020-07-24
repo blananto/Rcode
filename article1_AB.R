@@ -69,8 +69,51 @@ combine.functions <- function(fun,descr,k,dist,nbdays,start="1950-01-01",end="20
   }
 }
 
+# Combinaison des boxplots par bv pour article
+combine.quant.bv <- function(){
+  
+  # Parametres
+  bv1 <- "Isere-seul"
+  bv2 <- "Drac-seul"
+  k <- 1
+  dist <- "TWS"
+  nbdays <- 3
+  start <- "1950-01-01"
+  end <- "2011-12-31"
+  rean <- "20CR"
+  
+  # Graphiques
+  p <- compare.descr.bv(bv1 = bv1,bv2 = bv2,k = k,dist = dist,start = start,end = end,rean = rean,comm = F,nbdays = nbdays,spazm = c(F,F),save=F,legend=F)
+  q <- compare.density.bv.all(bv = c(bv1,bv2),k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,quant = F,save = F,legend = T)
+  ggarrange(p,q,labels = c("a)","b)"),ncol = 2,nrow = 1)
+  ggsave(filename = paste0(get.dirstr(k,rean),"combine.quant.bv/plot_",bv1,"_",bv2,"_",nbdays,"day_",start,"_",end,ifelse(comm,"_commun",""),".png"),width = 30,height = 11,units="cm",dpi = 200)
+  graphics.off()
+}
+
+# Combinaison des boxplots par wp pour article
+combine.quant.wp <- function(){
+  
+  # Parametres
+  wp1 <- 1
+  wp2 <- 2
+  agreg <- T
+  k <- 1
+  dist <- "TWS"
+  nbdays <- 3
+  start <- "1950-01-01"
+  end <- "2011-12-31"
+  rean <- "20CR"
+  
+  # Graphiques
+  p <- compare.descr.flow(flow = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,spazm = c(F,F),save=F,legend=F)
+  q <- compare.density.wp.all(wp = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,quant = F,save = F,legend = T)
+  ggarrange(p,q,labels = c("a)","b)"),ncol = 2,nrow = 1)
+  ggsave(filename = paste0(get.dirstr(k,rean),"combine.quant.wp/plot_wp",wp1,"_wp",wp2,"_",nbdays,"day_",start,"_",end,".png"),width = 32,height = 11,units="cm",dpi = 200)
+  graphics.off()
+}
+
 # Comparaison de la densite des max annuels de precip par rapport a la densite de tous les points, pour deux BVs
-compare.density.bv <- function(descr=c("celnei","dP"),bv=c("Isere-seul","Drac-seul"),k,dist,nbdays,start,end,rean,quant=F){
+compare.density.bv <- function(descr=c("celnei","dP"),bv=c("Isere-seul","Drac-seul"),k,dist,nbdays,start,end,rean,quant=F,save=F){
   
   # Import des densites de pts pour un couple d'indicateur
   load(paste0(get.dirstr(k,rean),"compute.density/nbnei_",ifelse(quant,"quant_",""),descr[1],"_",descr[2],"_",
@@ -82,7 +125,7 @@ compare.density.bv <- function(descr=c("celnei","dP"),bv=c("Isere-seul","Drac-se
   
   # Mise en forme
   data <- data.frame(Ind = c(rep("all",length(nb)),rep(nam2str(bv[1]),length(ind.bv1)),rep(nam2str(bv[2]),length(ind.bv2))),
-                     Nbnei = c(nb,nb[ind.isere],nb[ind.drac]))
+                     Nbnei = c(nb,nb[ind.bv1],nb[ind.bv2]))
   data$Ind <- factor(data$Ind,levels = c(nam2str(bv[1]),nam2str(bv[2]),"all"))
   
   # boxplot
@@ -100,9 +143,61 @@ compare.density.bv <- function(descr=c("celnei","dP"),bv=c("Isere-seul","Drac-se
     xlab("BV")+
     ylab("nbnei")
   
-  ggsave(filename = paste0(get.dirstr(k,rean),"compare.density.bv/compare_density_",descr[1],"_",descr[2],"_",
+  if(save) ggsave(filename = paste0(get.dirstr(k,rean),"compare.density.bv/compare_density_",descr[1],"_",descr[2],"_",
                            ifelse(length(descr)==3,paste0(descr[3],"_"),""),ifelse(quant,"quant_",""),bv[1],"_",bv[2],"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png"))
   
+}
+
+# Comparaison de la densite de pts dans le plan pour les max annuels, pour les 3 combaisons de descripteurs en meme temps (donc nbnei en percentile)
+compare.density.bv.all <- function(bv=c("Isere-seul","Drac-seul"),k,dist,nbdays,start,end,rean,quant=F,save=F,legend=T){
+  
+  descr <- list(
+    c("celnei","dP"),
+    c("singnei","dP"),
+    c("rsingnei","dP")
+  )
+  
+  # Import des densites de pts pour un couple d'indicateur
+  nbnei <- as.data.frame(matrix(NA,length(getdates(start,end))-nbdays+1,length(descr)))
+  for(i in 1:length(descr)){
+    load(paste0(get.dirstr(k,rean),"compute.density/nbnei_",ifelse(quant,"quant_",""),descr[[i]][1],"_",descr[[i]][2],"_",
+                ifelse(length(descr[[i]])==3,paste0(descr[[i]][3],"_"),""),dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    nbnei[,i] <- ecdf(nb)(nb)*100
+    colnames(nbnei)[i] <- paste0(descr[[i]][1],"-MPD")
+  }
+  
+  # Max annuels de precip et mise en forme
+  ind.bv1 <- get.ind.max(type = "year",nbdays,start,end,bv = bv[1],spazm = F)
+  nbnei.1 <- cbind(rep(nam2str(bv[1]),length(ind.bv1)),nbnei[ind.bv1,])
+  colnames(nbnei.1)[1] <- "Catchment"
+  
+  ind.bv2 <- get.ind.max(type = "year",nbdays,start,end,bv = bv[2],spazm = F)
+  nbnei.2 <- cbind(rep(nam2str(bv[2]),length(ind.bv2)),nbnei[ind.bv2,])
+  colnames(nbnei.2)[1] <- "Catchment"
+  
+  data <- rbind(nbnei.1,nbnei.2)
+  data <- pivot_longer(data,2:4,names_to = "descr",values_to = "percentile")
+  data$descr <- factor(data$descr,levels=colnames(nbnei))
+  
+  # Boxplot
+  p <- ggplot(data, aes(x=descr, y=percentile, fill=Catchment)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=1,size = 12,face = "bold"),axis.text.x = element_text(size=12),
+          axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
+          legend.position = ifelse(legend,"right","none"),legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
+          legend.title = element_text(hjust=1,vjust=2,size = 12,face = "bold"))+
+    stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
+    geom_boxplot(outlier.shape = NA,col="darkblue")+
+    scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
+    geom_vline(xintercept=c(1.5,2.5), linetype="dashed")+
+    xlab("Descriptor plane")+
+    ylab("Percentile of number of neighbors (%)")
+  
+  if(save) {
+    ggsave(filename = paste0(get.dirstr(k,rean),"compare.density.bv.all/compare_density_",ifelse(quant,"quant_",""),bv[1],"_",bv[2],"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),plot=p)
+    graphics.off()
+  }else{p}
 }
 
 # Comparaison de la densite des max annuels de precip par rapport a la densite des points du meme WP
@@ -148,8 +243,77 @@ compare.density.wp <- function(descr=c("celnei","dP"),wp=c(1,2),agreg=T,k,dist,n
   
 }
 
+# Comparaison des densités pour les max annuels en fonction de leur flow, mais pour tous 3 couples de descripteurs en meme temps
+compare.density.wp.all <- function(wp=c(1,2),agreg=T,k,dist,nbdays,start,end,rean,quant=F,save=T,legend=T){
+  
+  descr <- list(
+    c("celnei","dP"),
+    c("singnei","dP"),
+    c("rsingnei","dP")
+  )
+  
+  if(wp[1]==1 & wp[2]==2 & agreg){
+    namwp <- c("Zonal","Meridional")
+  }else{namwp <- wp}
+  
+  # Imports
+  tt <- get.wp(nbdays,start,end,agreg=agreg)
+  tt1 <- which(tt==wp[1])
+  tt2 <- which(tt==wp[2])
+  
+  ind.wp1 <- get.ind.max.flow(flow = wp[1],agreg,nbdays,start,end)
+  ind.wp2 <- get.ind.max.flow(flow = wp[2],agreg,nbdays,start,end)
+  
+  # Traitement separe des tt car longueur differente
+  nbnei.1 <- as.data.frame(matrix(NA,length(tt1),length(descr)))
+  for(i in 1:length(descr)){
+    load(paste0(get.dirstr(k,rean),"compute.density/nbnei_",ifelse(quant,"quant_",""),"wp",wp[1],"_",descr[[i]][1],"_",descr[[i]][2],"_",
+                ifelse(length(descr[[i]])==3,paste0(descr[[i]][3],"_"),""),ifelse(agreg,"agreg_",""),dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    nbnei.1[,i] <- ecdf(nb)(nb)*100
+    colnames(nbnei.1)[i] <- paste0(descr[[i]][1],"-MPD")
+  }
+  
+  nbnei.1 <- cbind(rep(namwp[1],length(ind.wp1)),nbnei.1[match(ind.wp1,tt1),])
+  colnames(nbnei.1)[1] <- "Flow"
+  
+  nbnei.2 <- as.data.frame(matrix(NA,length(tt2),length(descr)))
+  for(i in 1:length(descr)){
+    load(paste0(get.dirstr(k,rean),"compute.density/nbnei_",ifelse(quant,"quant_",""),"wp",wp[2],"_",descr[[i]][1],"_",descr[[i]][2],"_",
+                ifelse(length(descr[[i]])==3,paste0(descr[[i]][3],"_"),""),ifelse(agreg,"agreg_",""),dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    nbnei.2[,i] <- ecdf(nb)(nb)*100
+    colnames(nbnei.2)[i] <- paste0(descr[[i]][1],"-MPD")
+  }
+  
+  nbnei.2 <- cbind(rep(namwp[2],length(ind.wp2)),nbnei.2[match(ind.wp2,tt2),])
+  colnames(nbnei.2)[1] <- "Flow"
+  
+  data <- rbind(nbnei.1,nbnei.2)
+  data <- pivot_longer(data,2:4,names_to = "descr",values_to = "percentile")
+  data$descr <- factor(data$descr,levels=colnames(nbnei.1)[-1])
+  
+  # boxplot
+  p <- ggplot(data, aes(x=descr, y=percentile, fill=Flow)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=1,size = 12,face = "bold"),axis.text.x = element_text(size=12),
+          axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
+          legend.position = ifelse(legend,"right","none"),legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
+          legend.title = element_text(hjust=0.5,vjust=2,size = 12,face = "bold"))+
+    stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
+    geom_boxplot(outlier.shape = NA,col="darkblue")+
+    scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
+    geom_vline(xintercept=c(1.5,2.5), linetype="dashed")+
+    xlab("Descriptor plane")+
+    ylab("Percentile of number of neighbors (%)")
+  
+  if(save) {
+    ggsave(filename = paste0(get.dirstr(k,rean),"compare.density.wp.all/compare_density_",ifelse(quant,"quant_",""),wp[1],"_",wp[2],"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),plot=p)
+    graphics.off()
+  }else{p}
+}
+
 # Comparaison des percentiles d'indicateurs pour deux bassins versants
-compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,comm=F,spazm=c(F,F),flow=F){
+compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,comm=F,spazm=c(F,F),flow=F,save=T,legend=T){
   
   # Import indicateurs
   mat <- NULL
@@ -192,27 +356,29 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
   mat$descr <- factor(mat$descr,levels = nam.descr)#c(descr,"pwat"))
   
   # Graphique
-  ggplot(mat, aes(x=descr, y=percentile, fill=bv)) + 
+  p <- ggplot(mat, aes(x=descr, y=percentile, fill=bv)) + 
     theme_bw()+
     theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
-          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12),
+          axis.title.y = element_text(vjust=1,size = 12,face = "bold"),axis.text.x = element_text(size=12),
           axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
-          legend.position = "right",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
+          legend.position = ifelse(legend,"right","none"),legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
           legend.title = element_text(hjust=1,vjust=2,size = 12,face = "bold"))+
     stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
     geom_boxplot(outlier.shape = NA,col="darkblue")+
     scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
     geom_vline(xintercept=c(1.5,2.5,3.5), linetype="dashed")+
-    xlab("Atmospheric descriptors")+
-    ylab("Percentile (%)")+
+    xlab("Atmospheric descriptor")+
+    ylab("Percentile of descriptor value (%)")+
     labs(fill="Catchment")#,title = namdescr
   
-  ggsave(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compare.descr.bv/plot_",bv1,"_",bv2,"_",nbdays,"day_",start,"_",end,ifelse(comm,"_commun",""),ifelse(flow!=F,paste0("_",namflow),""),".png"),width = 20,height = 11,units="cm",dpi = 200)
-  graphics.off()
+  if(save) {
+    ggsave(filename = paste0(get.dirstr(k,rean),"compare.descr.bv/plot_",bv1,"_",bv2,"_",nbdays,"day_",start,"_",end,ifelse(comm,"_commun",""),ifelse(flow!=F,paste0("_",namflow),""),".png"),plot=p,width = 20,height = 11,units="cm",dpi = 200)
+    graphics.off()
+  }else{p}
 }
 
 # Comparaison des percentiles d'indicateurs pour deux flux
-compare.descr.flow <- function(flow=c(1,2),descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,spazm=c(F,F)){
+compare.descr.flow <- function(flow=c(1,2),agreg=T,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,spazm=c(F,F),save=T,legend=T){
   
   # Import indicateurs
   mat <- NULL
@@ -227,8 +393,8 @@ compare.descr.flow <- function(flow=c(1,2),descr=c("celnei","singnei","rsingnei"
   # Traitement
   namflow <- c("Zonal","Meridional","North-East","Anticyclonic")
   namflow <- namflow[flow]
-  ind.1 <- get.ind.max.flow(flow[1],agreg=T,nbdays,start,end)
-  ind.2 <- get.ind.max.flow(flow[2],agreg=T,nbdays,start,end)
+  ind.1 <- get.ind.max.flow(flow[1],agreg=agreg,nbdays,start,end)
+  ind.2 <- get.ind.max.flow(flow[2],agreg=agreg,nbdays,start,end)
   
   wp <- get.wp(nbdays,start,end,agreg=T)
   mat.1 <- mat
@@ -249,23 +415,25 @@ compare.descr.flow <- function(flow=c(1,2),descr=c("celnei","singnei","rsingnei"
   mat$descr <- factor(mat$descr,levels = nam.descr)
   
   # Graphique
-  ggplot(mat, aes(x=descr, y=percentile, fill=Flow)) + 
+  p <- ggplot(mat, aes(x=descr, y=percentile, fill=Flow)) + 
     theme_bw()+
     theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
-          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12),
+          axis.title.y = element_text(vjust=1,size = 12,face = "bold"),axis.text.x = element_text(size=12),
           axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
-          legend.position = "right",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
+          legend.position = ifelse(legend,"right","none"),legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
           legend.title = element_text(hjust=0.4,vjust=2,size = 12,face = "bold"))+
     stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
     geom_boxplot(outlier.shape = NA,col="darkblue")+
     scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
     geom_vline(xintercept=c(1.5,2.5,3.5), linetype="dashed")+
-    xlab("Atmospheric descriptors")+
-    ylab("Percentile (%)")+
+    xlab("Atmospheric descriptor")+
+    ylab("Percentile of descriptor value (%)")+
     labs(fill="Flow")#,title = namdescr
   
-  ggsave(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compare.descr.flow/plot_",namflow[1],"_",namflow[2],"_",nbdays,"day_",start,"_",end,".png"),width = 20,height = 11,units="cm",dpi = 200)
-  graphics.off()
+  if(save){
+    ggsave(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compare.descr.flow/plot_",namflow[1],"_",namflow[2],"_",nbdays,"day_",start,"_",end,".png"),plot=p,width = 20,height = 11,units="cm",dpi = 200)
+    graphics.off()
+  }else{p}
 }
 
 # Calcul densite de points dans un plan
@@ -1465,7 +1633,6 @@ plot.pwat.sais <- function(flow=c(1,2),agreg=T,start,end,rean,spazm=c(F,F)){
   year <- substr(seq(as.Date("2020-01-01"),as.Date("2020-12-31"),"days"),6,10) # pour ajouter les pts sur la saisonalite
   
   pw <- get.pwat(k = 1,nbdays = 1,start,end,rean)
-  pw <- ecdf(pwat)(pwat)*100
   
   ind.1 <- get.ind.max.flow(flow = flow[1],agreg = agreg,nbdays = 3,start = start,end = end,spazm = spazm[1])
   ind.2 <- get.ind.max.flow(flow = flow[2],agreg = agreg,nbdays = 3,start = start,end = end,spazm = spazm[2])
@@ -1473,7 +1640,7 @@ plot.pwat.sais <- function(flow=c(1,2),agreg=T,start,end,rean,spazm=c(F,F)){
   # Graphique
   png(filename = paste0("2_Travail/0_Present/Rresults/plot.pwat.sais/plot_pwat_sais.png"),width = 7,height = 4,units = "in",res = 200)
   par(mar=c(2,4,1,1))
-  plot.sais.quantile(dates = dates,vec = pw,label = "PW percentile (%)")
+  plot.sais.quantile(dates = dates,vec = pw,label = "PW (mm)")
   points(match(substr(dates[ind.1],6,10),year),pw[ind.1],pch=21,bg="cornflowerblue",cex=1.2)
   points(match(substr(dates[ind.2],6,10),year),pw[ind.2],pch=21,bg="burlywood1",cex=1.2)
   legend("topleft",inset=.02,bty="n",pt.bg=c("cornflowerblue","burlywood1"),pch=21,pt.cex = 1.2,
