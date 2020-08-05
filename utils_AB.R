@@ -2490,7 +2490,8 @@ getdates<-function(start="1950-01-01",end="2011-12-31"){
 # Date associee a chaque pas de temps dans le fichier NetCDF
 getdays<-function(nc,rean){
   if(rean == "20CR") orig <- "1800"
-  if(rean == "ERA20C" | rean =="ERA20C_18") orig <- "1900"
+  if(substr(rean,1,3) == "JRA") orig <- "1800"
+  if(substr(rean,1,3) == "ERA") orig <- "1900"
   if(rean == "NCEP") orig <- "1950"
   substr(as.POSIXct(nc$dim$time$vals*3600,origin=paste0(orig,'-01-01 00:00'),tz="GMT"),1,10) #format "YYYY-MM-DD"
 }
@@ -2504,7 +2505,7 @@ getdist<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,threeday=FALSE
 
 # Recupere le vecteur distance correspondant au jour voulu
 getdist4i<-function(i,dist.vec,N,sU){
-  if (i==N) di<-dist.vec[sU[1:(i-1)]+(i-1):1] # si i=N, on prend comme reference le changement de journee defini par sU auquel on ajoute le nombre de jours pour timber sur l'analogie avec N
+  if (i==N) di<-dist.vec[sU[1:(i-1)]+(i-1):1] # si i=N, on prend comme reference le changement de journee defini par sU auquel on ajoute le nombre de jours pour tomber sur l'analogie avec N
   else if (i==1) di<-dist.vec[1:(N-i)] # si i=1, on prend le debut du vecteur distance
   else {
     di<-dist.vec[c(sU[1:(i-1)]+(i-1):1,sU[i]+1:(N-i))] # si 1<i<N, on va chercher les analogies sur les autres dates, auxquelles on concatene les analogies de la date i
@@ -2652,9 +2653,14 @@ get.delta <- function(ref = "1949-12-31", start = "1950-01-01"){
 }
 
 # Import et mise en forme des indicateurs: calculs supplementaires, moyenne glissante sur trois jours
-get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,rean,threeday=FALSE,period="present"){
+get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,rean,threeday=FALSE,period="present",start.ana="1950-01-01",end.ana="2011-12-31"){
   
-  load(file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+  if(period=="past"){
+    load(file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".Rdata"))
+  }
+  if(period=="present"){
+    load(file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+  }
   
   # Cas speciaux
   if (descriptor=="celcelnei") descr<-criteria[,"cel"]/criteria[,"celnei"]
@@ -3119,6 +3125,31 @@ load.nc<-function(rean = "20CR",var="hgt"){
   if(rean == "NCEP"){
     nc500<-nc_open("2_Travail/Data/Reanalysis/NCEP/NCEP_HGT500_1950_2010_daily.nc")
     nc1000<-nc_open("2_Travail/Data/Reanalysis/NCEP/NCEP_HGT1000_1950_2010_daily.nc")
+  }
+  
+  if(rean == "ERA5"){
+    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA5/ERA5_HGT500_1979-01-01_2020-04-30_daily.nc")
+    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA5/ERA5_HGT500_1979-01-01_2020-04-30_daily.nc")
+  }
+  
+  if(rean == "ERA40"){
+    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA40/ERA40_HGT500_1957-09-01_2002-08-31_daily.nc")
+    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA40/ERA40_HGT1000_1957-09-01_2002-08-31_daily.nc")
+  }
+  
+  if(rean == "ERA40"){
+    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA40/ERA40_HGT500_1957-09-01_2002-08-31_daily.nc")
+    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA40/ERA40_HGT1000_1957-09-01_2002-08-31_daily.nc")
+  }
+  
+  if(rean == "JRA55"){
+    nc500<-nc_open("2_Travail/Data/Reanalysis/JRA55/JRA55_HGT500_1958_2019_daily.nc")
+    nc1000<-nc_open("2_Travail/Data/Reanalysis/JRA55/JRA55_HGT500_1958_2019_daily.nc")
+  }
+  
+  if(rean == "JRA55C"){
+    nc500<-nc_open("2_Travail/Data/Reanalysis/JRA55C/JRA55C_HGT500_1972-11-01_2012-12-31_daily.nc")
+    nc1000<-nc_open("2_Travail/Data/Reanalysis/JRA55C/JRA55C_HGT500_1972-11-01_2012-12-31_daily.nc")
   }
   
   if(var=="hgt") nc<-list(nc500=nc500,nc1000=nc1000)
@@ -5168,6 +5199,33 @@ reshape.ERA5 <- function(z = "500"){
   res.form   <- ncvar_def(name = "hgt", units = "gpm", dim = list(nc$dim$lon,nc$dim$lat,nc$dim$time),prec = "double",longname = "Geopotential")
   res.create <- nc_create(filename = paste0("2_Travail/Data/Reanalysis/ERA5/ERA5_HGT",z,"_1979-01-01_2020-04-30_daily.nc"), vars = res.form)
   ncvar_put(nc = res.create, varid = res.form,vals = arr_final)
+  
+}
+
+# Mise en forme de JRA
+reshape.JRA <- function(z = "500",rean="JRA55"){
+  
+  # Import reanalyse
+  if(rean=="JRA55") nc <- nc_open(filename = paste0("2_Travail/Data/Reanalysis/JRA55/JRA55_HGT",z,"_1958_2019_daily_brut.nc"))
+  if(rean=="JRA55C") nc <- nc_open(filename = paste0("2_Travail/Data/Reanalysis/JRA55C/JRA55C_HGT",z,"_1972-11-01_2012-12-31_daily_brut.nc"))
+  
+  # Donnees
+  arr <- ncvar_get(nc = nc,varid = "HGT_GDS0_ISBL",start = c(1,1,1),count=c(length(nc$dim$g0_lon_2$vals),length(nc$dim$g0_lat_1$vals),length(nc$dim$initial_time0_hours$vals)))
+  
+  # Changement noms variables, longitude en negatif et export
+  lon <- nc$dim$g0_lon_2
+  lon$name <- "lon"
+  lon$vals[lon$vals>180] <- lon$vals[lon$vals>180]-360 # on passe les longitudes en negatif
+  
+  lat <- nc$dim$g0_lat_1
+  lat$name <- "lat"
+  
+  time <- nc$dim$initial_time0_hours
+  time$name <- "time"
+  res.form   <- ncvar_def(name = "hgt", units = "gpm", dim = list(lon,lat,time),prec = "double",longname = "Geopotential")
+  if(rean=="JRA55") res.create <- nc_create(filename = paste0("2_Travail/Data/Reanalysis/JRA55/JRA55_HGT",z,"_1958_2019_daily.nc"), vars = res.form)
+  if(rean=="JRA55C")res.create <- nc_create(filename = paste0("2_Travail/Data/Reanalysis/JRA55C/JRA55C_HGT",z,"_1972-11-01_2012-12-31_daily.nc"), vars = res.form)
+  ncvar_put(nc = res.create, varid = res.form,vals = arr)
   
 }
 

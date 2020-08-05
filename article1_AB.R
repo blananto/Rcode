@@ -645,24 +645,24 @@ map.corner <- function(k, rean){
 }
 
 # Cartes d'une gamme croissante d'un descripteur pour gif
-map.descr.gif <- function(type="all",descr,k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean){
+map.descr.gif <- function(type="all",descr,k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean,period="present"){
   
   # Import
-  des <- get.descriptor(descr,k,dist,nbdays,start,end,standardize = F,rean)
+  des <- get.descriptor(descr,k,dist,nbdays,start,end,standardize = F,rean,period=period)
   dates <- getdates(start,end)
   
   # Traitement
-  tri <- sort(des,decreasing=ifelse(type %in% c("all","max"),T,F),index.return=T)$ix
+  tri <- sort(des,decreasing=ifelse(type=="max",T,F),index.return=T)$ix
   if(type=="all"){
   ran <- tri[seq(1,length(tri),length.out = 60)]
   }else{
-    ran <- tri[(length(tri)-59):(length(tri))]
+    ran <- tri[1:60]
   }
   
   # Cartes
   for(i in 1:length(ran)){
     print(i)
-    png(filename = paste0("2_Travail/0_Present/20CR/Rresults/overall/k",k,"/map.descr.gif/",descr,"_",i,"_",type,"_k",k,"_",nbdays,"day.png"),
+    png(filename = paste0(get.dirstr(k,rean,period),"map.descr.gif/",descr,"_",type,"/",descr,"_",i,"_",type,"_k",k,"_",nbdays,"day.png"),
                        width = ifelse(nbdays==3,1050,350),height = 350,units = "px")
     layout(matrix(1:nbdays,1,nbdays))
     map.geo(date = dates[ran[i]],rean = rean,k = k,nbdays = nbdays,save=F,win = T,let = F,leg = F,iso = T)
