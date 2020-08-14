@@ -122,22 +122,34 @@ get.dP <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
   des <- rollapply(des,nbdays,mean)
 }
 
+# Calcul de la moyenne de l'altitude du geopotentiel
+get.mean <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
+  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
+  des <- apply(geo,3,function(x) mean(x))
+  des <- rollapply(des,nbdays,mean)
+}
+
 # Trace l'evolution dans le temps d'un indicateur, pour les trois reanalyses
 plot.descr <- function(descr,k,dist,liss=5,ana.comm=F,align=F){
   
   # Reanalyses
-  rean <- c(#"20CR",
-    #"ERA20C",
-    "NCEP","JRA55","ERA40","JRA55C","ERA5")
+  rean <- c(
+    "20CR",
+    "ERA20C",
+    "NCEP",
+    "JRA55",
+    "ERA40",
+    "JRA55C",
+    "ERA5")
   
   # Dates sur lesquelles les indicateurs sont calcules
   dates <- list(
-    #c("1851-01-01","2010-12-31"),
-    #c("1900-01-01","2010-12-31"),
+    c("1851-01-01","2010-12-31"),
+    c("1900-01-01","2010-12-31"),
     c("1950-01-01","2010-12-29"),
     c("1958-01-01","2010-12-31"),
     c("1957-09-01","2002-08-31"),
-    c("1972-11-01","2012-12-31"),
+    c("1972-11-01","2012-12-30"),
     c("1979-01-01","2010-12-31")
   )
   
