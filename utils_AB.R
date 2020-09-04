@@ -2764,22 +2764,28 @@ get.ind.min.max.descr <- function(descr,k,dist,nbdays,start="1950-01-01",end="20
 }
 
 # Importation des donnees de precipitation
-get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm=T){
+get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm=F){
   
   # bv possibles: Isere-seul et Drac-seul
   # donnees possibles: TPS et SPAZM
   
   dir <- ifelse(spazm,"SPAZM/","TPS/")
-  precip <- read.csv(file=paste0("2_Travail/Data/Precip/",dir,bv,"_cum",nbdays,"day_1950-01-01_2011-12-31.csv"))
-  precip <- precip[,1]
   
-  if(start != "1950-01-01"){
-    start_diff <- length(seq(as.Date("1950-01-01"),as.Date(start),"days"))
-    precip <- precip[start_diff:length(precip)]
+  if(as.Date(start)<as.Date("1950-01-01") | as.Date(end)>as.Date("2011-12-31")){
+    precip <- read.csv(file=paste0("2_Travail/Data/Precip/",dir,bv,"_cum",nbdays,"day_",start,"_",end,".csv"))
   }
-  if(end != "2011-12-31"){
-    end_diff <- length(seq(as.Date(end),as.Date("2011-12-31"),"days"))
-    precip <- precip[1:(length(precip) - end_diff + 1)]
+  else{
+    precip <- read.csv(file=paste0("2_Travail/Data/Precip/",dir,bv,"_cum",nbdays,"day_1950-01-01_2011-12-31.csv"))
+    precip <- precip[,1]
+    
+    if(start != "1950-01-01"){
+      start_diff <- length(seq(as.Date("1950-01-01"),as.Date(start),"days"))
+      precip <- precip[start_diff:length(precip)]
+    }
+    if(end != "2011-12-31"){
+      end_diff <- length(seq(as.Date(end),as.Date("2011-12-31"),"days"))
+      precip <- precip[1:(length(precip) - end_diff + 1)]
+    }
   }
   precip
 }
@@ -3012,13 +3018,13 @@ image.europe<- function(){
 image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F){
   
   bv <- c(#"isere",
-          "isere-seul",
-          "drac-seul"
-          #"tarentaise",
-          #"maurienne",
-          #"romanche",
-          #"drac",
-          #"gresivaudan"
+          #"isere-seul",
+          #"drac-seul"
+          "tarentaise",
+          "maurienne",
+          "romanche",
+          "drac",
+          "gresivaudan"
           )
   if(names){
     coord.nam <- list(
@@ -3167,9 +3173,9 @@ makegrad<-function(mat,l){
 # Genere la pluie pour un sous BV
 make.precip1.isere<-function(start="1950-01-01",end="2011-12-31") {
   
-  bord<-read.csv("2_Travail/Data/Carto/border_Isere@Grenoble.csv",sep=",") #coordonnées des bassins
+  bord<-read.csv("2_Travail/Data/Carto/border_Isere@Grenoble_small_bv.csv",sep=";") #coordonnées des bassins
   
-  load("2_Travail/Data/Carto/Isere@Grenoble_24h_minlength50.Rdata") #precip journalières
+  load("2_Travail/Data/Precip/TPS/Isere@Grenoble_24h_minlength50_61stations_1950_2019.Rdata") #precip journalières
   
   #bassin<-c(87,567,706,577,797,621,136,180,1092,116,792) #ensemble des bassins de l'Isère
   bassin<-c(670,19,35,124,248,176,596,104) #ensemble des bassins du Drac
