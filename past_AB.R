@@ -131,10 +131,21 @@ get.event <- function(){
 }
 
 # Import de la serie mensuelle de NAO
-get.nao <- function(start="1950",end="2019"){
-  nao <- read.csv("2_Travail/Data/NAO/NAO.txt",skip =8,header = T,sep = "")
+get.nao <- function(start="1950",end="2019",sais="all"){
+  if(sais=="all"){
+    nao <- read.csv("2_Travail/Data/NAO/annual_NAO_1865-2019.txt",skip =3,header = T,sep = "")
+  }
+  
+  if(sais!="all"){
+    nao <- read.csv("2_Travail/Data/NAO/seasonal_NAO_1865-2019.txt",skip =3,header = T,sep = "")
+  if(sais=="winter") nao <- nao[,c("YEAR","DJF")]
+  if(sais=="spring") nao <- nao[,c("YEAR","MAM")]
+  if(sais=="summer") nao <- nao[,c("YEAR","JJA")]
+  if(sais=="autumn") nao <- nao[,c("YEAR","SON")]
+    }
+  
   year <- seq(as.numeric(start),as.numeric(end))
-  nao <- nao[nao[,1] %in% year,3]
+  nao <- nao[nao[,"YEAR"] %in% year,]
   nao
 }
 
@@ -269,8 +280,8 @@ plot.descr <- function(descr,k,dist,liss=5,ana.comm=F,align=F,nao=F){
   graphics.off()
 }
 
-# Trace l'evolution dans le temps d'un indicateur, pour plusieurs reanalyses
-plot.descr.clean <- function(descr,k,dist,liss=5,ana.comm=F,align=F,nao=F){
+# Trace l'evolution dans le temps d'un indicateur, pour plusieurs reanalyses et par saison, avec NAO
+plot.trend.descr <- function(descr,k,dist,sais="all",liss=5,ana.comm=F,align=F,nao=F){
   
   # Reanalyses
   rean <- c(
@@ -304,25 +315,45 @@ plot.descr.clean <- function(descr,k,dist,liss=5,ana.comm=F,align=F,nao=F){
   dat <- list()
   des <- list()
   for(i in 1:length(rean)){
-    dat[[i]] <- substr(seq(as.Date(dates[[i]][1]),as.Date(dates[[i]][2]),"days"),1,4)
+    dat[[i]] <- seq(as.Date(dates[[i]][1]),as.Date(dates[[i]][2]),"days")
     des[[i]] <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = dates[[i]][1],end = dates[[i]][2],
                                standardize = F,rean = rean[i],threeday = F,period = "past",start.ana = dates.ana[[i]][1],
                                end.ana = dates.ana[[i]][2])
     
     if(descr=="cel"){dat[[i]] <- dat[[i]][-1];des[[i]] <- des[[i]][-1]}
-    agg <- aggregate(des[[i]],by=list(dat[[i]]),mean)
+    
+    if(sais=="winter"){
+      pos <- substr(dat[[i]],6,7) %in% c("12","01","02")
+      des[[i]][!pos] <- NA
+    }
+    if(sais=="spring"){
+      pos <- substr(dat[[i]],6,7) %in% c("03","04","05")
+      des[[i]][!pos] <- NA
+    }
+    if(sais=="summer"){
+      pos <- substr(dat[[i]],6,7) %in% c("06","07","08")
+      des[[i]][!pos] <- NA
+    }
+    if(sais=="autumn"){
+      pos <- substr(dat[[i]],6,7) %in% c("09","10","11")
+      des[[i]][!pos] <- NA
+    }
+    
+    dat[[i]] <- substr(dat[[i]],1,4)
+    agg <- aggregate(des[[i]],by=list(dat[[i]]),mean,na.rm=T)
+    agg <- agg[!is.na(agg[,2]),]
     des[[i]] <- agg[,2]
     dat[[i]] <- agg[,1]
-    des[[i]] <- rollapply(des[[i]],liss,mean,partial=T)
+    des[[i]] <- rollapply(des[[i]],liss,mean,partial=F,fill=NA)
     if(align) des[[i]] <- des[[i]] - des[[i]][dat[[i]]=="2000"]
   }
   
   if(nao){
-    naoi <- get.nao(start = "1950",end = substr(dat[[1]][length(dat[[1]])],1,4))
-    annmonth <- seq(as.Date("1950-01-01"),as.Date(paste0(dat[[1]][length(dat[[1]])],"-12-31")),by="month") # vecteur annee mois
-    agg <- aggregate(naoi,by=list(substr(annmonth,1,4)),mean)
-    naoi <- rollapply(agg[,2],liss,mean,partial=T)
-    naoi <- c(rep(NA, as.numeric(agg[1,1])-xaxis[1]-1),naoi)
+    naoi <- get.nao(start = "1865",end = "2010",sais = sais)
+    nao.year <- naoi[,1]
+    nao.ind  <- naoi[,2]
+    nao.ind <- rollapply(nao.ind,liss,mean,partial=F,fill=NA)
+    nao.ind <- c(rep(NA,nao.year[1] - as.numeric(dat[[1]][1])-1),nao.ind)
   }
   
   # Graphique evolution
@@ -332,9 +363,9 @@ plot.descr.clean <- function(descr,k,dist,liss=5,ana.comm=F,align=F,nao=F){
   pos.axis <- match(xaxis,dat[[1]])
   if(is.na(pos.axis[1])) pos.axis[1] <- -length(xaxis[1]-as.numeric(dat[[1]][1]))+1
   
-  png(filename = paste0("2_Travail/1_Past/Rresults/plot.descr.clean/plot_",descr,"_evolution_liss=",liss,ifelse(ana.comm,nam,""),ifelse(align,"_align",""),ifelse(nao,"_nao",""),".png"),width = 15,height = 9,units = "cm",res=300)
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.descr/plot_",descr,"_evolution_liss=",liss,ifelse(ana.comm,nam,""),"_",sais,ifelse(align,"_align",""),ifelse(nao,"_nao",""),".png"),width = 15,height = 9,units = "cm",res=300)
   par(mar=c(4,4,0,3))
-  plot(des[[1]],type="n",xaxt="n",ylim=range(des),xlab="Year",ylab=nam2str(descr,whole=T))
+  plot(des[[1]],type="n",xaxt="n",ylim=range(des,na.rm = T),xlab="Year",ylab=nam2str(descr,whole=T))
   grid(ny=NULL,nx=NA)
   axis(side = 1,at = pos.axis,labels = xaxis) # petite manip pour ajouter 1850 a xaxis
   abline(v = pos.axis,lty=3,col="grey")
@@ -346,7 +377,7 @@ plot.descr.clean <- function(descr,k,dist,liss=5,ana.comm=F,align=F,nao=F){
   
   if(nao){
     par(new=T)
-    plot(naoi,pch=19,col="grey",type="l",lwd=2,xlab="",ylab="",xaxt="n",yaxt="n")
+    plot(nao.ind,pch=19,col="grey",type="l",lwd=2,xlab="",ylab="",xaxt="n",yaxt="n")
     abline(h=0,col="grey")
     axis(side = 4)
     mtext("NAOI",side=4,line=2)
@@ -358,7 +389,7 @@ plot.descr.clean <- function(descr,k,dist,liss=5,ana.comm=F,align=F,nao=F){
 }
 
 # Trace l'évolution des precip et des max par bv pour la periode 1950-2011
-plot.trend.precip <- function(bv="Isere-seul",nbdays,start="1950-01-01",end="2011-12-31",nao=F){
+plot.trend.precip <- function(bv="Isere-seul",nbdays,start="1950-01-01",end="2011-12-31",nao=F,liss=5){
   
   # Import
   dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
@@ -382,15 +413,27 @@ plot.trend.precip <- function(bv="Isere-seul",nbdays,start="1950-01-01",end="201
   colnames(max_sais) <- c("year","season","value")
   max_sais <- as.data.frame(pivot_wider(max_sais,names_from = season,values_from = value))
   
+  if(liss!=1){
+    cum_an[,2] <- rollapply(cum_an[,2],liss,mean,partial=T)
+    max_an[,2] <- rollapply(max_an[,2],liss,mean,partial=T)
+    cum_sais[,2:5] <- apply(cum_sais[,2:5],2,function(v) rollapply(v,liss,mean,partial=T))
+    max_sais[,2:5] <- apply(max_sais[,2:5],2,function(v) rollapply(v,liss,mean,partial=T))
+  }
+  
   if(nao){
-    naoi <- get.nao(start = ann[1],end = ann[length(ann)])
-    naoi <- aggregate(naoi,by=list(rep(unique(ann),each=12)),mean)
+    nao_an <- get.nao(start = ann[1],end = ann[length(ann)],sais = "all")
+    nao_sais <- vector("list",length = 4)
+    for(i in 1:4) nao_sais[[i]] <- get.nao(start = ann[1],end = ann[length(ann)],sais = saison[i])
+    if(liss!=1){
+      nao_an[,2] <- rollapply(nao_an[,2],liss,mean,partial=T)
+      nao_sais <- lapply(nao_sais,function(v) {v[,2] <- rollapply(v[,2],liss,mean,partial=T);return(v)})
+    }
   }
   
   # Figures
   
   # Cumul annuel
-  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_",nbdays,"days_cum_an",ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_",nbdays,"days_cum_an_liss=",liss,ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
   par(mar=c(4,4,1,3))
   plot(cum_an[,c(1,2)],type="n",xlab="Year",ylab="Precipitation (mm)")
   grid()
@@ -398,7 +441,7 @@ plot.trend.precip <- function(bv="Isere-seul",nbdays,start="1950-01-01",end="201
   abline(lm(cum_an[,2]~cum_an[,1]))
   if(nao){
     par(new=T)
-    plot(naoi,col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
+    plot(nao_an,col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
     abline(h=0,col="grey")
     axis(side = 4)
     mtext("NAOI",side=4,line=2)
@@ -406,15 +449,15 @@ plot.trend.precip <- function(bv="Isere-seul",nbdays,start="1950-01-01",end="201
   graphics.off()
   
   # Max annuel
-  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_",nbdays,"days_max_an",ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
-  par(mar=c(4,4,1,1))
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_",nbdays,"days_max_an_liss=",liss,ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
+  par(mar=c(4,4,1,3))
   plot(max_an[,c(1,2)],type="n",xlab="Year",ylab="Precipitation (mm)")
   grid()
   lines(max_an[,c(1,2)],col="cornflowerblue",lwd=2)
   abline(lm(max_an[,2]~max_an[,1]))
   if(nao){
     par(new=T)
-    plot(naoi,col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
+    plot(nao_an,col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
     abline(h=0,col="grey")
     axis(side = 4)
     mtext("NAOI",side=4,line=2)
@@ -423,15 +466,15 @@ plot.trend.precip <- function(bv="Isere-seul",nbdays,start="1950-01-01",end="201
   
   # Cumuls saisonniers
   for(i in 1:4){
-    png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_",nbdays,"days_cum_",saison[i],ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
-    par(mar=c(4,4,1,1))
+    png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_",nbdays,"days_cum_",saison[i],"_liss=",liss,ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
+    par(mar=c(4,4,1,3))
     plot(cum_sais[,c(1,i+1)],type="n",xlab="Year",ylab="Precipitation (mm)")
     grid()
     lines(cum_sais[,c(1,i+1)],col="cornflowerblue",lwd=2)
     abline(lm(cum_sais[,i+1]~cum_sais[,1]))
     if(nao){
       par(new=T)
-      plot(naoi,col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
+      plot(nao_sais[[i]],col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
       abline(h=0,col="grey")
       axis(side = 4)
       mtext("NAOI",side=4,line=2)
@@ -441,15 +484,15 @@ plot.trend.precip <- function(bv="Isere-seul",nbdays,start="1950-01-01",end="201
   
   # Max saisonniers
   for(i in 1:4){
-    png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_",nbdays,"days_max_",saison[i],ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
-    par(mar=c(4,4,1,1))
+    png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_",nbdays,"days_max_",saison[i],"_liss=",liss,ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
+    par(mar=c(4,4,1,3))
     plot(max_sais[,c(1,i+1)],type="n",xlab="Year",ylab="Precipitation (mm)")
     grid()
     lines(max_sais[,c(1,i+1)],col="cornflowerblue",lwd=2)
     abline(lm(max_sais[,i+1]~max_sais[,1]))
     if(nao){
       par(new=T)
-      plot(naoi,col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
+      plot(nao_sais[[i]],col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
       abline(h=0,col="grey")
       axis(side = 4)
       mtext("NAOI",side=4,line=2)
@@ -458,6 +501,26 @@ plot.trend.precip <- function(bv="Isere-seul",nbdays,start="1950-01-01",end="201
   }
   
 }
+
+# Run des fonctions tendances par indicateur, saison, NAO
+run.trend <- function(){
+  
+  # plot.trend.descr()
+  descr <- c("cel","celnei","dP","mean","sing05","singnei","rsing05","rsingnei")
+  saison <- c("all","winter","spring","summer","autumn")
+  nao <- c(T,F)
+  
+  for(i in 1:length(descr)){
+    print(i)
+    for(j in 1:length(saison)){
+      for(k in 1:length(nao)){
+        plot.trend.descr(descr = descr[i],k = 1,dist = "TWS",sais = saison[j],
+                         liss = 5,ana.comm = T,align = T,nao = nao[k])
+      }
+    }
+  }
+}
+
 
 # Travail passé:
 
