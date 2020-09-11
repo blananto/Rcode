@@ -27,6 +27,9 @@ library("gridBase") # combine plot and ggplot
 library("gridExtra") # several ggplot on the same page
 library("corrplot") # colorlegend
 library("raster") # brick
+library("foreach") # Parallel for loop (need every step to be independant)
+library("parallel") # check number of cores
+library("doParallel") # Parallelization of calculation
 
 # Fonctions graphiques
 addcircle<-function(radius){

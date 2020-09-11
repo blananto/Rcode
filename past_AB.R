@@ -49,8 +49,8 @@ compute_criteria_past<-function(k,dist,start="1950-01-01",end="2011-12-31",start
   sU<-sapply(1:(N-1),function(x) sum(U[1:x])) # somme cumulee de U: on fait la somme de U[1], U[1:2], etc pour obtenir la position de la derniere distance qui separe chaque date
   gc()
   
-  seq.all <- seq(as.Date(start),as.Date(end),by="days") # fenetre entiere
-  seq.ana <- seq(as.Date(start.ana),as.Date(end.ana),by="days") # fenetre de recherche des analogues
+  seq.all <- getdates(start,end) # fenetre entiere
+  seq.ana <- getdates(start.ana,end.ana) # fenetre de recherche des analogues
   ind <- match(seq.ana,seq.all)
   
   if (!update) {
@@ -113,6 +113,79 @@ compute_criteria_past<-function(k,dist,start="1950-01-01",end="2011-12-31",start
   }
   
   save(criteria,file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".Rdata"))
+}
+
+# Calcul de la latitude journaliere du jet
+compute.lat.jet <- function(gamme=c(5450,5550),k,start="1851-01-01",end="2010-12-31",rean){
+  
+  # Recuperation longitude et latitude
+  nc <- load.nc(rean)$nc500
+  lon <- nc$dim$lon$vals
+  lat <- nc$dim$lat$vals
+  
+  info <- getinfo_window(k,rean=rean) # lon et lat de notre fenetre d'analogie
+  lon <- lon[info[1,1]:(info[1,1]+info[1,2]-1)]
+  lat <- lat[info[2,1]:(info[2,1]+info[2,2]-1)]
+  
+  # Import
+  geo <- getdata(k,start,end,rean)
+  
+  # Latitude moyenne du jet
+  lati <- apply(geo,3,function(mat){nb <- apply(mat,2,function(v) {sum(v > gamme[1] & v < gamme[2])});weighted.mean(lat,nb)})
+  save(lati,file=paste0("2_Travail/1_Past/",rean,"/compute.lat.jet/weighted_mean_lat_jet_",start,"_",end,"_btw_",gamme[1],"_and_",gamme[2],".Rdata"))
+  
+}
+  
+# Reconstitution des WP de 1850 a 1950 (20CR) puis de 1900 a 1950 (ERA20C)
+compute_wp_past <- function(k,dist,start="1851-01-01",end="1947-12-31",start.ana="1948-01-01",end.ana="2010-12-31",rean="20CR"){
+  
+  dates.useful <- getdates(start,end)
+  dates.ana <- getdates(start.ana,end.ana)
+  dates.all <- getdates(start,end.ana)
+  
+  # Import des scores d'analogie
+  dist.vec<-getdist(k,dist,start,end.ana,rean,threeday=F,period="past")
+  length(dist.vec) <- length(dates.useful) # on reduit aux dates utiles pour limiter memoire
+  gc()
+  dist.vec<-unlist(dist.vec)
+  gc()
+  N<-length(dates.all) # on veut quand meme les analogues sur toute la periode
+  
+  U<-c(0,(N-1):1); # U = 0, 22644, 22643, 22642, ...
+  sU<-sapply(1:(N-1),function(x) sum(U[1:x])) # somme cumulee de U: on fait la somme de U[1], U[1:2], etc pour obtenir la position de la derniere distance qui separe chaque date
+  gc()
+  
+  ind.ana <- match(dates.ana,dates.all)
+  
+  # Import des WP aggreges
+  wp <- get.wp(nbdays = 1,start = start.ana,end = end.ana,risk = F,agreg = T)
+  tt <- vector("list",length=length(dates.useful))
+  
+  #cl <- makeCluster(nb_cores-1,outfile="") # create a cluster with n cores
+  #registerDoParallel(cl) # register the cluster
+  
+  for(i in 1:length(dates.useful)){
+    
+    if (i %% 50==0) {print(i)}
+    
+    # Distances
+    di<-getdist4i(i,dist.vec,N,sU)
+    n<-length(ind.ana) # longueur de la fenetre de recherche des analogues
+    gc()
+    
+    soso<-sort(di,index.return=TRUE) # classement par plus petit score, et donne les positions
+    soso$ix <- soso$ix[soso$ix %in% ind.ana] # on ne garde que les plus proches faisant partie de la fenetre de recherche des analogues
+    idi05<-soso$ix[1:(0.005*n)] # recupere la position des 0.5% les plus proches
+    idi05 <- idi05[idi05!=i] 
+    
+    # Type de temps
+    tt[[i]] <- cbind(idi05,wp[idi05-ind.ana[1]+1]) # on va chercher le wp de la bonne journee
+  }
+  
+  #stopCluster(cl) # shut down the cluster
+  gc()
+  
+  save(tt,file=paste0("2_Travail/1_Past/",rean,"/compute_wp_past/wp_",start,"_",end,"_start.ana_",start.ana,"_end.ana_",end.ana,".Rdata"))
 }
 
 # Calcul de dP
@@ -206,7 +279,7 @@ plot.descr <- function(descr,k,dist,liss=5,ana.comm=F,align=F,nao=F){
   dat <- list()
   des <- list()
   for(i in 1:length(rean)){
-    dat[[i]] <- seq(as.Date(dates[[i]][1]),as.Date(dates[[i]][2]),"days")
+    dat[[i]] <- getdates(dates[[i]][1],dates[[i]][2])
     des[[i]] <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = dates[[i]][1],end = dates[[i]][2],
                                standardize = F,rean = rean[i],threeday = F,period = "past",start.ana = dates.ana[[i]][1],
                                end.ana = dates.ana[[i]][2])
@@ -230,7 +303,7 @@ plot.descr <- function(descr,k,dist,liss=5,ana.comm=F,align=F,nao=F){
   end.xaxis <- trunc(as.numeric(substr(dat[[1]],1,4)[length(dat[[1]])])*0.1)*10 # manip pour avoir une annee "ronde"
   xaxis <- seq(start.xaxis,end.xaxis,10)
   pos.axis <- match(xaxis,substr(dat[[1]],1,4))
-  if(is.na(pos.axis[1])) pos.axis[1] <- -length(seq(as.Date(paste0(xaxis[1],"-01-01")),as.Date(dat[[1]][1]),by="days"))+1
+  if(is.na(pos.axis[1])) pos.axis[1] <- -length(getdates(paste0(xaxis[1],"-01-01"),dat[[1]][1]))+1
   
   png(filename = paste0("2_Travail/1_Past/Rresults/plot.descr/plot_",descr,"_evolution_liss=",liss,ifelse(ana.comm,nam,""),ifelse(align,"_align",""),ifelse(nao,"_nao",""),".png"),width = 15,height = 9,units = "cm",res=300)
   par(mar=c(4,4,0,3))
@@ -315,7 +388,7 @@ plot.trend.descr <- function(descr,k,dist,sais="all",liss=5,ana.comm=F,align=F,n
   dat <- list()
   des <- list()
   for(i in 1:length(rean)){
-    dat[[i]] <- seq(as.Date(dates[[i]][1]),as.Date(dates[[i]][2]),"days")
+    dat[[i]] <- getdates(dates[[i]][1],dates[[i]][2])
     des[[i]] <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = dates[[i]][1],end = dates[[i]][2],
                                standardize = F,rean = rean[i],threeday = F,period = "past",start.ana = dates.ana[[i]][1],
                                end.ana = dates.ana[[i]][2])
@@ -385,6 +458,65 @@ plot.trend.descr <- function(descr,k,dist,sais="all",liss=5,ana.comm=F,align=F,n
   
   legend("topleft",inset=.02,rean,col=1:length(rean),lty=1,lwd=2,bty="n",cex=0.7)
   graphics.off()
+  
+}
+
+# Trace l'evolution dans le temps de la latitude du jet saison et type de temps
+plot.trend.lat.jet <- function(gamme=c(5450,5550),wp="all",start="1900-01-01",end="2010-12-31",rean,liss=1){
+  
+  # Import
+  dates <- getdates(start,end)
+  year <- substr(dates,1,4)
+  load(paste0("2_Travail/1_Past/",rean,"/compute.lat.jet/weighted_mean_lat_jet_",start,"_",end,"_btw_",gamme[1],"_and_",gamme[2],".Rdata"))
+  
+  # Traitement
+  
+  if(wp!="all"){
+    load(paste0("2_Travail/1_Past/",rean,"/compute_wp_past/wp_final_",start,"_1947-12-31_start.ana_1948-01-01_end.ana_2010-12-31_n.ana=1.Rdata"))
+    lati[tt_final!=wp] <- NA
+  }
+  
+  # Annuel
+  lat.ann <- aggregate(lati,by=list(year),mean,na.rm=T)
+  lat.ann[,1] <- as.numeric(lat.ann[,1])
+  
+  # Saisonnier
+  sais <- list(c("12","01","02"),c("03","04","05"),c("06","07","08"),c("09","10","11"))
+  sais.name <- c("winter","spring","summer","autumn")
+  lat.sais <- matrix(NA,length(unique(year)),5)
+  lat.sais[,1] <- as.numeric(unique(year))
+  for(i in 1:length(sais)){
+    tmp <- lati
+    tmp[!(substr(dates,6,7) %in% sais[[i]])] <- NA
+    lat.sais[,i+1] <- aggregate(tmp,by=list(year),mean,na.rm=T)[,2]
+  }
+  
+  # Lissage
+  if(liss!=1){
+    lat.ann[,2] <- rollapply(lat.ann[,2],liss,mean,partial=F,fill=NA)
+    lat.sais[,-1] <- apply(lat.sais[,-1],2,function(v) rollapply(v,liss,mean,partial=F,fill=NA))
+  }
+  
+  # Graphiques
+  # Annuel
+  png(filename = paste0("2_Travail/1_Past/",rean,"/plot.trend.lat.jet/lat_jet_ann",start,"_",end,"_liss=",liss,"_wp=",wp,".png"),width = 12,height = 9,units = "cm",res=300)
+  par(mar=c(4,4,1,3))
+  plot(lat.ann,type="n",xlab="Year",ylab="Jet Latitude (°)")
+  grid()
+  lines(lat.ann,lwd=2)
+  abline(lm(lat.ann[,2]~lat.ann[,1]))
+  graphics.off()
+  
+  # Saisonnier
+  for(i in 1:4){
+    png(filename = paste0("2_Travail/1_Past/",rean,"/plot.trend.lat.jet/lat_jet_",sais.name[i],"_",start,"_",end,"_liss=",liss,"_wp=",wp,".png"),width = 12,height = 9,units = "cm",res=300)
+    par(mar=c(4,4,1,3))
+    plot(lat.sais[,c(1,i+1)],type="n",xlab="Year",ylab="Jet Latitude (°)")
+    grid()
+    lines(lat.sais[,c(1,i+1)],lwd=2)
+    abline(lm(lat.sais[,i+1]~lat.sais[,1]))
+    graphics.off()
+  }
   
 }
 
@@ -502,6 +634,85 @@ plot.trend.precip <- function(bv="Isere-seul",nbdays,start="1950-01-01",end="201
   
 }
 
+# Trace l'évolution de l'occurrence des WP par saison
+plot.trend.wp <- function(start="1900-01-01",end="2010-12-31",rean,liss=1,n.ana=115){
+  
+  # Import
+  load(paste0("2_Travail/1_Past/",rean,"/compute_wp_past/wp_final_",start,"_1947-12-31_start.ana_1948-01-01_end.ana_2010-12-31_n.ana=",n.ana,".Rdata"))
+  
+  # Traitement
+  dates <- getdates(start,end)
+  year <- substr(dates,1,4)
+  
+  tt <- c(1,2,5,8)
+  tt.name <- c("Atlantic","Mediterranean","Northeast","Anticyclonic")
+  wp_ann <- matrix(NA,length(unique(year)),5)
+  wp_ann[,1] <- as.numeric(unique(year))
+  for(i in 1:4){
+    wp_ann[,i+1] <- aggregate(tt_final,by=list(year),function(v){sum(v==tt[i])/length(v)*100})[,2]
+  }
+  
+  sais <- list(c("12","01","02"),c("03","04","05"),c("06","07","08"),c("09","10","11"))
+  sais.name <- c("winter","spring","summer","autumn")
+  wp_sais <- vector("list",length=4)
+  for(i in 1:length(sais)){
+    tmp <- tt_final
+    tmp[!(substr(dates,6,7) %in% sais[[i]])] <- NA
+    
+    wp_sais[[i]] <- matrix(NA,length(unique(year)),5)
+    wp_sais[[i]][,1] <- as.numeric(unique(year))
+    for(j in 1:4){
+      wp_sais[[i]][,j+1] <- aggregate(tmp,by=list(year),function(v){v <- na.omit(v);sum(v==tt[j])/length(v)*100})[,2]
+    }
+  }
+  
+  if(liss!=1){
+    wp_ann <- cbind(wp_ann[,1],apply(wp_ann[,-1],2,function(v) rollapply(v,liss,mean,partial=F,fill=NA)))
+    wp_sais <- lapply(wp_sais,function(v){v <- cbind(v[,1],apply(v[,-1],2,function(w) rollapply(w,liss,mean,partial=F,fill=NA)))})
+  }
+  
+  # Graphiques
+  colo <- c("blue","red","darkgreen","darkgrey")
+  start.xaxis <- trunc(as.numeric(year[1])*0.1)*10 # manip pour avoir une annee "ronde" inferieure (si 1958 -> 1950)
+  end.xaxis <- trunc(as.numeric(year[length(year)])*0.1)*10 # manip pour avoir une annee "ronde"
+  xaxis <- seq(start.xaxis,end.xaxis,10)
+  
+  # Annuel
+  png(filename = paste0("2_Travail/1_Past/",rean,"/plot.trend.wp/plot_ann_evolution_",start,"_",end,"_liss=",liss,"_n.ana=",n.ana,".png"),width = 15,height = 9,units = "cm",res=300)
+  par(mar=c(4,4,0,3))
+  plot(wp_ann[,c(1,2)],type="n",xaxt="n",ylim=c(0,round(max(wp_ann[,2],na.rm=T)*0.1,0)*10+10),xlab="Year",ylab="WP occurence (%)")
+  grid(ny=NULL,nx=NA)
+  axis(side = 1,at = xaxis,labels = xaxis) # petite manip pour ajouter 1850 a xaxis
+  abline(v = xaxis,lty=3,col="grey")
+  
+  for(i in 1:4){
+    lines(wp_ann[,c(1,i+1)],col=colo[i],lwd=2)
+    abline(lm(wp_ann[,i+1]~wp_ann[,1]),col=colo[i])
+  }
+  
+  legend("topleft",inset=.02,tt.name,col=colo,lty=1,lwd=2,bty="n",cex=0.6,horiz = T)
+  graphics.off()
+
+  # Saisons
+  for(i in 1:4){
+    png(filename = paste0("2_Travail/1_Past/",rean,"/plot.trend.wp/plot_",sais.name[i],"_evolution_",start,"_",end,"_liss=",liss,"_n.ana=",n.ana,".png"),width = 15,height = 9,units = "cm",res=300)
+    par(mar=c(4,4,0,3))
+    plot(wp_sais[[i]][,c(1,2)],type="n",xaxt="n",ylim=c(0,round(max(wp_sais[[i]][,2],na.rm=T)*0.1,0)*10+10),xlab="Year",ylab="WP occurence (%)")
+    grid(ny=NULL,nx=NA)
+    axis(side = 1,at = xaxis,labels = xaxis) # petite manip pour ajouter 1850 a xaxis
+    abline(v = xaxis,lty=3,col="grey")
+    
+    for(j in 1:4){
+      lines(wp_sais[[i]][,c(1,j+1)],col=colo[j],lwd=2)
+      abline(lm(wp_sais[[i]][,j+1]~wp_sais[[i]][,1]),col=colo[j])
+    }
+    
+    legend("topleft",inset=.02,tt.name,col=colo,lty=1,lwd=2,bty="n",cex=0.6,horiz = T)
+    graphics.off()
+  }
+  
+}
+
 # Run des fonctions tendances par indicateur, saison, NAO
 run.trend <- function(){
   
@@ -521,6 +732,110 @@ run.trend <- function(){
   }
 }
 
+# Scatterplot de NAO et d'un descripteur par saison et par reanalyse
+scatterplot.descr.nao <- function(descr,k,dist,start="1865-01-01",end="2010-12-31",rean="20CR",liss=1){
+  
+  # Import descripteur
+  # Reanalyses
+  reanalyses <- c(
+    "20CR",
+    "ERA20C",
+    "NCEP",
+    "JRA55",
+    "ERA40",
+    "JRA55C",
+    "ERA5")
+  
+  # Dates sur lesquelles les indicateurs sont calcules
+  dates <- list(
+    c("1851-01-01","2010-12-31"),
+    c("1900-01-01","2010-12-31"),
+    c("1950-01-01","2010-12-29"),
+    c("1958-01-01","2010-12-31"),
+    c("1957-09-01","2002-08-31"),
+    c("1972-11-01","2012-12-30"),
+    c("1979-01-01","2010-12-31")
+  )
+  
+  pos <- which(rean==reanalyses)
+  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = dates[[pos]][1],end = dates[[pos]][2],
+                             standardize = F,rean = rean,threeday = F,period = "past",start.ana = "1979-01-01",
+                             end.ana = "2002-08-31")
+  if(start!= dates[[pos]][1]){
+    delta <- length(getdates(dates[[pos]][1],start))
+    des <- des[delta:length(des)]
+  }
+  if(end!= dates[[pos]][2]){
+    delta <- length(getdates(end,dates[[pos]][2]))
+    des <- des[1:(length(des)-delta+1)]
+  }
+  
+  dates <- getdates(start,end)
+  
+  # Import NAO
+  sais.name <- c("all","winter","spring","summer","autumn")
+  nao <- vector("list",length=5)
+  for(i in 1:5){
+    nao[[i]] <- get.nao(start=substr(start,1,4),end=substr(end,1,4),sais = sais.name[i])
+  }
+  
+  # Traitement descripteur
+  sais <- list(c("12","01","02"),c("03","04","05"),c("06","07","08"),c("09","10","11"))
+  des.final <- vector("list",length=5)
+  des.final[[1]] <- aggregate(des,by=list(substr(dates,1,4)),mean)
+  for(i in 1:4){
+    des.tmp <- des
+    pos <- substr(dates,6,7) %in% sais[[i]]
+    des.tmp[!pos] <- NA
+    des.final[[i+1]] <- aggregate(des.tmp,by=list(substr(dates,1,4)),mean,na.rm=T)
+  }
+  
+  # lissage
+  if(liss!=1){
+    des.final <- lapply(des.final,function(v){v[,2] <- rollapply(v[,2],liss,mean,partial=F,fill=NA);return(v)})
+    nao <- lapply(nao,function(v){v[,2] <- rollapply(v[,2],liss,mean,partial=F,fill=NA);return(v)})
+  }
+  
+  # Scatterplots
+  png(filename = paste0("2_Travail/1_Past/",rean,"/scatterplot.descr.nao/plot_",descr,"_",start,"_",end,"_liss=",liss,".png"),width = 15,height = 10,units = "cm",res=300)
+  par(mfrow=c(2,3),pty="s",mar=c(4,4,4,2))
+  for(i in 1:5){
+    titre <- paste0(sais.name[i]," (R²=",round(cor(des.final[[i]][,2],nao[[i]][,2],use="pairwise.complete.obs")^2,2),")")
+    plot(des.final[[i]][,2],nao[[i]][,2],pch=19,xlab=descr,ylab="NAOI",main=titre)
+  }
+  
+  graphics.off()
+}
+
+# Selection du WP journalier passe en fonction du nombre d'analogues choisis
+select.wp.past <- function(rean,n.ana=115){
+  
+  # Import
+  if(rean=="ERA20C") load("2_Travail/1_Past/ERA20C/compute_wp_past/wp_1900-01-01_1947-12-31_start.ana_1948-01-01_end.ana_2010-12-31.Rdata")
+  
+  # Traitement
+  if(n.ana==1) tt_final <- unlist(lapply(tt,function(v)v[1,2]))
+  if(n.ana>2) tt_final <- unlist(lapply(tt,function(v) as.numeric(names(which.max(table(v[1:n.ana,2]))))))
+  
+  # Ajout des WP connus
+  wp <- get.wp(nbdays = 1,start = "1948-01-01",end = "2010-12-31",risk = F,agreg = T)
+  tt_final <- c(tt_final,wp)
+  
+  if(rean=="ERA20C") save(tt_final,file=paste0("2_Travail/1_Past/ERA20C/compute_wp_past/wp_final_1900-01-01_1947-12-31_start.ana_1948-01-01_end.ana_2010-12-31_n.ana=",n.ana,".Rdata"))
+  
+}
+  
+# Verification de la representativite des types de temps choisis dans la reconstitution passee
+verif.rep.past.wp <- function(rean,n.ana=115){
+  
+  # Import
+  if(rean=="ERA20C") load("2_Travail/1_Past/ERA20C/compute_wp_past/wp_1900-01-01_1947-12-31_start.ana_1948-01-01_end.ana_2010-12-31.Rdata")
+  
+  # Traitement
+  tmp <- lapply(tt,function(v) unname(sort(table(v[1:n.ana,2]),decreasing=T)[1])) # recuperation du nombre d'analogues du TT majoritaire
+  pourcentage <- mean(unlist(tmp))/n.ana # pourcentage du TT majoritaire
+  pourcentage
+}
 
 # Travail passé:
 
