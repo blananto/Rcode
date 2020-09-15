@@ -924,6 +924,122 @@ scatterplot.descr.precip <- function(bv,type="cum",descr,k,dist,nbdays,start="19
   graphics.off()
 }
 
+# Scatterplot de NAO et des precipitations par saison avec lissage possible
+scatterplot.nao.precip <- function(bv,start="1950-01-01",end="2010-12-31",liss=1){
+  
+  # Import precip
+  dates <- getdates(start,end)
+  ann <- as.numeric(substr(dates,1,4))
+  precip <- get.precip(nbdays,start,end,bv,spazm=F)
+  
+  # Traitement precip
+  sais <- substr(dates,6,7)
+  mois <- list(c("12","01","02"),c("03","04","05"),c("06","07","08"),c("09","10","11"))
+  for(i in 1:4){sais[sais %in% mois[[i]]] <- i}
+  sais.name <- c("winter","spring","summer","autumn")
+  
+  precip_ann <- aggregate(precip,by=list(ann),sum)
+  
+  precip_sais <- aggregate(precip,by=list(ann,sais),sum)
+  colnames(precip_sais) <- c("year","season","value")
+  precip_sais <- as.data.frame(pivot_wider(precip_sais,names_from = season,values_from = value))
+  
+  if(liss!=1){
+    precip_ann[,2] <- rollapply(precip_ann[,2],liss,mean,partial=T)
+    precip_sais[,2:5] <- apply(precip_sais[,2:5],2,function(v) rollapply(v,liss,mean,partial=T))
+  }
+  
+  # Import NAO
+  nao <- matrix(NA,length(unique(ann)),6)
+  nao[,1] <- unique(ann)
+  sais.name <- c("all",sais.name)
+  for(i in 1:5){
+    nao[,i+1] <- get.nao(start=substr(start,1,4),end=substr(end,1,4),sais = sais.name[i])[,2]
+  }
+  
+  if(liss!=1){
+    nao[,-1] <- apply(nao[,-1],2,function(v) rollapply(v,liss,mean,partial=T))
+  }
+ 
+  
+  # Scatterplots
+  png(filename = paste0("2_Travail/1_Past/Rresults/scatterplot.nao.precip/plot_",bv,"_",start,"_",end,"_liss=",liss,".png"),width = 15,height = 10,units = "cm",res=300)
+  par(mfrow=c(2,3),pty="s",mar=c(4,4,4,2))
+  ylab <- "Precip Accumulation (mm)"
+  
+  # Annuel
+  titre <- paste0("all"," (R = ",round(cor(nao[,2],precip_ann[,2],use="pairwise.complete.obs"),2),")")
+  plot(nao[,2],precip_ann[,2],pch=19,xlab="NAOI",ylab=ylab,main=titre)
+  sais.name <- sais.name[-1]
+  for(i in 1:4){
+    titre <- paste0(sais.name[i]," (R = ",round(cor(nao[,i+2],precip_sais[,i+1],use="pairwise.complete.obs"),2),")")
+    plot(nao[,i+2],precip_sais[,i+1],pch=19,xlab="NAOI",ylab=ylab,main=titre)
+  }
+  
+  graphics.off()
+}
+
+# Scatterplot de l'occurrence des WP et des precipitations par saison avec lissage possible
+scatterplot.wp.precip <- function(wp=1,bv,start="1950-01-01",end="2010-12-31",liss=1){
+  
+  # Import precip
+  dates <- getdates(start,end)
+  ann <- as.numeric(substr(dates,1,4))
+  precip <- get.precip(nbdays,start,end,bv,spazm=F)
+  
+  # Traitement precip
+  sais <- substr(dates,6,7)
+  mois <- list(c("12","01","02"),c("03","04","05"),c("06","07","08"),c("09","10","11"))
+  for(i in 1:4){sais[sais %in% mois[[i]]] <- i}
+  sais.name <- c("winter","spring","summer","autumn")
+  
+  precip_ann <- aggregate(precip,by=list(ann),sum)
+  
+  precip_sais <- aggregate(precip,by=list(ann,sais),sum)
+  colnames(precip_sais) <- c("year","season","value")
+  precip_sais <- as.data.frame(pivot_wider(precip_sais,names_from = season,values_from = value))
+  
+  if(liss!=1){
+    precip_ann[,2] <- rollapply(precip_ann[,2],liss,mean,partial=T)
+    precip_sais[,2:5] <- apply(precip_sais[,2:5],2,function(v) rollapply(v,liss,mean,partial=T))
+  }
+  
+  # Import WP
+  tt <- get.wp(nbdays = 1,start,end,agreg=T)
+  
+  tt_ann <- aggregate(tt,by=list(ann),function(v){sum(v==wp)/length(v)*100})
+
+  tt_sais <- matrix(NA,length(unique(ann)),5)
+  tt_sais[,1] <- unique(ann)
+  
+  for(i in 1:4){
+  tmp <- tt
+  tmp[!(substr(dates,6,7) %in% mois[[i]])] <- NA
+  tt_sais[,i+1] <- aggregate(tmp,by=list(ann),function(v){v <- na.omit(v);sum(v==wp)/length(v)*100})[,2]
+  }
+  
+  if(liss!=1){
+    tt_sais[,-1] <- apply(tt_sais[,-1],2,function(v) rollapply(v,liss,mean,partial=T))
+  }
+  
+  
+  # Scatterplots
+  png(filename = paste0("2_Travail/1_Past/Rresults/scatterplot.wp.precip/plot_",bv,"_wp=",wp,"_",start,"_",end,"_liss=",liss,".png"),width = 15,height = 10,units = "cm",res=300)
+  par(mfrow=c(2,3),pty="s",mar=c(4,4,4,2))
+  ylab <- "Precip Accumulation (mm)"
+  
+  # Annuel
+  titre <- paste0("all"," (R = ",round(cor(tt_ann[,2],precip_ann[,2],use="pairwise.complete.obs"),2),")")
+  plot(tt_ann[,2],precip_ann[,2],pch=19,xlab="WP occurrence (%)",ylab=ylab,main=titre)
+
+  for(i in 1:4){
+    titre <- paste0(sais.name[i]," (R = ",round(cor(tt_sais[,i+1],precip_sais[,i+1],use="pairwise.complete.obs"),2),")")
+    plot(tt_sais[,i+1],precip_sais[,i+1],pch=19,xlab="WP occurrence (%)",ylab=ylab,main=titre)
+  }
+  
+  graphics.off()
+}
+
 # Selection du WP journalier passe en fonction du nombre d'analogues choisis
 select.wp.past <- function(rean,n.ana=115){
   
