@@ -161,7 +161,7 @@ compute_wp_past <- function(k,dist,start="1851-01-01",end="1947-12-31",start.ana
   wp <- get.wp(nbdays = 1,start = start.ana,end = end.ana,risk = F,agreg = T)
   tt <- vector("list",length=length(dates.useful))
   
-  #cl <- makeCluster(nb_cores-1,outfile="") # create a cluster with n cores
+  #cl <- makeCluster(nb_cores,outfile="") # create a cluster with n cores
   #registerDoParallel(cl) # register the cluster
   
   for(i in 1:length(dates.useful)){
@@ -713,26 +713,54 @@ plot.trend.wp <- function(start="1900-01-01",end="2010-12-31",rean,liss=1,n.ana=
   
 }
 
-# Run des fonctions tendances par indicateur, saison, NAO
-run.trend <- function(){
+# Run des fonctions
+run <- function(type=1){
   
   # plot.trend.descr()
-  descr <- c("cel","celnei","dP","mean","sing05","singnei","rsing05","rsingnei")
-  saison <- c("all","winter","spring","summer","autumn")
-  nao <- c(T,F)
+  if(type==1){
+    descr <- c("cel","celnei","dP","mean","sing05","singnei","rsing05","rsingnei")
+    saison <- c("all","winter","spring","summer","autumn")
+    nao <- c(T,F)
+    
+    for(i in 1:length(descr)){
+      print(i)
+      for(j in 1:length(saison)){
+        for(k in 1:length(nao)){
+          plot.trend.descr(descr = descr[i],k = 1,dist = "TWS",sais = saison[j],
+                           liss = 5,ana.comm = T,align = T,nao = nao[k])
+        }
+      }
+    }
+  }
   
-  for(i in 1:length(descr)){
-    print(i)
-    for(j in 1:length(saison)){
-      for(k in 1:length(nao)){
-        plot.trend.descr(descr = descr[i],k = 1,dist = "TWS",sais = saison[j],
-                         liss = 5,ana.comm = T,align = T,nao = nao[k])
+  if(type==2){
+    bv <- c("Isere-seul","Drac-seul")
+    typ <- c("cum","max")
+    descr <- c("cel","celnei","dP","mean","sing05","singnei","rsing05","rsingnei")
+    nbdays <- c(1,3)
+    rean <- c("20CR","ERA20C")
+    liss <- c(1,5)
+
+    
+    for(i in 1:length(bv)){
+      for(j in 1:length(typ)){
+        for(k in 1:length(descr)){
+          for(l in 1:length(nbdays)){
+            for(m in 1:length(rean)){
+              for(n in 1:length(liss)){
+                scatterplot.descr.precip(bv = bv[i],type = typ[j],descr = descr[k],k = 1,dist = "TWS",
+                                         nbdays = nbdays[l],start = "1950-01-01",end = "2010-12-31",
+                                         rean = rean[m],liss = liss[n])
+              }
+            }
+          }
+        }
       }
     }
   }
 }
 
-# Scatterplot de NAO et d'un descripteur par saison et par reanalyse
+# Scatterplot d'un descripteur et de NAO par saison et par reanalyse avec lissage possible
 scatterplot.descr.nao <- function(descr,k,dist,start="1865-01-01",end="2010-12-31",rean="20CR",liss=1){
   
   # Import descripteur
@@ -802,6 +830,95 @@ scatterplot.descr.nao <- function(descr,k,dist,start="1865-01-01",end="2010-12-3
   for(i in 1:5){
     titre <- paste0(sais.name[i]," (R²=",round(cor(des.final[[i]][,2],nao[[i]][,2],use="pairwise.complete.obs")^2,2),")")
     plot(des.final[[i]][,2],nao[[i]][,2],pch=19,xlab=descr,ylab="NAOI",main=titre)
+  }
+  
+  graphics.off()
+}
+
+# Scatterplot d'un descripteur et des precipitations par saison et par reanalyse avec lissage possible
+scatterplot.descr.precip <- function(bv,type="cum",descr,k,dist,nbdays,start="1950-01-01",end="2010-12-31",rean="20CR",liss=1){
+  
+  # Import precip
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  ann <- as.numeric(substr(dates,1,4))
+  precip <- get.precip(nbdays,start,end,bv,spazm=F)
+  
+  # Traitement precip
+  sais <- substr(dates,6,7)
+  mois <- list(c("12","01","02"),c("03","04","05"),c("06","07","08"),c("09","10","11"))
+  for(i in 1:4){sais[sais %in% mois[[i]]] <- i}
+  sais.name <- c("winter","spring","summer","autumn")
+  
+  precip_ann <- aggregate(precip,by=list(ann),ifelse(type=="cum",sum,max))
+  
+  precip_sais <- aggregate(precip,by=list(ann,sais),ifelse(type=="cum",sum,max))
+  colnames(precip_sais) <- c("year","season","value")
+  precip_sais <- as.data.frame(pivot_wider(precip_sais,names_from = season,values_from = value))
+  
+  if(liss!=1){
+    precip_ann[,2] <- rollapply(precip_ann[,2],liss,mean,partial=T)
+    precip_sais[,2:5] <- apply(precip_sais[,2:5],2,function(v) rollapply(v,liss,mean,partial=T))
+  }
+  
+  # Import descripteur
+  # Reanalyses
+  reanalyses <- c(
+    "20CR",
+    "ERA20C",
+    "NCEP",
+    "JRA55",
+    "ERA40",
+    "JRA55C",
+    "ERA5")
+  
+  # Dates sur lesquelles les indicateurs sont calcules
+  dat <- list(
+    c("1851-01-01","2010-12-31"),
+    c("1900-01-01","2010-12-31"),
+    c("1950-01-01","2010-12-29"),
+    c("1958-01-01","2010-12-31"),
+    c("1957-09-01","2002-08-31"),
+    c("1972-11-01","2012-12-30"),
+    c("1979-01-01","2010-12-31")
+  )
+  
+  pos <- which(rean==reanalyses)
+  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = nbdays,start = dat[[pos]][1],end = dat[[pos]][2],
+                        standardize = F,rean = rean,threeday = F,period = "past",start.ana = "1979-01-01",
+                        end.ana = "2002-08-31")
+  if(start!= dat[[pos]][1]){
+    delta <- length(getdates(dat[[pos]][1],start))
+    des <- des[delta:length(des)]
+  }
+  if(end!= dat[[pos]][2]){
+    delta <- length(getdates(end,dat[[pos]][2]))
+    des <- des[1:(length(des)-delta+1)]
+  }
+  
+  # Traitement descripteur
+  des_ann <- aggregate(des,by=list(ann),mean)
+  
+  des_sais <- aggregate(des,by=list(ann,sais),mean)
+  colnames(des_sais) <- c("year","season","value")
+  des_sais <- as.data.frame(pivot_wider(des_sais,names_from = season,values_from = value))
+  
+  if(liss!=1){
+    des_ann[,2] <- rollapply(des_ann[,2],liss,mean,partial=T)
+    des_sais[,2:5] <- apply(des_sais[,2:5],2,function(v) rollapply(v,liss,mean,partial=T))
+  }
+  
+  # Scatterplots
+  png(filename = paste0("2_Travail/1_Past/",rean,"/scatterplot.descr.precip/plot_",bv,"_",descr,"_",type,"_",nbdays,"days_",start,"_",end,"_liss=",liss,".png"),width = 15,height = 10,units = "cm",res=300)
+  par(mfrow=c(2,3),pty="s",mar=c(4,4,4,2))
+  ylab <- paste0("Precip ",ifelse(type=="cum","Accumulation","Maxima")," (mm)")
+  
+  # Annuel
+  titre <- paste0("all"," (R = ",round(cor(des_ann[,2],precip_ann[,2],use="pairwise.complete.obs"),2),")")
+  plot(des_ann[,2],precip_ann[,2],pch=19,xlab=descr,ylab=ylab,main=titre)
+  
+  for(i in 1:4){
+    titre <- paste0(sais.name[i]," (R = ",round(cor(des_sais[,i+1],precip_sais[,i+1],use="pairwise.complete.obs"),2),")")
+    plot(des_sais[,i+1],precip_sais[,i+1],pch=19,xlab=descr,ylab=ylab,main=titre)
   }
   
   graphics.off()
