@@ -3277,7 +3277,7 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F){
   
   # Carte
   if(save) {
-    png(filename = paste0("2_Travail/20CR/Rresults/overall/k",k,"/map.geo/",date,"_k",k,"_",nbdays,"day.png"),
+    png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.geo/",date,"_k",k,"_",nbdays,"day.png"),
         width = ifelse(nbdays==3,1050,350),height = 350,units = "px")
     layout(matrix(1:nbdays,1,nbdays))
   }

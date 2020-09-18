@@ -1,5 +1,63 @@
 source('2_Travail/Rcode/utils_AB.R', encoding = 'UTF-8')
 
+# Calcul de la correlation entre un indicateur et les cumuls de precipitation au pas de temps journalier et a differents lissages
+compute.cor.descr.precip <- function(descr,k,dist,bv="Isere-seul",start="1950-01-01",end="2010-12-31",rean){
+  
+  dates <- getdates(start,end)
+  
+  # Import indicateur
+  start.file <- ifelse(rean=="20CR","1851-01-01",start)
+  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = start.file,end = end,
+                                      standardize = F,rean = rean,threeday = F,period = "past",start.ana = "1979-01-01",
+                                      end.ana = "2002-08-31")
+  
+  if(start.file != start){
+    delta <- length(getdates(start.file,start))
+    des <- des[delta:length(des)]
+  }
+  
+  # Import type de temps
+  wp <- get.wp(nbdays = 1,start = start,end=end,risk = F,bv = "Isere",agreg = T)
+  wp[wp!=1] <- 0
+  
+  # Import precip
+  precip <- get.precip(nbdays = 1,start = start,end = end,bv = bv,spazm = F)
+  corr <- vector(length=365*10)
+  for(i in 1:2000){
+    if(i %% 50 == 0) print(i)
+    precip.tmp <- rollapply(precip,i,mean,partial=F,fill=NA)
+    des.tmp <- rollapply(wp,i,mean,partial=F,fill=NA)
+    corr[i] <- round(cor(precip.tmp,des.tmp,use="pairwise.complete.obs"),3)
+  }
+  
+  # Comment faire un lissage propre sur les saisons?
+  # D'un cote il y aura un bond, de l'autre ce bond sera present des deux cotes
+  
+  precip[which(!(substr(dates,6,7) %in% c("12","01","02")))] <- NA
+  des[which(!(substr(dates,6,7) %in% c("12","01","02")))] <- NA
+  wp[which(!(substr(dates,6,7) %in% c("12","01","02")))] <- NA
+  precip=na.omit(precip)
+  des=na.omit(des)
+  wp=na.omit(wp)
+  
+  # On n'est pas meilleurs que l'occurrence de l'oceanique sur les faibles pas de temps.
+  # Jouer sur le fait qu'on est plus facile à calculer?
+  
+  # regarder lissage par moyenne annuel
+  precip <- aggregate(precip,by=list(substr(dates,1,4)),mean,na.rm=T)
+  des <- aggregate(des,by=list(substr(dates,1,4)),mean,na.rm=T)
+  wp<- aggregate(wp,by=list(substr(dates,1,4)),mean,na.rm=T)
+  
+  corr <- vector(length=20)
+  for(i in 1:20){
+    precip.tmp <- rollapply(precip[,2],i,mean,partial=F,fill=NA)
+    des.tmp <- rollapply(nao[,2],i,mean,partial=F,fill=NA)
+    corr[i] <- round(cor(precip.tmp,des.tmp,use="pairwise.complete.obs"),3)
+  }
+  
+  nao <- get.nao(end="2010",sais="winter")
+}
+
 # Calcul des distances de maniere generique
 compute_dist_gen_past<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,period="past"){
   if (k %in% 1:2) {
@@ -733,6 +791,7 @@ run <- function(type=1){
     }
   }
   
+  # scatterplot.descr.precip
   if(type==2){
     bv <- c("Isere-seul","Drac-seul")
     typ <- c("cum","max")
@@ -754,6 +813,23 @@ run <- function(type=1){
               }
             }
           }
+        }
+      }
+    }
+  }
+  
+  # scatterplot.descr.nao
+  if(type==3){
+    descr <- c("cel","celnei","dP","mean","sing05","singnei","rsing05","rsingnei")
+    rean <- c("20CR","ERA20C")
+    start <- c("1865-01-01","1900-01-01")
+    liss <- c(1,5)
+    
+    for(i in 1:length(descr)){
+      for(j in 1:length(rean)){
+        for(k in 1:length(liss)){
+          scatterplot.descr.nao(descr = descr[i],k = 1,dist = "TWS",start = start[j],end="2010-12-31",
+                                rean = rean[j],liss = liss[k])
         }
       }
     }
@@ -828,7 +904,7 @@ scatterplot.descr.nao <- function(descr,k,dist,start="1865-01-01",end="2010-12-3
   png(filename = paste0("2_Travail/1_Past/",rean,"/scatterplot.descr.nao/plot_",descr,"_",start,"_",end,"_liss=",liss,".png"),width = 15,height = 10,units = "cm",res=300)
   par(mfrow=c(2,3),pty="s",mar=c(4,4,4,2))
   for(i in 1:5){
-    titre <- paste0(sais.name[i]," (R²=",round(cor(des.final[[i]][,2],nao[[i]][,2],use="pairwise.complete.obs")^2,2),")")
+    titre <- paste0(sais.name[i]," (R = ",round(cor(des.final[[i]][,2],nao[[i]][,2],use="pairwise.complete.obs"),2),")")
     plot(des.final[[i]][,2],nao[[i]][,2],pch=19,xlab=descr,ylab="NAOI",main=titre)
   }
   
