@@ -1,61 +1,127 @@
 source('2_Travail/Rcode/utils_AB.R', encoding = 'UTF-8')
 
-# Calcul de la correlation entre un indicateur et les cumuls de precipitation au pas de temps journalier et a differents lissages
-compute.cor.descr.precip <- function(descr,k,dist,bv="Isere-seul",start="1950-01-01",end="2010-12-31",rean){
+# Calcul de la correlation avec tous les lissages entre un indicateur et les cumuls de precipitation aux pas de temps journalier et annuels, pour une saison
+compute.cor.descr.precip <- function(k,dist,bv="Isere-seul",sais="all",start="1950-01-01",end="2010-12-31",rean){
   
+  descr <- c("celnei","dP","mean","singnei","rsingnei")
   dates <- getdates(start,end)
+  year <- substr(dates,1,4)
   
   # Import indicateur
-  start.file <- ifelse(rean=="20CR","1851-01-01",start)
-  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = start.file,end = end,
+  if(rean=="20CR") start.file <- "1851-01-01"
+  if(rean=="ERA20C") start.file <- "1900-01-01"
+  des <- matrix(NA,length(getdates(start.file,end)),length(descr))
+  for(i in 1:length(descr)){
+  des[,i] <- get.descriptor(descriptor = descr[i],k = k,dist = dist,nbdays = 1,start = start.file,end = end,
                                       standardize = F,rean = rean,threeday = F,period = "past",start.ana = "1979-01-01",
                                       end.ana = "2002-08-31")
+  }
   
   if(start.file != start){
     delta <- length(getdates(start.file,start))
-    des <- des[delta:length(des)]
+    des <- apply(des,2,function(v) v[delta:length(v)])
   }
   
+  colnames(des) <- descr
+  
   # Import type de temps
+  wp.num <- c(1,2,5,8)
+  wp.name <- c("Atlantic","Mediterranean","Northeast","Anticyclonic")
   wp <- get.wp(nbdays = 1,start = start,end=end,risk = F,bv = "Isere",agreg = T)
-  wp[wp!=1] <- 0
+  tt <- matrix(NA,length(dates),length(wp.num))
+  for(i in 1:length(wp.num)){
+    tt[,i] <- wp
+    tt[tt[,i] != wp.num[i],i] <- 0
+  }
+  
+  colnames(tt) <- wp.name
+  
+  # Import NAO
+  NAO <- get.nao(start=head(year,1),end = tail(year,1),sais = "all",daily = T)
+  NAO <- NAO[,4]
   
   # Import precip
   precip <- get.precip(nbdays = 1,start = start,end = end,bv = bv,spazm = F)
-  corr <- vector(length=365*10)
-  for(i in 1:2000){
+  
+  # Calcul correlation au pas de temps journalier
+  explain <- cbind(des,tt,NAO) # tous les indicateurs et les TT (variables explicatives)
+  
+  if(sais=="winter"){pos <- substr(dates,6,7) %in% c("12","01","02");explain[!pos,] <- NA; precip[!pos] <- NA}
+  if(sais=="spring"){pos <- substr(dates,6,7) %in% c("03","04","05");explain[!pos,] <- NA; precip[!pos] <- NA}
+  if(sais=="summer"){pos <- substr(dates,6,7) %in% c("06","07","08");explain[!pos,] <- NA; precip[!pos] <- NA}
+  if(sais=="autumn"){pos <- substr(dates,6,7) %in% c("09","10","11");explain[!pos,] <- NA; precip[!pos] <- NA}
+  explain.daily <- na.omit(explain)
+  precip.daily <- na.omit(precip)
+  
+  corr <- matrix(NA,365*10,ncol(explain.daily))
+  len.sais <- 365
+  if(sais!="all") len.sais <- 91
+  
+  for(i in 1:(len.sais*10)){
     if(i %% 50 == 0) print(i)
-    precip.tmp <- rollapply(precip,i,mean,partial=F,fill=NA)
-    des.tmp <- rollapply(wp,i,mean,partial=F,fill=NA)
-    corr[i] <- round(cor(precip.tmp,des.tmp,use="pairwise.complete.obs"),3)
+    precip.tmp <- rollapply(precip.daily,i,mean,partial=F,fill=NA)
+    explain.tmp <- apply(explain.daily,2,function(v) rollapply(v,i,mean,partial=F,fill=NA))
+    corr[i,] <- round(cor(precip.tmp,explain.tmp,use="pairwise.complete.obs"),3)  # cor fait directement la correlation par colonne entre un vecteur et une matrice
   }
   
-  # Comment faire un lissage propre sur les saisons?
-  # D'un cote il y aura un bond, de l'autre ce bond sera present des deux cotes
+  colnames(corr) <- colnames(explain.daily)
+  save(corr,file=paste0("2_Travail/1_Past/",rean,"/compute.cor.descr.precip/corr_daily_",bv,"_",sais,"_",start,"_",end,".Rdata"))
   
-  precip[which(!(substr(dates,6,7) %in% c("12","01","02")))] <- NA
-  des[which(!(substr(dates,6,7) %in% c("12","01","02")))] <- NA
-  wp[which(!(substr(dates,6,7) %in% c("12","01","02")))] <- NA
-  precip=na.omit(precip)
-  des=na.omit(des)
-  wp=na.omit(wp)
+  # Calcul correlation au pas de temps annuel/saisonnier
+  precip.yearly <- aggregate(precip,by=list(year),mean,na.rm=T)[,2]
+  explain.yearly <- apply(explain,2,function(v) aggregate(v,by=list(year),mean,na.rm=T)[,2])
   
-  # On n'est pas meilleurs que l'occurrence de l'oceanique sur les faibles pas de temps.
-  # Jouer sur le fait qu'on est plus facile à calculer?
+  corr <- matrix(NA,10,ncol(explain.yearly))
   
-  # regarder lissage par moyenne annuel
-  precip <- aggregate(precip,by=list(substr(dates,1,4)),mean,na.rm=T)
-  des <- aggregate(des,by=list(substr(dates,1,4)),mean,na.rm=T)
-  wp<- aggregate(wp,by=list(substr(dates,1,4)),mean,na.rm=T)
-  
-  corr <- vector(length=20)
-  for(i in 1:20){
-    precip.tmp <- rollapply(precip[,2],i,mean,partial=F,fill=NA)
-    des.tmp <- rollapply(nao[,2],i,mean,partial=F,fill=NA)
-    corr[i] <- round(cor(precip.tmp,des.tmp,use="pairwise.complete.obs"),3)
+  for(i in 1:10){
+    precip.tmp <- rollapply(precip.yearly,i,mean,partial=F,fill=NA)
+    explain.tmp <- apply(explain.yearly,2,function(v) rollapply(v,i,mean,partial=F,fill=NA))
+    corr[i,] <- round(cor(precip.tmp,explain.tmp,use="pairwise.complete.obs"),3) # cor fait directement la correlation par colonne entre un vecteur et une matrice
   }
   
-  nao <- get.nao(end="2010",sais="winter")
+  colnames(corr) <- colnames(explain.yearly)
+  save(corr,file=paste0("2_Travail/1_Past/",rean,"/compute.cor.descr.precip/corr_yearly_",bv,"_",sais,"_",start,"_",end,".Rdata"))
+  
+  # Calcul correlation sur les max annuels/saisonniers 1 jour
+  maxi.1 <- aggregate(precip,by=list(year),which.max)
+  add <- match(paste0(maxi.1[,1],"-01-01"),dates)
+  maxi.1 <- maxi.1[,2]+add-1
+  
+  precip.max <- precip[maxi.1]
+  explain.max <- explain[maxi.1,]
+  
+  corr <- matrix(NA,10,ncol(explain.max))
+  
+  for(i in 1:10){
+    precip.tmp <- rollapply(precip.max,i,mean,partial=F,fill=NA)
+    explain.tmp <- apply(explain.max,2,function(v) rollapply(v,i,mean,partial=F,fill=NA))
+    corr[i,] <- round(cor(precip.tmp,explain.tmp,use="pairwise.complete.obs"),3) # cor fait directement la correlation par colonne entre un vecteur et une matrice
+  }
+  
+  colnames(corr) <- colnames(explain.max)
+  save(corr,file=paste0("2_Travail/1_Past/",rean,"/compute.cor.descr.precip/corr_max_1day_",bv,"_",sais,"_",start,"_",end,".Rdata"))
+  
+  # Calcul correlation sur les max annuels/saisonniers 3 jours
+  precip.3 <- rollapply(precip,3,mean)
+  explain.3 <- apply(explain,2,function(v) rollapply(v,3,mean))
+  maxi.3 <- aggregate(precip.3,by=list(year[1:length(precip.3)]),which.max)
+  add <- match(paste0(maxi.3[,1],"-01-01"),dates)
+  maxi.3 <- maxi.3[,2]+add-1
+  
+  precip.max <- precip[maxi.3]
+  explain.max <- explain[maxi.3,]
+  
+  corr <- matrix(NA,10,ncol(explain.max))
+  
+  for(i in 1:10){
+    precip.tmp <- rollapply(precip.max,i,mean,partial=F,fill=NA)
+    explain.tmp <- apply(explain.max,2,function(v) rollapply(v,i,mean,partial=F,fill=NA))
+    corr[i,] <- round(cor(precip.tmp,explain.tmp,use="pairwise.complete.obs"),3) # cor fait directement la correlation par colonne entre un vecteur et une matrice
+  }
+  
+  colnames(corr) <- colnames(explain.max)
+  save(corr,file=paste0("2_Travail/1_Past/",rean,"/compute.cor.descr.precip/corr_max_3day_",bv,"_",sais,"_",start,"_",end,".Rdata"))
+  
 }
 
 # Calcul des distances de maniere generique
@@ -262,7 +328,8 @@ get.event <- function(){
 }
 
 # Import de la serie mensuelle de NAO
-get.nao <- function(start="1950",end="2019",sais="all"){
+get.nao <- function(start="1950",end="2019",sais="all",daily=F){
+  if(!daily){
   if(sais=="all"){
     nao <- read.csv("2_Travail/Data/NAO/annual_NAO_1865-2019.txt",skip =3,header = T,sep = "")
   }
@@ -274,6 +341,9 @@ get.nao <- function(start="1950",end="2019",sais="all"){
   if(sais=="summer") nao <- nao[,c("YEAR","JJA")]
   if(sais=="autumn") nao <- nao[,c("YEAR","SON")]
     }
+  }else{
+    nao <- read.csv(file = "2_Travail/Data/NAO/daily_NAO_NOAA.txt",sep="",skip= 4)
+  }
   
   year <- seq(as.numeric(start),as.numeric(end))
   nao <- nao[nao[,"YEAR"] %in% year,]
@@ -300,6 +370,103 @@ get.mean <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
   geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
   des <- apply(geo,3,function(x) mean(x))
   des <- rollapply(des,nbdays,mean)
+}
+
+# Trace la correlation avec tous les lissages entre un indicateur et les cumuls de precipitation aux pas de temps journalier et annuels, pour une saison
+plot.cor.descr.precip <- function(k,dist,bv="Isere-seul",sais="all",start="1950-01-01",end="2010-12-31",rean){
+  
+  # Parametres graphiques
+  colo <- c("black","royalblue","red","olivedrab3","darkorange","grey",
+            "darkgoldenrod3","darkorchid2","deeppink3","aquamarine2")
+  xlim <- c(0,ifelse(sais=="all",3650,900))
+  
+  # Graphique journalier global
+  load(file=paste0("2_Travail/1_Past/",rean,"/compute.cor.descr.precip/corr_daily_",bv,"_",sais,"_",start,"_",end,".Rdata"))
+  sign <- unname(apply(corr,2,function(v) quantile(v,probs=0.5,na.rm=T)/abs(quantile(v,probs=0.5,na.rm=T)))) # on passe en positif les correlations negatives pour mieux comparer
+  print(sign)
+  
+  png(filename = paste0("2_Travail/1_Past/",rean,"/plot.cor.descr.precip/plot_daily_all_",bv,"_",sais,"_",start,"_",end,".png"),width = 17,height = 12,units = "cm",res=300)
+  plot(corr[,1],xlim=xlim,ylim=c(-0.3,1),type="n",xlab="Smoothing length (days)",ylab="Correlation")
+  grid(nx=NA,ny=NULL)
+  if(sais=="all"){
+  abline(v=seq(0,3650,365),lty=3,col="grey")
+  } else{abline(v=seq(0,900,90),lty=3,col="grey")}
+  
+  for(i in 1:ncol(corr)){
+    tmp <- corr[,i]*sign[i]
+    lines(tmp,col=colo[i],lwd=2)
+  }
+  abline(h=c(0,1),lty=2)
+  legend("bottomleft",col=colo,colnames(corr),lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
+  graphics.off()
+  
+  # Graphique journalier zoom
+  png(filename = paste0("2_Travail/1_Past/",rean,"/plot.cor.descr.precip/plot_daily_zoom_",bv,"_",sais,"_",start,"_",end,".png"),width = 17,height = 12,units = "cm",res=300)
+  plot(corr[,1],xlim=c(0,100),ylim=c(-0.3,1),type="n",xlab="Smoothing length (days)",ylab="Correlation")
+  grid()
+  abline(v=seq(0,3650,365),lty=3,col="grey")
+  
+  for(i in 1:ncol(corr)){
+    tmp <- corr[,i]*sign[i]
+    lines(tmp,col=colo[i],lwd=2)
+  }
+  abline(h=c(0,1),lty=2)
+  legend("bottomleft",col=colo,colnames(corr),lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
+  graphics.off()
+  
+  # Graphique pas de temps annuel
+  load(file=paste0("2_Travail/1_Past/",rean,"/compute.cor.descr.precip/corr_yearly_",bv,"_",sais,"_",start,"_",end,".Rdata"))
+  sign <- unname(apply(corr,2,function(v) quantile(v,probs=0.5,na.rm=T)/abs(quantile(v,probs=0.5,na.rm=T)))) # on passe en positif les correlations negatives pour mieux comparer
+  print(sign)
+  
+  png(filename = paste0("2_Travail/1_Past/",rean,"/plot.cor.descr.precip/plot_yearly_",bv,"_",sais,"_",start,"_",end,".png"),width = 17,height = 12,units = "cm",res=300)
+  plot(corr[,1],ylim=c(-0.3,1),type="n",xlab="Smoothing length (years)",ylab="Correlation")
+  grid()
+  abline(v=0:10,lty=3,col="grey")
+  
+  for(i in 1:ncol(corr)){
+    tmp <- corr[,i]*sign[i]
+    lines(tmp,col=colo[i],lwd=2)
+  }
+  abline(h=c(0,1),lty=2)
+  legend("bottomleft",col=colo,colnames(corr),lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
+  graphics.off()
+  
+  # Graphique max annuel/saisonnier 1 jour
+  load(file=paste0("2_Travail/1_Past/",rean,"/compute.cor.descr.precip/corr_max_1day_",bv,"_",sais,"_",start,"_",end,".Rdata"))
+  sign <- unname(apply(corr,2,function(v) quantile(v,probs=0.5,na.rm=T)/abs(quantile(v,probs=0.5,na.rm=T)))) # on passe en positif les correlations negatives pour mieux comparer
+  print(sign)
+  
+  png(filename = paste0("2_Travail/1_Past/",rean,"/plot.cor.descr.precip/plot_max_1day_",bv,"_",sais,"_",start,"_",end,".png"),width = 17,height = 12,units = "cm",res=300)
+  plot(corr[,1],ylim=c(-0.3,1),type="n",xlab="Smoothing length (years)",ylab="Correlation")
+  grid()
+  abline(v=0:10,lty=3,col="grey")
+  
+  for(i in 1:ncol(corr)){
+    tmp <- corr[,i]*sign[i]
+    lines(tmp,col=colo[i],lwd=2)
+  }
+  abline(h=c(0,1),lty=2)
+  legend("bottomleft",col=colo,colnames(corr),lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
+  graphics.off()
+  
+  # Graphique max annuel/saisonnier 3 jours
+  load(file=paste0("2_Travail/1_Past/",rean,"/compute.cor.descr.precip/corr_max_3day_",bv,"_",sais,"_",start,"_",end,".Rdata"))
+  sign <- unname(apply(corr,2,function(v) quantile(v,probs=0,5)/abs(quantile(v,probs=0,5)))) # on passe en positif les correlations negatives pour mieux comparer
+  print(sign)
+  
+  png(filename = paste0("2_Travail/1_Past/",rean,"/plot.cor.descr.precip/plot_max_3day_",bv,"_",sais,"_",start,"_",end,".png"),width = 17,height = 12,units = "cm",res=300)
+  plot(corr[,1],ylim=c(-0.3,1),type="n",xlab="Smoothing length (years)",ylab="Correlation")
+  grid()
+  abline(v=0:10,lty=3,col="grey")
+  
+  for(i in 1:ncol(corr)){
+    tmp <- corr[,i]*sign[i]
+    lines(tmp,col=colo[i],lwd=2)
+  }
+  abline(h=c(0,1),lty=2)
+  legend("bottomleft",col=colo,colnames(corr),lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
+  graphics.off()
 }
 
 # Trace l'evolution dans le temps d'un indicateur, pour plusieurs reanalyses
@@ -834,6 +1001,39 @@ run <- function(type=1){
       }
     }
   }
+  
+  # compute.cor.descr.precip et plot.cor.descr.precip
+  if(type==4){
+    rean <- c("20CR","ERA20C")
+    bv <- c("Isere-seul","Drac-seul")
+    sais <- c("all","winter","spring","summer","autumn")
+    
+    for(i in rean){
+      for(j in bv){
+        for(k in sais){
+          compute.cor.descr.precip(k = 1,dist = "TWS",bv = j,sais = k,start = "1950-01-01",
+                                   end = "2010-12-31",rean = i)
+          plot.cor.descr.precip(k = 1,dist = "TWS",bv = j,sais = k,start = "1950-01-01",
+                                   end = "2010-12-31",rean = i)
+        }
+      }
+    }
+  }
+  
+  if(type==5){
+    descr <- c("cel","celnei","dP","mean","sing05","singnei","rsing05","rsingnei")
+    wp <- c(1,2,5,8)
+    rean <- c("20CR","ERA20C")
+    
+    for(i in descr){
+      for(j in wp){
+        for(k in rean){
+          scatterplot.descr.wp(descr = i,wp = j,k = 1,dist = "TWS",start = "1950-01-01",end = "2010-12-31",
+                               rean = k,liss = 1)
+        }
+      }
+    }
+  }
 }
 
 # Scatterplot d'un descripteur et de NAO par saison et par reanalyse avec lissage possible
@@ -995,6 +1195,90 @@ scatterplot.descr.precip <- function(bv,type="cum",descr,k,dist,nbdays,start="19
   for(i in 1:4){
     titre <- paste0(sais.name[i]," (R = ",round(cor(des_sais[,i+1],precip_sais[,i+1],use="pairwise.complete.obs"),2),")")
     plot(des_sais[,i+1],precip_sais[,i+1],pch=19,xlab=descr,ylab=ylab,main=titre)
+  }
+  
+  graphics.off()
+}
+
+# Scatterplot d'un descripteur et de l'occurrence des WP par saison et par reanalyse avec lissage possible
+scatterplot.descr.wp <- function(descr,wp=1,k,dist,start="1950-01-01",end="2010-12-31",rean="20CR",liss=1){
+  
+  # Import descripteur
+  # Reanalyses
+  reanalyses <- c(
+    "20CR",
+    "ERA20C",
+    "NCEP",
+    "JRA55",
+    "ERA40",
+    "JRA55C",
+    "ERA5")
+  
+  # Dates sur lesquelles les indicateurs sont calcules
+  dates <- list(
+    c("1851-01-01","2010-12-31"),
+    c("1900-01-01","2010-12-31"),
+    c("1950-01-01","2010-12-29"),
+    c("1958-01-01","2010-12-31"),
+    c("1957-09-01","2002-08-31"),
+    c("1972-11-01","2012-12-30"),
+    c("1979-01-01","2010-12-31")
+  )
+  
+  pos <- which(rean==reanalyses)
+  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = dates[[pos]][1],end = dates[[pos]][2],
+                        standardize = F,rean = rean,threeday = F,period = "past",start.ana = "1979-01-01",
+                        end.ana = "2002-08-31")
+  if(start!= dates[[pos]][1]){
+    delta <- length(getdates(dates[[pos]][1],start))
+    des <- des[delta:length(des)]
+  }
+  if(end!= dates[[pos]][2]){
+    delta <- length(getdates(end,dates[[pos]][2]))
+    des <- des[1:(length(des)-delta+1)]
+  }
+  
+  dates <- getdates(start,end)
+  year <- substr(dates,1,4)
+  
+  # Traitement descripteur
+  sais <- list(c("12","01","02"),c("03","04","05"),c("06","07","08"),c("09","10","11"))
+  sais.name <- c("all","winter","spring","summer","autumn")
+  des.final <- vector("list",length=5)
+  des.final[[1]] <- aggregate(des,by=list(year),mean)
+  for(i in 1:4){
+    des.tmp <- des
+    pos <- substr(dates,6,7) %in% sais[[i]]
+    des.tmp[!pos] <- NA
+    des.final[[i+1]] <- aggregate(des.tmp,by=list(substr(dates,1,4)),mean,na.rm=T)
+  }
+  
+  # Import WP et traitement
+  tt <- get.wp(nbdays = 1,start,end,agreg=T)
+  tt_ann <- aggregate(tt,by=list(year),function(v){sum(v==wp)/length(v)*100})
+  
+  tt_sais <- matrix(NA,length(unique(year)),4)
+  
+  for(i in 1:4){
+    tmp <- tt
+    tmp[!(substr(dates,6,7) %in% sais[[i]])] <- NA
+    tt_sais[,i] <- aggregate(tmp,by=list(year),function(v){v <- na.omit(v);sum(v==wp)/length(v)*100})[,2]
+  }
+  
+  tt <- cbind(tt_ann,tt_sais)
+  
+  # lissage
+  if(liss!=1){
+    des.final <- lapply(des.final,function(v){v[,2] <- rollapply(v[,2],liss,mean,partial=F,fill=NA);return(v)})
+    tt[,-1] <- apply(tt[,-1],2,function(v) rollapply(v,liss,mean,partial=T))
+    }
+  
+  # Scatterplots
+  png(filename = paste0("2_Travail/1_Past/",rean,"/scatterplot.descr.wp/plot_",descr,"_wp=",wp,"_",start,"_",end,"_liss=",liss,".png"),width = 15,height = 10,units = "cm",res=300)
+  par(mfrow=c(2,3),pty="s",mar=c(4,4,4,2))
+  for(i in 1:5){
+    titre <- paste0(sais.name[i]," (R = ",round(cor(des.final[[i]][,2],tt[,i+1],use="pairwise.complete.obs"),2),")")
+    plot(des.final[[i]][,2],tt[,i+1],pch=19,xlab=descr,ylab="WP Occurrence (%)",main=titre)
   }
   
   graphics.off()
