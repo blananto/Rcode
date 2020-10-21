@@ -1412,8 +1412,8 @@ compare.tps.spazm <- function(nbdays,start,end,bv){
   spazm <- get.precip(nbdays,start,end,bv,spazm=T)
   
   # Traitement
-  max.tps <- get.ind.extr(nbre = 62,ref = start,nbdays,start,end,nei = F,bv,spazm=F)
-  max.spazm <- get.ind.extr(nbre = 62,ref = start,nbdays,start,end,nei = F,bv,spazm=T)
+  max.tps <- get.ind.extr(bv,nbdays,start,end,nei = T,spazm = F,seuil = "qua")
+  max.spazm <- get.ind.extr(bv,nbdays,start,end,nei = T,spazm = T,seuil = "qua")
   
   ann.tps <- get.ind.max(type = "year",nbdays,start,end,bv,spazm=F)
   ann.spazm <- get.ind.max(type = "year",nbdays,start,end,bv,spazm=T)
@@ -1427,13 +1427,36 @@ compare.tps.spazm <- function(nbdays,start,end,bv){
   abline(0,1,col="red")
   text(40,10,paste0("R2 = ",round(cor(spazm,tps)^2,2)),cex=2)
   
-  plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",main="62 max")
-  text(1,1,paste0("common: ",length(intersect(max.tps,max.spazm)),"/62"),cex=2)
+  plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",main="Max")
+  text(1,1,paste0("common: ",length(intersect(max.tps,max.spazm)),"/",length(max.tps)),cex=2)
   
   plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",main="Annual max")
   text(1,1,paste0("common: ",length(intersect(ann.tps,ann.spazm)),"/62"),cex=2)
   
   graphics.off()
+  
+  # Graphique: correlation pour les deux BVs
+  bv2 <- "Drac-seul"
+  tps2 <- get.precip(nbdays,start,end,bv2,spazm=F)
+  spazm2 <- get.precip(nbdays,start,end,bv2,spazm=T)
+  
+  png(filename = paste0("2_Travail/0_Present/Rresults/compare.tps.spazm/comp_",bv,"_",bv2,"_",nbdays,"day_",start,"_",end,".png"),width = 800,height = 400,units = "px")
+  par(mfrow=c(1,2),pty="s",mar=c(4,4,3,2))
+  
+  ran <- range(spazm,tps)
+  plot(spazm,tps,main=nam2str(bv),xlim=ran,ylim=ran,xlab="SPAZM",ylab="TPS",pch=19)
+  abline(0,1,col="red",lwd=2)
+  text(60,10,paste0("R2 = ",round(cor(spazm,tps)^2,2)),cex=1.5,font=2)
+  
+  plot(spazm2,tps2,main=nam2str(bv2),xlim=ran,ylim=ran,xlab="SPAZM",ylab="TPS",pch=19)
+  abline(0,1,col="red",lwd=2)
+  text(60,10,paste0("R2 = ",round(cor(spazm2,tps2)^2,2)),cex=1.5,font=2)
+  graphics.off()
+  
+  #Si volonte de placer les WP dans le graphe
+  #tt=get.wp(1,agreg=T)
+  #points(spazm[tt==2],tps[tt==2],pch=19,col="red")
+  #points(spazm[tt==1],tps[tt==1],pch=19,col="blue")
   
   # Graphiques: correlation par WP
   wp <- get.wp(nbdays,start,end,risk=F,bv)
@@ -2475,14 +2498,17 @@ getdata<-function(k,day0,day1=day0,rean,large_win=F,var="hgt"){
     num1<-date_to_number(nc[[k]],day1,rean)
     N<-length(num0:num1)
     infowind<-getinfo_window(k,large_win,rean=rean,var=var)
-    ncvar_get(nc = nc[[k]],varid=var,start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
-  }else{
+    data <- ncvar_get(nc = nc[[k]],varid=var,start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
+    nc_close(nc[[1]]);nc_close(nc[[2]])
+    }else{
     num0<-date_to_number(nc,day0,rean)
     num1<-date_to_number(nc,day1,rean)
     N<-length(num0:num1)
     infowind<-getinfo_window(k,large_win,rean=rean,var=var)
-    ncvar_get(nc = nc,varid=var,start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
-  }
+    data <- ncvar_get(nc = nc,varid=var,start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
+    nc_close(nc[[1]]);nc_close(nc[[2]])
+    }
+  data
 }
 
 # Part de la serie de dates complete et ressort seulement le subset voulu
@@ -2501,7 +2527,11 @@ getdays<-function(nc,rean){
 
 # Importe la liste contenant la distance souhaitee
 getdist<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,threeday=FALSE,period="present"){
-  load(file=paste0(get.dirstr(k,rean,period),"compute_dist/",ifelse(threeday,"3day_",""),dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+  if(period=="present"){
+    deb.path <- paste0("2_Travail/0_Present/",rean,"/Rresults/")
+  }else{ deb.path <- get.dirstr(k,rean,period) }
+  
+  load(file=paste0(deb.path,"compute_dist/",ifelse(threeday,"3day_",""),dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
   gc()
   return(dist.list)
 }
@@ -2703,38 +2733,59 @@ get.dirstr<-function(k=NULL,rean,period="present"){
 }
 
 # Renvoie les indices des nbre events extremes de precip a partir d'une certaine reference
-get.ind.extr <- function(nbre, ref = "1950-01-01", nbdays=3, start="1950-01-01", end="2011-12-31", nei=FALSE, bv="Isere", spazm=T){
+get.ind.extr <- function(bv="Isere",nbdays=3, start="1950-01-01", end="2011-12-31", nei=T, spazm=F,seuil="qua"){
   
   # Classement
   precip <- get.precip(nbdays, start, end, bv, spazm)
   tri <- sort(precip, decreasing = TRUE, index.return = TRUE)
-  ind <- tri$ix[1:nbre]
   
-  # Si chevauchement de deux jours (dt=1), on enleve les voisins et on prend d'autres candidats
+  if(seuil!="qua"){
+  seuil <- min(precip[get.ind.max(type="year",nbdays,start,end,bv,spazm)]) # min des max annuels
+  }else{seuil <- quantile(precip,probs=0.99)}
+  ind <- tri$ix[tri$x>seuil] # indices des sequences superieures au seuil
+  print(length(ind))
+  
   if(nei){
-    cond = 0.1 # init
-    tmp  = 0.1 # init
-    while(cond>0){
-      if(cond!=0.1) ind <- c(ind,tri$ix[(nbre+1+tmp):(nbre+tmp+cond)])
-      pos <- NULL
-      for(i in 1:length(ind)) pos <- c(pos,ifelse(match(ind+1,ind)[i]>i,match(ind+1,ind)[i],i))    
-      pos <- sort(na.omit(pos))
-      if(length(pos!=0)) ind <- ind[-pos]
-      tmp <- tmp+cond
-      cond <- nbre-length(ind)
+    for(i in 1:length(ind)){
+      if(ind[i]!=0){
+      if(ind[i]<nbdays) {neib <- 1:(ind[i]+nbdays-1) # si sequence 2 ou 1, on ne va pas chercher des sequences aux indicaes negatifs
+      }else{neib <- (ind[i]-nbdays+1):(ind[i]+nbdays-1)} # indices voisins que l'on veut retirer
+      neib <- neib[-nbdays] # sauf la sequence concernee
+      pos <- match(neib,ind) # position des voisins
+      ind[pos] <- 0 # on les retire
+      }
     }
   }
   
+  # On retire les 0
+  ind <- ind[ind!=0]
+  print(length(ind))
+  
+  # Si chevauchement de deux jours (dt=1), on enleve les voisins et on prend d'autres candidats
+  #if(nei){
+  #  cond = 0.1 # init
+  #  tmp  = 0.1 # init
+  #  while(cond>0){
+  #    if(cond!=0.1) ind <- c(ind,tri$ix[(nbre+1+tmp):(nbre+tmp+cond)])
+  #    pos <- NULL
+  #    for(i in 1:length(ind)) pos <- c(pos,ifelse(match(ind+1,ind)[i]>i,match(ind+1,ind)[i],i))    
+  #    pos <- sort(na.omit(pos))
+  #    if(length(pos!=0)) ind <- ind[-pos]
+  #    tmp <- tmp+cond
+  #    cond <- nbre-length(ind)
+  #  }
+  #}
+  
   # Reference
-  if(ref != start){
-    dt <- get.delta(ref, start)
-    ind <- ind + dt
-  }
+  #if(ref != start){
+  #  dt <- get.delta(ref, start)
+  #  ind <- ind + dt
+  #}
   return(ind)
 }
 
 # Renvoie les indices des max annuels ou mensuels de precip (dans le referentiel de start/end)
-get.ind.max <- function(type="year",nbdays=3,start="1950-01-01", end="2011-12-31",bv="Isere",spazm=T){
+get.ind.max <- function(type="year",nbdays=3,start="1950-01-01", end="2011-12-31",bv="Isere",spazm=F){
   
   # Import
   precip <- get.precip(nbdays,start,end,bv,spazm)
@@ -2769,28 +2820,61 @@ get.ind.min.max.descr <- function(descr,k,dist,nbdays,start="1950-01-01",end="20
 # Importation des donnees de precipitation
 get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm=F){
   
-  # bv possibles: Isere-seul et Drac-seul
-  # donnees possibles: TPS et SPAZM
+  dates <- getdates(start,end)
   
-  dir <- ifelse(spazm,"SPAZM/","TPS/")
+  # Chemin
+  if(spazm){
+    dir <- "2_Travail/Data/Precip/SPAZM/";end.date <- "2011-12-31"
+  }else{dir <- "2_Travail/Data/Precip/TPS/72_stations/";end.date <- "2019-12-31"}
   
-  if(as.Date(start)<as.Date("1950-01-01") | as.Date(end)>as.Date("2011-12-31")){
-    precip <- read.csv(file=paste0("2_Travail/Data/Precip/",dir,bv,"_cum",nbdays,"day_",start,"_",end,".csv"))
-  }
-  else{
-    precip <- read.csv(file=paste0("2_Travail/Data/Precip/",dir,bv,"_cum",nbdays,"day_1950-01-01_2011-12-31.csv"))
-    precip <- precip[,1]
-    
-    if(start != "1950-01-01"){
+  # Import
+  precip <- read.csv(file=paste0(dir,bv,"_cum1day_",start,"_",end.date,".csv"))
+  precip <- precip[,1]
+  
+  # Dates
+  if(start != "1950-01-01"){
       start_diff <- length(seq(as.Date("1950-01-01"),as.Date(start),"days"))
       precip <- precip[start_diff:length(precip)]
     }
-    if(end != "2011-12-31"){
-      end_diff <- length(seq(as.Date(end),as.Date("2011-12-31"),"days"))
+  
+  if(end.date!= "2011-12-31"){
+      end_diff <- length(seq(as.Date("2011-12-31"),as.Date(end.date),"days"))
       precip <- precip[1:(length(precip) - end_diff + 1)]
     }
-  }
+
+ # nbdays 
+if(nbdays!=1){
+  precip <- rollapply(precip,nbdays,mean)
+}
+  
   precip
+}
+
+# Attribue a chaque pluvio un numero correspondant à un sous-BV (projet VCE 2020)
+get.pluvio.sous.bv <- function(){
+  
+  # Import pluvios
+  load("2_Travail/Data/Precip/TPS/Isere@Grenoble_24h_minlength50_72stations_1950_2019.Rdata")
+  
+  # Sous-BV
+  sousBV.path <- c("tarentaise","maurienne","romanche","drac","gresivaudan")
+  sousBV.name <- c("Isere amont","Arc","Romanche","Drac amont","Y Grenoblois")
+  
+  sousBV <- vector(length=nrow(l$coord))
+  for(i in 1:length(sousBV)){
+  bord<-read.csv(paste0("2_Travail/Data/Carto/borders-lambertII-",sousBV.path[i],".csv"),sep=";")
+  pos <- inpip(l$coord,bord) # pluvios dans ce sous BV  
+  print(pos)
+  sousBV[pos] <- sousBV.name[i]
+  }
+  
+  # Mise en forme Rdata precip
+  l$infostat <- cbind(l$infostat,as.factor(sousBV))
+  l$infostat[,5] <- l$infostat[,5]*1000
+  colnames(l$infostat)[c(5,6)] <- c("Z.m.","Sous BV")
+  l$ymat <- l$ymat/10
+  data <- list(info_stations=l$infostat,precip=l$ymat)
+  save(data,file="8_Enseignement/1_Variabilite_climatique/2020/Projet/data_precip.Rdata")
 }
 
 # Retourne une chaine de caractere "_std" pour le chemin des dossiers
@@ -2800,7 +2884,7 @@ get.stdstr<-function(standardize){
 }
 
 # Importation des WP EDF
-get.wp <- function(nbdays,start="1950-01-01",end="2011-12-31",risk=F,bv="Isere",agreg=F){
+get.wp <- function(nbdays,start="1950-01-01",end="2011-12-31",risk=F,bv="Isere",agreg=F,spazm=F){
   
   wp <- read.table(file = paste0("2_Travail/Data/WP/type_temps_jour",ifelse(agreg,"_agreg",""),".txt"), quote="\"", comment.char="")
   wp[,1] <- as.character(format(as.Date(wp[,1],"%d/%m/%Y"),"%Y-%m-%d"))
@@ -2812,8 +2896,8 @@ get.wp <- function(nbdays,start="1950-01-01",end="2011-12-31",risk=F,bv="Isere",
   }
   
   if(nbdays==3){
-    precip3 <- get.precip(nbdays = 3,start,end,bv)
-    precip1 <- get.precip(nbdays = 1,start,end,bv)
+    precip3 <- get.precip(nbdays = 3,start,end,bv,spazm)
+    precip1 <- get.precip(nbdays = 1,start,end,bv,spazm)
     tab <- cbind(wp,c(wp[-1],NA),c(wp[-(1:2)],rep(NA,2)))
     tab <- tab[-c(nrow(tab)-1,nrow(tab)),]
     res <- NULL
@@ -3047,8 +3131,15 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F){
   Fx<-griddata$Fx
   Fy<-griddata$Fy
   Fz<-griddata$Fz*1000
-  image.plot(Fx,Fy,Fz,col=gray(seq(0.1,0.99,length=100)),xlab="X (km) - Lambert II extended",ylab="Y (km) - Lambert II extended",legend.line=-2.3, cex.axis=1.3, cex.lab=1.3)
   
+  Fx<-bdalti$Fx/1000
+  Fy<-bdalti$Fy/1000
+  Fz<-bdalti$Fz
+    
+  pal <- colorRampPalette(c("darkolivegreen3","lightsalmon4","white"))
+  pal(100)
+  image.plot(Fx,Fy,Fz,col=pal(100),xlab="X (km) - Lambert II extended",ylab="Y (km) - Lambert II extended",legend.line=-2.3, cex.axis=1.3, cex.lab=1.3,xlim=c(min(Fx),975))
+  #gray(seq(0.1,0.99,length=100))
   # Frontieres climato crsm (Auer, 2005)
   if(crsm){
     ligne=read.csv("2_Travail/Data/Carto/Shape_CRSM.csv")
@@ -3176,25 +3267,29 @@ makegrad<-function(mat,l){
 # Genere la pluie pour un sous BV
 make.precip1.isere<-function(start="1950-01-01",end="2011-12-31") {
   
-  bord<-read.csv("2_Travail/Data/Carto/border_Isere@Grenoble_small_bv.csv",sep=";") #coordonnées des bassins
-  
-  load("2_Travail/Data/Precip/TPS/Isere@Grenoble_24h_minlength50_61stations_1950_2019.Rdata") #precip journalières
-  
+  # Import du bv
+  bord<-read.csv("2_Travail/Data/Carto/borders-lambertII-isere.csv",sep=";") #coordonnées des bassins
   #bassin<-c(87,567,706,577,797,621,136,180,1092,116,792) #ensemble des bassins de l'Isère
-  bassin<-c(670,19,35,124,248,176,596,104) #ensemble des bassins du Drac
+  #bassin<-c(670,19,35,124,248,176,596,104) #ensemble des bassins du Drac
   
-  #indice des 1er et derniers jours dans le Rdata des precip 
-  id1<-which(rownames(l$ymat)==paste0(substr(start,1,4),substr(start,6,7),substr(start,9,10)))
+  # Import des precip
+  load("2_Travail/Data/Precip/TPS/Isere@Grenoble_24h_minlength50_72stations_1950_2019.Rdata") #precip journalières
+  id1<-which(rownames(l$ymat)==paste0(substr(start,1,4),substr(start,6,7),substr(start,9,10))) #indice des 1er et derniers jours dans le Rdata des precip 
   id2<-which(rownames(l$ymat)==paste0(substr(end,1,4),substr(end,6,7),substr(end,9,10)))
   
-  grids<-merge((seq(min(bord[,2]),max(bord[,2]),by=1)),(seq(min(bord[,3]),max(bord[,3]),by=1)))  #on quadrille (pas 1km), pour pouvoir ensuite calculer à l'échelle du domaine en ne prenant que les points du quadrillage qui sont dans le domaine
-  
+  # Grille
+  #grids<-merge((seq(min(bord[,2]),max(bord[,2]),by=1)),(seq(min(bord[,3]),max(bord[,3]),by=1)))
+  grids<-merge((seq(min(bord[,1]),max(bord[,1]),by=1)),(seq(min(bord[,2]),max(bord[,2]),by=1)))  #on quadrille (pas 1km), pour pouvoir ensuite calculer à l'échelle du domaine en ne prenant que les points du quadrillage qui sont dans le domaine
   idx<-NULL
-  for (i in 1:length(bassin)) { 
-    idx<-c(idx,inpip(grids,bord[bord[,1]==bassin[i],2:3])) #indice des points du quadrillage qui sont dans mon domaine
-  }
-  #plot(grids[,1],grids[,2])
-  #points(grids[idx,1],grids[idx,2],col="red")
+  
+  #for (i in 1:length(bassin)) { 
+  #  idx<-c(idx,inpip(grids,bord[bord[,1]==bassin[i],2:3])) # indices des points du quadrillage qui sont dans mon domaine
+  #}
+  
+  idx<-c(idx,inpip(grids,bord))
+  
+  plot(grids[,1],grids[,2])
+  points(grids[idx,1],grids[idx,2],col="red")
   
   ivec<-id1:id2
   precip<-rep(NA,length(ivec))
@@ -3206,7 +3301,7 @@ make.precip1.isere<-function(start="1950-01-01",end="2011-12-31") {
     precip[i-ivec[1]+1]<-mean(tmp,na.rm = T) # precip contient la valeur moyenne du bassin pour chaque jour entre debut et fin
   }
   
-  precip
+  write.csv(precip,file="2_Travail/Data/Precip/TPS/72_stations/Isere_cum1day_1950-01-01_2019-12-31.csv",row.names = F)
 }
 
 # Mise en forme des fichiers de donnees SPAZM
@@ -3453,6 +3548,30 @@ map.extr <- function(var="hgt",k,N="02",start="1950-01-01",end="2011-12-31",rean
     }
     graphics.off()
   }
+}
+
+# Carte de geopotentiels des sequences de plus fortes precipitations
+map.extr.clean <- function(bv="Isere-seul",k,nbdays,start="1950-01-01",end="2011-12-31",rean,spazm=F,seuil="qua"){
+  
+  # Imports
+  dates <- getdates(start,end)
+  precip <- get.precip(nbdays,start,end,bv,spazm)
+  ind <- get.ind.extr(bv,nbdays,start,end,nei=T,spazm,seuil)
+  ind <- sort(ind) # on met par ordre chronologique
+  
+  # Cartes
+  pdf(file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.extr.clean/map_extr_supseuil_",bv,"_k",k,"_mean",nbdays,"days_",start,"_",end,ifelse(seuil=="qua","_seuil=qua99",""),".pdf"),width = 13,height = 8)
+  layout(matrix(1:12,3,4,byrow = T))
+  par(mar=c(4.5,5,4,6.5))
+  
+  for(i in 1:length(ind)){
+    print(paste0(i,"/",length(ind)))
+    # les 3 cartes
+    map.geo(dates[ind[i]],rean,k,win=T,iso=T); map.geo(dates[ind[i]+1],rean,k,win=T,iso=T); map.geo(dates[ind[i]+2],rean,k,win=T,iso=T)
+    # le cumul de precip de la sequence
+    plot(1,1,type="n",axes=F,xlab="",ylab="");text(1,1,paste0(round(precip[ind[i]],1)," mm/day"),font=2)
+    }
+   graphics.off()
 }
 
 # Noms propres des couples d'indicateurs et des bvs
@@ -4833,20 +4952,20 @@ plot.sais.descr <- function(descr,k,nbdays=3,start="1950-01-01",end="2011-12-31"
 }
 
 # plot generique de la saisonnalite d'un vecteur
-plot.sais.quantile <- function(dates,vec,label){
+plot.sais.quantile <- function(dates,vec,y.label,main){
   
   med <- aggregate(vec,by=list(substr(dates,6,10)),median)[,2]
   q10 <- aggregate(vec,by=list(substr(dates,6,10)),quantile,probs=0.1)[,2]
   q90 <- aggregate(vec,by=list(substr(dates,6,10)),quantile,probs=0.9)[,2]
   day <- as.Date(sort(unique(substr(dates,6,10))),"%m-%d")
   
-  plot(med,type="n",ylim=c(min(q10),max(q90)),col="blue",xaxt="n",lwd=2,xlab="",ylab=label,font.lab=2)
+  plot(med,type="n",ylim=c(min(q10),max(q90)),col="blue",xaxt="n",lwd=2,xlab="",ylab=y.label,font.lab=2,main=main)
   abline(v=match(unique(substr(dates,6,7)),substr(dates,6,7)),lty=3,col="grey")
   grid(NA,NULL)
   lines(med,col="blue",lwd=2)
-  axis(1,at = match(unique(substr(dates,6,7)),substr(dates,6,7)),labels = paste0("01/",unique(substr(dates,6,7))))
-  lines(q10,col="red")
-  lines(q90,col="red")
+  axis(1,at = match(unique(substr(dates,6,7)),substr(dates,6,7)),labels = paste0("01-",unique(substr(dates,6,7))))
+  lines(q10,col="darkgrey",lwd=2)
+  lines(q90,col="darkgrey",lwd=2)
 }
 
 # plot la saisonnalite du delta de pression et du bruit des geopotentiels
@@ -5486,6 +5605,33 @@ save.wp.ind <- function(start="1950-01-01",end="2011-12-31"){
   
 }
 
+# Scatterplot d'un indicateurs VS ce meme indicateur en nei
+scatterplot.ind.nei <- function(descr1,descr2,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Import indicateurs
+  des1 <- get.descriptor(descr1,k,dist,nbdays,start,end,standardize = F,rean,threeday = F,period = "present")
+  des2 <- get.descriptor(descr2,k,dist,nbdays,start,end,standardize = F,rean,threeday = F,period = "present")
+  
+  # Import densite
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/fit.empir-CV/",descr1,"_",
+              descr2,"_",dist,"_member1_k",k,"_mean",nbdays,"day_",start,"_",end,"_std_nrn05.Rdata"))
+
+  nbnei <- param[,"nbnei"]
+  
+  # Scatterplot
+  print(cor(des1,des2,use = "pairwise.complete.obs"))
+  lim <- range(des1,des2,na.rm=T)
+  
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/scatterplot.ind.nei/",descr1,"_",
+                        descr2,"_",dist,"_member1_k",k,"_mean",nbdays,"day_",start,"_",end,"_std_nrn05.png"))
+  par(mar=c(4,4,0,0),pty="s")
+  plot(des1,des2,col=getcol(nbnei),xlim=lim,ylim=lim,xlab=descr1,ylab=descr2)
+  abline(0,1,lwd=2,col="red")
+  addscale(nbnei)
+  graphics.off()
+  
+}
+  
 # Tranforme la liste de score en matrice diagonale
 score.to.mat <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
   load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",ifelse(nbdays>1,paste0(nbdays,"day_"),""),dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
@@ -5784,4 +5930,25 @@ time.extr <- function(start="1950-01-01",end="2011-12-31"){
        xlab = "Month",main="",xaxt="n",cex.lab=1.3,ylim=c(0,14))
   text(0.5:11.5,par("usr")[3]+0.3, labels = month.abb, srt = -45, pos = 1, xpd = TRUE)
   graphics.off()
+}
+
+# Ecriture d'un tableau d'evenement extreme par bv
+write.table.event <- function( bv="Isere",nbdays=3, start="1950-01-01", end="2011-12-31", nei=T, spazm=F, seuil="qua"){
+  
+  dates <- getdates(start,end)
+  precip <- get.precip(nbdays,start,end,bv,spazm)
+  
+  # Tableau des max annuels
+  ind <- get.ind.max(type = "year",nbdays,start,end,bv,spazm)
+  data <- data.frame(DATE=dates[ind],PRECIP=round(precip[ind],1))
+  colnames(data)[2] <- "PRECIP (mm/day)"
+  namfile <- paste0("2_Travail/0_Present/Rresults/write.table.event/",bv,"_mean",nbdays,"days_annual_maxima_",start,"_",end,ifelse(spazm,"_spazm",""),".csv")
+  write.csv2(x = data,file = namfile,row.names = F)
+  
+  # Tableaux des max sup-seuil
+  ind <- sort(get.ind.extr(bv,nbdays,start,end,nei,spazm,seuil))
+  data <- data.frame(DATE=dates[ind],PRECIP=round(precip[ind],1))
+  colnames(data)[2] <- "PRECIP (mm/day)"
+  namfile <- paste0("2_Travail/0_Present/Rresults/write.table.event/",bv,"_mean",nbdays,"days_supseuil_maxima_",start,"_",end,"_nei=",ifelse(nei,"T","F"),ifelse(spazm,"_spazm",""),ifelse(seuil=="qua","_seuil=qua99",""),".csv")
+  write.csv2(x = data,file = namfile,row.names = F)
 }

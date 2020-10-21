@@ -375,15 +375,47 @@ get.mean <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
 # Trace la correlation avec tous les lissages entre un indicateur et les cumuls de precipitation aux pas de temps journalier et annuels, pour une saison
 plot.cor.descr.precip <- function(k,dist,bv="Isere-seul",sais="all",start="1950-01-01",end="2010-12-31",rean){
   
-  # Parametres graphiques
-  colo <- c("black","royalblue","red","olivedrab3","darkorange","grey",
-            "darkgoldenrod3","darkorchid2","deeppink3","aquamarine2")
+  # Parametres
+  ind <- c("celnei",
+           "singnei",
+           "rsingnei",
+           "dP",
+           "Atlantic",
+           "Mediterranean",
+           "Northeast",
+           "Anticyclonic",
+           "NAO")
+  
+  ind.name <- c("Celerity",
+           "Singularity",
+           "Relative singularity",
+           "MPD",
+           "Oceanic",
+           "Mediterranean",
+           "Northeast",
+           "Anticyclonic",
+           "NAO")
+  
+  colo <- c("black",
+            "olivedrab3",
+            "darkorange",
+            "royalblue",
+            #"deeppink3",
+            "grey",
+            "darkgoldenrod3",
+            "darkorchid2",
+            "red",
+            "aquamarine2")
+  
   xlim <- c(0,ifelse(sais=="all",3650,900))
   
   # Graphique journalier global
   load(file=paste0("2_Travail/1_Past/",rean,"/compute.cor.descr.precip/corr_daily_",bv,"_",sais,"_",start,"_",end,".Rdata"))
+  corr <- corr[,ind]
+  corr.daily <- corr
   sign <- unname(apply(corr,2,function(v) quantile(v,probs=0.5,na.rm=T)/abs(quantile(v,probs=0.5,na.rm=T)))) # on passe en positif les correlations negatives pour mieux comparer
   print(sign)
+  lty <- sign; lty[is.na(lty)] <- 1; lty[lty==-1] <- 5 # pointilles pour les correlations negatives
   
   png(filename = paste0("2_Travail/1_Past/",rean,"/plot.cor.descr.precip/plot_daily_all_",bv,"_",sais,"_",start,"_",end,".png"),width = 17,height = 12,units = "cm",res=300)
   plot(corr[,1],xlim=xlim,ylim=c(-0.3,1),type="n",xlab="Smoothing length (days)",ylab="Correlation")
@@ -394,10 +426,10 @@ plot.cor.descr.precip <- function(k,dist,bv="Isere-seul",sais="all",start="1950-
   
   for(i in 1:ncol(corr)){
     tmp <- corr[,i]*sign[i]
-    lines(tmp,col=colo[i],lwd=2)
+    lines(tmp,col=colo[i],lwd=2,lty=lty[i])
   }
   abline(h=c(0,1),lty=2)
-  legend("bottomleft",col=colo,colnames(corr),lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
+  legend("bottomleft",col=colo,ind.name,lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
   graphics.off()
   
   # Graphique journalier zoom
@@ -408,16 +440,18 @@ plot.cor.descr.precip <- function(k,dist,bv="Isere-seul",sais="all",start="1950-
   
   for(i in 1:ncol(corr)){
     tmp <- corr[,i]*sign[i]
-    lines(tmp,col=colo[i],lwd=2)
+    lines(tmp,col=colo[i],lwd=2,lty=lty[i])
   }
   abline(h=c(0,1),lty=2)
-  legend("bottomleft",col=colo,colnames(corr),lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
+  legend("bottomleft",col=colo,ind.name,lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
   graphics.off()
   
   # Graphique pas de temps annuel
   load(file=paste0("2_Travail/1_Past/",rean,"/compute.cor.descr.precip/corr_yearly_",bv,"_",sais,"_",start,"_",end,".Rdata"))
+  corr <- corr[,ind]
   sign <- unname(apply(corr,2,function(v) quantile(v,probs=0.5,na.rm=T)/abs(quantile(v,probs=0.5,na.rm=T)))) # on passe en positif les correlations negatives pour mieux comparer
   print(sign)
+  lty <- sign; lty[is.na(lty)] <- 1; lty[lty==-1] <- 5 # pointilles pour les correlations negatives
   
   png(filename = paste0("2_Travail/1_Past/",rean,"/plot.cor.descr.precip/plot_yearly_",bv,"_",sais,"_",start,"_",end,".png"),width = 17,height = 12,units = "cm",res=300)
   plot(corr[,1],ylim=c(-0.3,1),type="n",xlab="Smoothing length (years)",ylab="Correlation")
@@ -426,16 +460,29 @@ plot.cor.descr.precip <- function(k,dist,bv="Isere-seul",sais="all",start="1950-
   
   for(i in 1:ncol(corr)){
     tmp <- corr[,i]*sign[i]
-    lines(tmp,col=colo[i],lwd=2)
+    lines(tmp,col=colo[i],lwd=2,lty=lty[i])
   }
   abline(h=c(0,1),lty=2)
-  legend("bottomleft",col=colo,colnames(corr),lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
+  legend("bottomleft",col=colo,ind.name,lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
   graphics.off()
+  
+  # Graphique mix pas de temps journalier et annuel si on est en saisonnier
+  #if(sais != "all"){
+  #  corr <- rbind(corr.daily[])
+    
+  # Je passe d'un lissage journalier a un lissage annuel donc pas la meme chose 
+  # Faire un lissage journalier qui ne deborde pas sur la saison? Ce ne serait pas vraiment
+  # un lissage: pas de temps journalier. Puis lissage 2 jours mais sans deborder sur la saison suivante, etc
+  # jusqu'à avoir une valeur par saison: la moyenne des 90 jours. Axe des abscisses de 1 à 90 donc.
+    
+  #}
   
   # Graphique max annuel/saisonnier 1 jour
   load(file=paste0("2_Travail/1_Past/",rean,"/compute.cor.descr.precip/corr_max_1day_",bv,"_",sais,"_",start,"_",end,".Rdata"))
+  corr <- corr[,ind]
   sign <- unname(apply(corr,2,function(v) quantile(v,probs=0.5,na.rm=T)/abs(quantile(v,probs=0.5,na.rm=T)))) # on passe en positif les correlations negatives pour mieux comparer
   print(sign)
+  lty <- sign; lty[is.na(lty)] <- 1; lty[lty==-1] <- 5 # pointilles pour les correlations negatives
   
   png(filename = paste0("2_Travail/1_Past/",rean,"/plot.cor.descr.precip/plot_max_1day_",bv,"_",sais,"_",start,"_",end,".png"),width = 17,height = 12,units = "cm",res=300)
   plot(corr[,1],ylim=c(-0.3,1),type="n",xlab="Smoothing length (years)",ylab="Correlation")
@@ -444,16 +491,18 @@ plot.cor.descr.precip <- function(k,dist,bv="Isere-seul",sais="all",start="1950-
   
   for(i in 1:ncol(corr)){
     tmp <- corr[,i]*sign[i]
-    lines(tmp,col=colo[i],lwd=2)
+    lines(tmp,col=colo[i],lwd=2,lty=lty[i])
   }
   abline(h=c(0,1),lty=2)
-  legend("bottomleft",col=colo,colnames(corr),lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
+  legend("bottomleft",col=colo,ind.name,lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
   graphics.off()
   
   # Graphique max annuel/saisonnier 3 jours
   load(file=paste0("2_Travail/1_Past/",rean,"/compute.cor.descr.precip/corr_max_3day_",bv,"_",sais,"_",start,"_",end,".Rdata"))
+  corr <- corr[,ind]
   sign <- unname(apply(corr,2,function(v) quantile(v,probs=0,5)/abs(quantile(v,probs=0,5)))) # on passe en positif les correlations negatives pour mieux comparer
   print(sign)
+  lty <- sign; lty[is.na(lty)] <- 1; lty[lty==-1] <- 5 # pointilles pour les correlations negatives
   
   png(filename = paste0("2_Travail/1_Past/",rean,"/plot.cor.descr.precip/plot_max_3day_",bv,"_",sais,"_",start,"_",end,".png"),width = 17,height = 12,units = "cm",res=300)
   plot(corr[,1],ylim=c(-0.3,1),type="n",xlab="Smoothing length (years)",ylab="Correlation")
@@ -462,10 +511,10 @@ plot.cor.descr.precip <- function(k,dist,bv="Isere-seul",sais="all",start="1950-
   
   for(i in 1:ncol(corr)){
     tmp <- corr[,i]*sign[i]
-    lines(tmp,col=colo[i],lwd=2)
+    lines(tmp,col=colo[i],lwd=2,lty=lty[i])
   }
   abline(h=c(0,1),lty=2)
-  legend("bottomleft",col=colo,colnames(corr),lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
+  legend("bottomleft",col=colo,ind.name,lty=1,lwd=2,bty="n",ncol=5,cex=0.6)
   graphics.off()
 }
 
@@ -950,10 +999,8 @@ run <- function(type=1){
     for(i in 1:length(descr)){
       print(i)
       for(j in 1:length(saison)){
-        for(k in 1:length(nao)){
           plot.trend.descr(descr = descr[i],k = 1,dist = "TWS",sais = saison[j],
-                           liss = 5,ana.comm = T,align = T,nao = nao[k])
-        }
+                           liss = 20,ana.comm = T,align = F,nao = F)
       }
     }
   }
@@ -1011,8 +1058,8 @@ run <- function(type=1){
     for(i in rean){
       for(j in bv){
         for(k in sais){
-          compute.cor.descr.precip(k = 1,dist = "TWS",bv = j,sais = k,start = "1950-01-01",
-                                   end = "2010-12-31",rean = i)
+          #compute.cor.descr.precip(k = 1,dist = "TWS",bv = j,sais = k,start = "1950-01-01",
+                          #         end = "2010-12-31",rean = i)
           plot.cor.descr.precip(k = 1,dist = "TWS",bv = j,sais = k,start = "1950-01-01",
                                    end = "2010-12-31",rean = i)
         }

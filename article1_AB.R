@@ -1,5 +1,7 @@
 source('2_Travail/Rcode/utils_AB.R', encoding = 'UTF-8')
 
+# Fonction utile
+#smoothScatter(descr1,descr2,colramp = colorRampPalette(c("white","blue","darkgreen","gold","darkorange","red")),nbin = 100,bandwidth = 0.5)
 
 # classification manuelle des circulations selon leur distance TWS ou RMSE
 classif.perso <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean){
@@ -81,12 +83,14 @@ combine.quant.bv <- function(){
   start <- "1950-01-01"
   end <- "2011-12-31"
   rean <- "20CR"
+  spazm <- T
+  supseuil <- F
   
   # Graphiques
-  p <- compare.descr.bv(bv1 = bv1,bv2 = bv2,k = k,dist = dist,start = start,end = end,rean = rean,comm = F,nbdays = nbdays,spazm = c(F,F),save=F,legend=F)
-  q <- compare.density.bv.all(bv = c(bv1,bv2),k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,quant = F,save = F,legend = T)
+  p <- compare.descr.bv(bv1 = bv1,bv2 = bv2,k = k,dist = dist,start = start,end = end,rean = rean,comm = F,nbdays = nbdays,spazm = spazm,save=F,legend=F,supseuil = supseuil)
+  q <- compare.density.bv.all(bv = c(bv1,bv2),k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,quant = F,save = F,legend = T,spazm = spazm,supseuil = supseuil)
   ggarrange(p,q,labels = c("a)","b)"),ncol = 2,nrow = 1)
-  ggsave(filename = paste0(get.dirstr(k,rean),"combine.quant.bv/plot_",bv1,"_",bv2,"_",nbdays,"day_",start,"_",end,ifelse(comm,"_commun",""),".png"),width = 30,height = 11,units="cm",dpi = 200)
+  ggsave(filename = paste0(get.dirstr(k,rean),"combine.quant.bv/plot_",bv1,"_",bv2,"_",nbdays,"day_",start,"_",end,ifelse(comm,"_commun",""),ifelse(spazm,"_spazm",""),ifelse(supseuil,"_supseuil",""),".png"),width = 30,height = 11,units="cm",dpi = 200)
   graphics.off()
 }
 
@@ -103,12 +107,14 @@ combine.quant.wp <- function(){
   start <- "1950-01-01"
   end <- "2011-12-31"
   rean <- "20CR"
+  spazm <- F
+  supseuil <- F
   
   # Graphiques
-  p <- compare.descr.flow(flow = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,spazm = c(F,F),save=F,legend=F)
-  q <- compare.density.wp.all(wp = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,quant = F,save = F,legend = T)
+  p <- compare.descr.flow(flow = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,spazm = spazm,save=F,legend=F,supseuil=supseuil)
+  q <- compare.density.wp.all(wp = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,quant = F,save = F,legend = T,spazm=spazm,supseuil=supseuil)
   ggarrange(p,q,labels = c("a)","b)"),ncol = 2,nrow = 1)
-  ggsave(filename = paste0(get.dirstr(k,rean),"combine.quant.wp/plot_wp",wp1,"_wp",wp2,"_",nbdays,"day_",start,"_",end,".png"),width = 32,height = 11,units="cm",dpi = 200)
+  ggsave(filename = paste0(get.dirstr(k,rean),"combine.quant.wp/plot_wp",wp1,"_wp",wp2,"_",nbdays,"day_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(supseuil,"_supseuil",""),".png"),width = 32,height = 11,units="cm",dpi = 200)
   graphics.off()
 }
 
@@ -149,7 +155,7 @@ compare.density.bv <- function(descr=c("celnei","dP"),bv=c("Isere-seul","Drac-se
 }
 
 # Comparaison de la densite de pts dans le plan pour les max annuels, pour les 3 combaisons de descripteurs en meme temps (donc nbnei en percentile)
-compare.density.bv.all <- function(bv=c("Isere-seul","Drac-seul"),k,dist,nbdays,start,end,rean,quant=F,save=F,legend=T){
+compare.density.bv.all <- function(bv=c("Isere-seul","Drac-seul"),k,dist,nbdays,start,end,rean,quant=F,save=F,legend=T,spazm=F,supseuil=F){
   
   descr <- list(
     c("celnei","dP"),
@@ -167,11 +173,15 @@ compare.density.bv.all <- function(bv=c("Isere-seul","Drac-seul"),k,dist,nbdays,
   }
   
   # Max annuels de precip et mise en forme
-  ind.bv1 <- get.ind.max(type = "year",nbdays,start,end,bv = bv[1],spazm = F)
+  if(!supseuil){
+    ind.bv1 <- get.ind.max(type = "year",nbdays,start,end,bv = bv[1],spazm = spazm)
+  }else{ind.bv1 <- get.ind.extr(bv[1],nbdays,start,end,nei=T,spazm,seuil="qua") }
   nbnei.1 <- cbind(rep(nam2str(bv[1]),length(ind.bv1)),nbnei[ind.bv1,])
   colnames(nbnei.1)[1] <- "Catchment"
   
-  ind.bv2 <- get.ind.max(type = "year",nbdays,start,end,bv = bv[2],spazm = F)
+  if(!supseuil){
+    ind.bv2 <- get.ind.max(type = "year",nbdays,start,end,bv = bv[2],spazm = spazm)
+  }else{ind.bv2 <- get.ind.extr(bv[2],nbdays,start,end,nei=T,spazm,seuil="qua") }
   nbnei.2 <- cbind(rep(nam2str(bv[2]),length(ind.bv2)),nbnei[ind.bv2,])
   colnames(nbnei.2)[1] <- "Catchment"
   
@@ -195,7 +205,7 @@ compare.density.bv.all <- function(bv=c("Isere-seul","Drac-seul"),k,dist,nbdays,
     ylab("Percentile of number of neighbors (%)")
   
   if(save) {
-    ggsave(filename = paste0(get.dirstr(k,rean),"compare.density.bv.all/compare_density_",ifelse(quant,"quant_",""),bv[1],"_",bv[2],"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),plot=p)
+    ggsave(filename = paste0(get.dirstr(k,rean),"compare.density.bv.all/compare_density_",ifelse(quant,"quant_",""),bv[1],"_",bv[2],"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(supseuil,"_supseuil",""),".png"),plot=p,width = 8,height = 4)
     graphics.off()
   }else{p}
 }
@@ -244,7 +254,7 @@ compare.density.wp <- function(descr=c("celnei","dP"),wp=c(1,2),agreg=T,k,dist,n
 }
 
 # Comparaison des densités pour les max annuels en fonction de leur flow, mais pour tous 3 couples de descripteurs en meme temps
-compare.density.wp.all <- function(wp=c(1,2),agreg=T,k,dist,nbdays,start,end,rean,quant=F,save=T,legend=T){
+compare.density.wp.all <- function(wp=c(1,2),agreg=T,k,dist,nbdays,start,end,rean,quant=F,save=T,legend=T,spazm=F,supseuil=F){
   
   descr <- list(
     c("celnei","dP"),
@@ -257,18 +267,18 @@ compare.density.wp.all <- function(wp=c(1,2),agreg=T,k,dist,nbdays,start,end,rea
   }else{namwp <- wp}
   
   # Imports
-  tt <- get.wp(nbdays,start,end,agreg=agreg)
+  tt <- get.wp(nbdays,start,end,agreg=agreg,bv="Isere",spazm=spazm)
   tt1 <- which(tt==wp[1])
   tt2 <- which(tt==wp[2])
   
-  ind.wp1 <- get.ind.max.flow(flow = wp[1],agreg,nbdays,start,end)
-  ind.wp2 <- get.ind.max.flow(flow = wp[2],agreg,nbdays,start,end)
+  ind.wp1 <- get.ind.max.flow(flow = wp[1],agreg,nbdays,start,end,spazm,supseuil)
+  ind.wp2 <- get.ind.max.flow(flow = wp[2],agreg,nbdays,start,end,spazm,supseuil)
   
   # Traitement separe des tt car longueur differente
   nbnei.1 <- as.data.frame(matrix(NA,length(tt1),length(descr)))
   for(i in 1:length(descr)){
     load(paste0(get.dirstr(k,rean),"compute.density/nbnei_",ifelse(quant,"quant_",""),"wp",wp[1],"_",descr[[i]][1],"_",descr[[i]][2],"_",
-                ifelse(length(descr[[i]])==3,paste0(descr[[i]][3],"_"),""),ifelse(agreg,"agreg_",""),dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+                ifelse(length(descr[[i]])==3,paste0(descr[[i]][3],"_"),""),ifelse(agreg,"agreg_",""),dist,ifelse(spazm,"_spazm",""),"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
     nbnei.1[,i] <- ecdf(nb)(nb)*100
     colnames(nbnei.1)[i] <- paste0(descr[[i]][1],"-MPD")
   }
@@ -279,7 +289,7 @@ compare.density.wp.all <- function(wp=c(1,2),agreg=T,k,dist,nbdays,start,end,rea
   nbnei.2 <- as.data.frame(matrix(NA,length(tt2),length(descr)))
   for(i in 1:length(descr)){
     load(paste0(get.dirstr(k,rean),"compute.density/nbnei_",ifelse(quant,"quant_",""),"wp",wp[2],"_",descr[[i]][1],"_",descr[[i]][2],"_",
-                ifelse(length(descr[[i]])==3,paste0(descr[[i]][3],"_"),""),ifelse(agreg,"agreg_",""),dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+                ifelse(length(descr[[i]])==3,paste0(descr[[i]][3],"_"),""),ifelse(agreg,"agreg_",""),dist,ifelse(spazm,"_spazm",""),"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
     nbnei.2[,i] <- ecdf(nb)(nb)*100
     colnames(nbnei.2)[i] <- paste0(descr[[i]][1],"-MPD")
   }
@@ -307,13 +317,13 @@ compare.density.wp.all <- function(wp=c(1,2),agreg=T,k,dist,nbdays,start,end,rea
     ylab("Percentile of number of neighbors (%)")
   
   if(save) {
-    ggsave(filename = paste0(get.dirstr(k,rean),"compare.density.wp.all/compare_density_",ifelse(quant,"quant_",""),wp[1],"_",wp[2],"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),plot=p)
+    ggsave(filename = paste0(get.dirstr(k,rean),"compare.density.wp.all/compare_density_",ifelse(quant,"quant_",""),wp[1],"_",wp[2],"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(supseuil,"_supseuil",""),".png"),plot=p)
     graphics.off()
   }else{p}
 }
 
 # Comparaison des percentiles d'indicateurs pour deux bassins versants
-compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,comm=F,spazm=c(F,F),flow=F,save=T,legend=T){
+compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,comm=F,flow=F,save=T,legend=T,spazm=F,supseuil=F){
   
   # Import indicateurs
   mat <- NULL
@@ -336,8 +346,13 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
   mat <- as.data.frame(apply(mat,2,function(v) ecdf(v)(v)*100))
   
   # Extremes
-  ind.extr1 <- get.ind.max(type="year",nbdays,start,end,bv1,spazm=spazm[1])
-  ind.extr2 <- get.ind.max(type="year",nbdays,start,end,bv2,spazm=spazm[2])
+  if(!supseuil){
+  ind.extr1 <- get.ind.max(type="year",nbdays,start,end,bv1,spazm=spazm)
+  ind.extr2 <- get.ind.max(type="year",nbdays,start,end,bv2,spazm=spazm)
+  }else{
+    ind.extr1 <- get.ind.extr(bv = bv1,nbdays,start,end,nei = T,spazm,seuil = "qua")
+    ind.extr2 <- get.ind.extr(bv = bv2,nbdays,start,end,nei = T,spazm,seuil = "qua")
+  }
   
   if(comm){
     commun <- which(ind.extr1==ind.extr2)
@@ -346,9 +361,9 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
     ind.extr2 <- ind.extr2[-commun]
   }
   
-  bv <- rep(ifelse(spazm[1]==spazm[2],nam2str(bv1),paste0(nam2str(bv1)," (spazm=", spazm[1],")")),length(ind.extr1))
+  bv <- rep(nam2str(bv1),length(ind.extr1))
   mat1 <- as.data.frame(cbind(bv,mat[ind.extr1,]))
-  bv <- rep(ifelse(spazm[1]==spazm[2],nam2str(bv2),paste0(nam2str(bv2)," (spazm=", spazm[2],")")),length(ind.extr2))
+  bv <- rep(nam2str(bv2),length(ind.extr2))
   mat2 <- as.data.frame(cbind(bv,mat[ind.extr2,]))
   mat <- rbind(mat1,mat2)
   
@@ -372,13 +387,13 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
     labs(fill="Catchment")#,title = namdescr
   
   if(save) {
-    ggsave(filename = paste0(get.dirstr(k,rean),"compare.descr.bv/plot_",bv1,"_",bv2,"_",nbdays,"day_",start,"_",end,ifelse(comm,"_commun",""),ifelse(flow!=F,paste0("_",namflow),""),".png"),plot=p,width = 20,height = 11,units="cm",dpi = 200)
+    ggsave(filename = paste0(get.dirstr(k,rean),"compare.descr.bv/plot_",bv1,"_",bv2,"_",nbdays,"day_",start,"_",end,ifelse(comm,"_commun",""),ifelse(flow!=F,paste0("_",namflow),""),ifelse(spazm,"_spazm",""),ifelse(supseuil,"_supseuil",""),".png"),plot=p,width = 20,height = 11,units="cm",dpi = 200)
     graphics.off()
   }else{p}
 }
 
 # Comparaison des percentiles d'indicateurs pour deux flux
-compare.descr.flow <- function(flow=c(1,2),agreg=T,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,spazm=c(F,F),save=T,legend=T){
+compare.descr.flow <- function(flow=c(1,2),agreg=T,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,spazm=F,save=T,legend=T,supseuil=F){
   
   # Import indicateurs
   mat <- NULL
@@ -393,8 +408,8 @@ compare.descr.flow <- function(flow=c(1,2),agreg=T,descr=c("celnei","singnei","r
   # Traitement
   namflow <- c("Zonal","Meridional","North-East","Anticyclonic")
   namflow <- namflow[flow]
-  ind.1 <- get.ind.max.flow(flow[1],agreg=agreg,nbdays,start,end)
-  ind.2 <- get.ind.max.flow(flow[2],agreg=agreg,nbdays,start,end)
+  ind.1 <- get.ind.max.flow(flow[1],agreg=agreg,nbdays,start,end,spazm,supseuil)
+  ind.2 <- get.ind.max.flow(flow[2],agreg=agreg,nbdays,start,end,spazm,supseuil)
   
   wp <- get.wp(nbdays,start,end,agreg=T)
   mat.1 <- mat
@@ -431,13 +446,13 @@ compare.descr.flow <- function(flow=c(1,2),agreg=T,descr=c("celnei","singnei","r
     labs(fill="Flow")#,title = namdescr
   
   if(save){
-    ggsave(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compare.descr.flow/plot_",namflow[1],"_",namflow[2],"_",nbdays,"day_",start,"_",end,".png"),plot=p,width = 20,height = 11,units="cm",dpi = 200)
+    ggsave(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compare.descr.flow/plot_",namflow[1],"_",namflow[2],"_",nbdays,"day_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(supseuil,"_supseuil",""),".png"),plot=p,width = 20,height = 11,units="cm",dpi = 200)
     graphics.off()
   }else{p}
 }
 
 # Calcul densite de points dans un plan
-compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",quant=F,wp=F,agreg=F){
+compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",quant=F,wp=F,agreg=F,spazm=F){
   
   # Import des descripteurs
   N <- length(getdates(start,end))-nbdays+1
@@ -451,18 +466,20 @@ compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",
     descr <- apply(descr,2,function(v) ecdf(v)(v)*100)
   }
   
-  if(wp!=F) {tt <- get.wp(nbdays,start,end,risk=F,bv="Isere",agreg=agreg); descr <- descr[tt==wp,]}
+  rad <- 0.5*sd(descr[,1]) # on prend un demi ecart type de rayon. Si WP, on calcule la densite selon le meme rayon, pour rester dans le referenciel de densite de tout le nuage
+  
+  if(wp!=F) {tt <- get.wp(nbdays,start,end,risk=F,bv="Isere",agreg=agreg,spazm = spazm); descr <- descr[tt==wp,]}
   
   # Calcul du voisinage
   nb <- NULL
   for(i in 1:nrow(descr)){
     if (i %%50==0) print(i)
-    count <- nn2(data = descr,query = t(descr[i,]),searchtype = "radius",radius =  0.5*sd(descr[,1]),k = nrow(descr)) # nombre de voisins dans le rayon (tmp$idef: indices ou les deux descr sont non NA)
+    count <- nn2(data = descr,query = t(descr[i,]),searchtype = "radius",radius = rad,k = nrow(descr)) # nombre de voisins dans le rayon (tmp$idef: indices ou les deux descr sont non NA)
     nb[i] <- rowSums(count$nn.idx>0)-1
   }
   print(paste0("min density: ",min(nb)))
   print(paste0("max density: ",max(nb)))
-  save(nb,file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.density/nbnei_",ifelse(quant,"quant_",""),ifelse(wp!=F,paste0("wp",wp,"_"),""),descriptors[1],"_",descriptors[2],ifelse(length(descriptors)==3,paste0("_",descriptors[3]),""),"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  save(nb,file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.density/nbnei_",ifelse(quant,"quant_",""),ifelse(wp!=F,paste0("wp",wp,"_"),""),descriptors[1],"_",descriptors[2],ifelse(length(descriptors)==3,paste0("_",descriptors[3]),""),"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),ifelse(spazm,"_spazm",""),"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
 }
 
 # Compte le % de sequences d'un meme flux en dessous d'un certain quantile de deux descripteurs
@@ -492,6 +509,73 @@ count.flow.descr <- function(flow,agreg,qua,descr,k,dist,nbdays,start="1950-01-0
   lines(ecdf(des2),col="red")
 }
 
+# Genere le tableau d'altitude de la region par maille de 75m (BD Alti France)
+get.bdalti.region <- function(){
+  
+  # Dalles necessaires
+  dalles <- c("0900_6450","0900_6525","0900_6600")
+  X <- NULL
+  
+  Y <- NULL
+  
+  Z <- NULL
+  
+  for(i in 1:length(dalles)){
+  # Import des mailles d'intérêt et extraction du pixel/altitude
+  dalle <- read.asciigrid(paste0("2_Travail/Data/Carto/BDALTIV2_2-0_75M_ASC_LAMB93-IGN69_FRANCE_2020-04-28.7z/BDALTIV2_2-0_75M_ASC_LAMB93-IGN69_FRANCE_2020-04-28/BDALTIV2/1_DONNEES_LIVRAISON_2020-05-00201/BDALTIV2_MNT_75M_ASC_LAMB93_IGN69_FRANCE/BDALTIV2_75M_FXX_",dalles[i],"_MNT_LAMB93_IGN69.asc"))
+  proj4string(dalle) <- CRS("+init=epsg:2154")
+  dalle <- spTransform(dalle,CRS("+init=epsg:27572"))
+  xi <- unique(as.matrix(coordinates(dalle))[,1])
+  yi <- unique(rev(as.matrix(coordinates(dalle))[,2]))
+  alt <- dalle@data[,1]
+  dim(alt) <- c(length(xi),length(yi))
+  alt <- alt[,ncol(alt):1]
+  
+  X=xi
+  Y=c(Y,yi)
+  Z=cbind(Z,alt)
+  }
+  
+  # Dalles necessaires
+  dalles2 <- c("0975_6450","0975_6525","0975_6600")
+  X2 <- NULL
+  
+  Y2 <- NULL
+  
+  Z2 <- NULL
+  
+  for(i in 1:length(dalles2)){
+    # Import des mailles d'intérêt et extraction du pixel/altitude
+    dalle <- read.asciigrid(paste0("2_Travail/Data/Carto/BDALTIV2_2-0_75M_ASC_LAMB93-IGN69_FRANCE_2020-04-28.7z/BDALTIV2_2-0_75M_ASC_LAMB93-IGN69_FRANCE_2020-04-28/BDALTIV2/1_DONNEES_LIVRAISON_2020-05-00201/BDALTIV2_MNT_75M_ASC_LAMB93_IGN69_FRANCE/BDALTIV2_75M_FXX_",dalles2[i],"_MNT_LAMB93_IGN69.asc"))
+    xi <- unique(as.matrix(coordinates(dalle))[,1])
+    yi <- unique(rev(as.matrix(coordinates(dalle))[,2]))
+    alt <- dalle@data[,1]
+    dim(alt) <- c(length(xi),length(yi))
+    alt <- alt[,ncol(alt):1]
+    
+    X2=xi
+    Y2=c(Y2,yi)
+    Z2=cbind(Z2,alt)
+  }
+  
+  Xfin <- c(X,X2)
+  Yfin <- Y
+  Zfin <- rbind(Z,Z2)
+  
+  bdalti <- list(Fx=Xfin,Fy=Yfin,Fz=Zfin)
+  
+  # conversion
+  XY <- cbind(c(Xfin,rep(1049925,1000)),Yfin)
+  
+  crs <- CRS("+init=epsg:2154")
+  p <- SpatialPoints(XY, proj4string=crs)
+  g <- spTransform(p, CRS("+init=epsg:27572"))
+  fin=coordinates(g)
+  
+  bdalti <- list(Fx=fin[1:2000,1],Fy=fin[,2],Fz=Zfin)
+  
+}
+
 # Calcul de dP
 get.dP <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
   geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
@@ -500,14 +584,19 @@ get.dP <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
 }
 
 # Max annuels de precip issus de zonal ou meridional (Drac et Isere)
-get.ind.max.flow <- function(flow,agreg,nbdays,start,end,spazm=F){
+get.ind.max.flow <- function(flow,agreg,nbdays,start,end,spazm=F,supseuil=F){
   
   # Import des max annuels des deux BVs
+  if(!supseuil){
   ind1 <- get.ind.max(type = "year",nbdays,start,end,bv="Isere-seul",spazm)
   ind2 <- get.ind.max(type = "year",nbdays,start,end,bv="Drac-seul",spazm)
+  }else{
+    ind1 <- get.ind.extr(bv = "Isere-seul",nbdays,start,end,nei = T,spazm,seuil = "qua")
+    ind2 <- get.ind.extr(bv = "Drac-seul",nbdays,start,end,nei = T,spazm,seuil = "qua")
+  }
   
   # WPs
-  wp <- get.wp(nbdays,start,end,risk=F,bv="Isere",agreg=agreg)
+  wp <- get.wp(nbdays,start,end,risk=F,bv="Isere",agreg=agreg,spazm = spazm)
   ind <- sort(c(ind1[wp[ind1]==flow],ind2[wp[ind2]==flow]))
   unique(ind) # pour ne compter qu'une seule fois les dates doublons
 }
@@ -1097,7 +1186,7 @@ plot.dP.descr <- function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="201
 }
 
 # Plan des indicateurs colorie par densite pour deux bv differents
-plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),spazm=c(T,T),save=T,let=F,quant=F,sea=F,pwat=F,comm=F){
+plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),spazm=F,save=T,let=F,quant=F,sea=F,pwat=F,comm=F,max=T,supseuil=F){
   
   # Definition du repertoire de travail (lecture et ecriture)
   if(rean[1] != rean[2]){ 
@@ -1116,7 +1205,7 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
   # Import descripteurs
   descr1<-get.descriptor(descriptors[1],k[1],dist[1],nbdays,start,end,standardize=F,rean[1],threeday[1])
   descr2<-get.descriptor(descriptors[2],k[2],dist[2],nbdays,start,end,standardize=F,rean[2],threeday[2])
-  
+
   if(quant){
     descr1 <- ecdf(descr1)(descr1)*100
     descr2 <- ecdf(descr2)(descr2)*100
@@ -1142,8 +1231,13 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
   ale <- sample(1:length(descr1),62)
   
   # Extremes
-  ind.extr1 <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end,bv=bv1,spazm = spazm[1])
-  ind.extr2 <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end,bv=bv2,spazm= spazm[2])
+  if(!supseuil){
+  ind.extr1 <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end,bv=bv1,spazm = spazm)
+  ind.extr2 <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end,bv=bv2,spazm= spazm)
+  }else{
+    ind.extr1 <- get.ind.extr(bv = bv1,nbdays = nbdays,start = start,end = end,nei = T,spazm = spazm,seuil = "qua")
+    ind.extr2 <- get.ind.extr(bv = bv2,nbdays = nbdays,start = start,end = end,nei = T,spazm = spazm,seuil = "qua")
+  }
   
   if(comm){
   commun <- which(ind.extr1==ind.extr2)
@@ -1172,12 +1266,13 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
   
   # Creation du plot
   if(save){
-    png(filename=paste0(path1,"plot.empir.bv",get.CVstr(CV),"/plot_",bv1,"_",bv2,"_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),comp,ifelse(quant,"_quant",""),ifelse(sea,"_sea",""),ifelse(pwat,"_pwat",""),ifelse(comm,"_comm",""),".png"),width=8,height=5,units = "in",res=1200) # manip substr pour enlever le std
+    png(filename=paste0(path1,"plot.empir.bv",get.CVstr(CV),"/plot_",bv1,"_",bv2,"_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),comp,ifelse(quant,"_quant",""),ifelse(sea,"_sea",""),ifelse(pwat,"_pwat",""),ifelse(comm,"_comm",""),ifelse(max,"","_without_max"),ifelse(supseuil,"_supseuil",""),".png"),width=8,height=5,units = "in",res=1200) # manip substr pour enlever le std
     par(mfrow=c(1,2),pty="s")
   }
   
   # Parametres graphiques
-  gamme <- c(0,3931)
+  if(quant){gamme <- c(0,3931)
+  }else{gamme <- c(0,4319)}
   
   if(sea){
     bg1 <- colo[se[ind.extr1]]
@@ -1199,14 +1294,16 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
        main=nam2str(bv1),cex.axis=1.2,cex.main=1.5,xaxt="n",yaxt="n")
   title(xlab=paste0(namdescr[1],ifelse(quant," percentile ","")), line=2.5, cex.lab=1.2)
   title(ylab=paste0(namdescr[2],ifelse(quant," percentile ","")), line=2.5, cex.lab=1.2)
+  if(quant){
   axis(1,seq(0,100,20),seq(0,100,20))
   axis(2,seq(0,100,20),seq(0,100,20))
+  }else{axis(1);axis(2)}
   addscale(vec = c(nb,gamme),r=0)
   text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T))*0.9,
        y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2,
        paste0(round(min(nb,na.rm=T),2),"-",round(max(nb,na.rm=T),2)))
   #points(descr1[ale],descr2[ale],pch=19,cex=0.9)
-  points(descr1[ind.extr1],descr2[ind.extr1],pch=22,bg=bg1,cex=cex1) 
+  if(max) points(descr1[ind.extr1],descr2[ind.extr1],pch=22,bg=bg1,cex=cex1) 
   if(length(let)!=1) mtext(let[1],side=3,adj=-0.2,line=-0.5,font=1,cex=1.2)
   
   # bv2
@@ -1219,14 +1316,16 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
        main=nam2str(bv2),cex.axis=1.2,cex.main=1.5,xaxt="n",yaxt="n")
   title(xlab=paste0(namdescr[1],ifelse(quant," percentile ","")), line=2.5, cex.lab=1.2)
   title(ylab=paste0(namdescr[2],ifelse(quant," percentile ","")), line=2.5, cex.lab=1.2)
-  axis(1,seq(0,100,20),seq(0,100,20))
-  axis(2,seq(0,100,20),seq(0,100,20))
+  if(quant){
+    axis(1,seq(0,100,20),seq(0,100,20))
+    axis(2,seq(0,100,20),seq(0,100,20))
+  }else{axis(1);axis(2)}
   addscale(vec = c(nb,gamme),r=0)
   text(x=min(descr1,na.rm=T)+(max(descr1,na.rm=T)-min(descr1,na.rm=T))*0.9,
        y=min(descr2,na.rm=T)+(max(descr2,na.rm=T)-min(descr2,na.rm=T))*1.2,
        paste0(round(min(nb,na.rm=T),2),"-",round(max(nb,na.rm=T),2)))
   #points(descr1[ale],descr2[ale],pch=19,cex=0.9)
-  points(descr1[ind.extr2],descr2[ind.extr2],pch=22,bg=bg2,cex=cex2) 
+  if(max) points(descr1[ind.extr2],descr2[ind.extr2],pch=22,bg=bg2,cex=cex2) 
   if(length(let)!=1) mtext(let[2],side=3,adj=-0.2,line=-0.5,font=1,cex=1.2)
   
   if(save) graphics.off()
@@ -1253,10 +1352,10 @@ plot.empir.bv.combine <- function(){
   end="2011-12-31"
   let <- list(c("a)","b)"),c("c)","d)"),c("e)","f)"))
   radtype="nrn05"
-  CV=TRUE;threeday=c(F,F);spazm=c(F,F);save=F;quant=F;sea=F;pwat=F;comm=F
+  CV=TRUE;threeday=c(F,F);spazm=F;save=F;quant=T;sea=F;pwat=F;comm=F;max=T;supseuil=T
   
   # Graphique
-  png(file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.empir.bv-CV/plot_combine_",bv1,"_",bv2,ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=200)
+  png(file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.empir.bv-CV/plot_combine_",bv1,"_",bv2,ifelse(spazm,"_spazm",""),ifelse(quant,"_quant",""),ifelse(supseuil,"_supseuil",""),".png"),width=6,height=9,units = "in",res=200)
   layout(matrix(c(rep(1,2),2:3,rep(4,2),5:6,rep(7,2),8:9),nrow = 6,ncol = 2,byrow = T),widths = rep(1,2),heights = c(0.1,1.2,0.1,1.2,0.1,1.2))
 
   for(i in 1:length(descr)){
@@ -1268,7 +1367,7 @@ plot.empir.bv.combine <- function(){
     # Graphiques
     par(mar=c(4,1.5,1.5,0),pty="s")
     plot.empir.bv(bv1,bv2,rean,k,descr[[i]],dist,nbdays,start,end,radtype,
-                  CV,threeday,spazm,save,let[[i]],quant,sea,pwat,comm)
+                  CV,threeday,spazm,save,let[[i]],quant,sea,pwat,comm,max,supseuil)
   }
   graphics.off()
 }
@@ -1393,7 +1492,7 @@ plot.empir.dP.sais <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-0
 }
 
 # Plan des indicateurs colorie par WP (si save, on met les 8 wp)
-plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),save=T,let=F,quant=F,agreg=F,title=""){
+plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),spazm=F,save=T,let=F,quant=F,agreg=F,title="",supseuil=F){
   
   # Definition du repertoire de travail (lecture et ecriture)
   if(rean[1] != rean[2]){ 
@@ -1409,9 +1508,6 @@ plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01
     path2 <- paste0(descriptors[1],"_",descriptors[2],"_",ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,get.stdstr(TRUE),"_",radtype)
   }
   
-  # Import precip
-  precip <- get.precip(nbdays,start,end)
-  
   # Import descripteurs
   descr1<-get.descriptor(descriptors[1],k[1],dist[1],nbdays,start,end,standardize=F,rean[1],threeday[1])
   descr2<-get.descriptor(descriptors[2],k[2],dist[2],nbdays,start,end,standardize=F,rean[2],threeday[2])
@@ -1422,35 +1518,38 @@ plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01
   }
   
   # Import wp
-  tt <- get.wp(nbdays,start,end,risk = F,bv = "Isere",agreg=agreg)
+  tt <- get.wp(nbdays,start,end,risk = F,bv = "Isere",agreg=agreg,spazm = spazm)
   
   # Nom propre des indicateurs
   cond <- substr(descriptors,nchar(descriptors)-1,nchar(descriptors)) == substr(radtype,nchar(radtype)-1,nchar(radtype))
   descriptors[cond] <- substr(descriptors[cond],1,nchar(descriptors[cond])-2)
-  namdescr <- nam2str(descriptors, cloud = TRUE)
+  namdescr <- nam2str(descriptors, cloud = TRUE,whole = T) # whole permet d'avoir le nom complet de l'indicateur
   
   # Creation du plot
   if(save){
-    png(file=paste0(path1,"plot.empir.wp",get.CVstr(CV),"/plot_wp_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),ifelse(quant,"_quant",""),".png"),width=6,height=12,units = "in",res=1200)
+    png(file=paste0(path1,"plot.empir.wp",get.CVstr(CV),"/plot_wp_",substr(path2,1,nchar(path2)-10),substr(path2,nchar(path2)-5,nchar(path2)),ifelse(quant,"_quant",""),ifelse(supseuil,"_supseuil",""),".png"),width=6,height=12,units = "in",res=1200)
     par(mfrow=c(4,2),pty="s")
   }
   
-  if(agreg){namflow <- c("Zonal","Meridional","North-East","Anticyclonic")
+  if(agreg){
+    #namflow <- c("Zonal","Meridional","North-East","Anticyclonic")
+    namflow <- c("Oceanic","Mediterranean","Continental","Anticyclonic")
   }else{namflow <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
                      "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")}
   namflow <- namflow[wp]
   
   gamme <- list(rep(c(0,2965),length(wp)))
-  if(agreg) gamme <- list(c(0,3142),c(0,1497))
+  if(agreg & quant) gamme <- list(c(0,3146),c(0,1475))
+  if(agreg & !quant) gamme <- list(c(0,2386),c(0,1405))
   
   for(i in wp){
     # Import densite de pts
-    load(file = paste0("2_Travail/0_Present/",rean[1],"/Rresults/overall/k",k[1],"/compute.density/nbnei_",ifelse(quant,"quant_",""),"wp",i,"_",descriptors[1],"_",descriptors[2],"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+    load(file = paste0("2_Travail/0_Present/",rean[1],"/Rresults/overall/k",k[1],"/compute.density/nbnei_",ifelse(quant,"quant_",""),"wp",i,"_",descriptors[1],"_",descriptors[2],"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),ifelse(spazm,"_spazm",""),"_member",member,"_k",k[1],"_mean",nbdays,"day_",start,"_",end,".Rdata"))
     occ <- round(sum(tt==i)/length(tt)*100,0)
     cex <- 1.5
     
     # Import des max
-    ind.max <- get.ind.max.flow(flow=i,agreg,nbdays,start,end)
+    ind.max <- get.ind.max.flow(flow=i,agreg,nbdays,start,end,supseuil=supseuil,spazm = spazm)
     
     # plot
     plot(descr1,descr2,
@@ -1462,8 +1561,10 @@ plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01
          main=namflow[i], cex.main=cex,xaxt="n",yaxt="n")
     title(xlab=paste0(namdescr[1],ifelse(quant," percentile ","")), line=2.5, cex.lab=1.2)
     title(ylab=paste0(namdescr[2],ifelse(quant," percentile ","")), line=2.5, cex.lab=1.2)
+    if(quant){
     axis(1,seq(0,100,20),seq(0,100,20))
     axis(2,seq(0,100,20),seq(0,100,20))
+    }else{axis(1);axis(2)}
     points(descr1[tt==i],descr2[tt==i],col=getcol(c(nb,gamme[[i]])))
     points(descr1[ind.max],descr2[ind.max],pch=22,bg="white",cex=1.2)
     addscale(vec = c(nb,gamme[[i]]))
@@ -1498,10 +1599,10 @@ plot.empir.wp.combine <- function(){
   let <- list(c("a)","b)"),c("c)","d)"),c("e)","f)"))
   radtype="nrn05"
   agreg=T
-  CV=TRUE;threeday=c(F,F);spazm=c(F,F);save=F;quant=F;sea=F;pwat=F;comm=F
+  CV=TRUE;threeday=c(F,F);spazm=F;save=F;quant=T;sea=F;pwat=F;comm=F;supseuil=T
   
   # Graphique
-  png(file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.empir.wp-CV/plot_combine_",namflow[1],"_",namflow[2],ifelse(quant,"_quant",""),".png"),width=6,height=9,units = "in",res=200)
+  png(file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.empir.wp-CV/plot_combine_",namflow[1],"_",namflow[2],ifelse(spazm,"_spazm",""),ifelse(quant,"_quant",""),ifelse(supseuil,"_supseuil",""),".png"),width=6,height=9,units = "in",res=200)
   layout(matrix(c(rep(1,2),2:3,rep(4,2),5:6,rep(7,2),8:9),nrow = 6,ncol = 2,byrow = T),widths = rep(1,2),heights = c(0.1,1.2,0.1,1.2,0.1,1.2))
   
   for(i in 1:length(descr)){
@@ -1513,11 +1614,149 @@ plot.empir.wp.combine <- function(){
     # Graphiques
     par(mar=c(4,1.5,1.5,0),pty="s")
     plot.empir.wp(wp,rean,k,descr[[i]],dist,nbdays,start,end,radtype,
-                  CV,threeday,save,let[[i]],quant,agreg)
+                  CV,threeday,spazm,save,let[[i]],quant,agreg,supseuil=supseuil)
   }
   graphics.off()
 }
 
+# Combinaison des deux graphiques plot.period.ana() et plot.month.ana()
+plot.fig.ana <- function(Q="05",k,nbdays,dist,start="1950-01-01",end="2011-12-31",rean){
+  
+  plot1 <- plot.period.ana(Q,k,nbdays,dist,start,end,rean)
+  plot2 <- plot.month.ana(Q,k,nbdays,dist,start,end,rean)
+  plot.final <- ggarrange(plot1, NULL, plot2, nrow=1,ncol=3,widths = c(1.5,0.05,1),labels = c("a)","","b)"))
+  ggsave(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k1/plot.fig.ana/plot_fig_ana.png"),plot = plot.final,width = 10,height = 4.5)
+}
+  
+# Repartition des mois des analogues par rapport au mois cible
+plot.month.ana <- function(Q="05",k,nbdays,dist,start="1950-01-01",end="2011-12-31",rean){
+  
+  dates <- getdates(start,end)
+  
+  # Import des analogues
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/save.nei.A/nei_",
+              dist,"_member1_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  nei <- nei[[which(names(nei)==Q)]]
+  
+  # Traitement
+  fonc <- function(v){
+    tmp <- as.numeric(substr(dates[v],6,7)) # on recupere les mois
+    tmp1 <- tmp[-1]-tmp[1] # on soustrait au mois du jour
+    tmp1[tmp1>6] <- tmp1[tmp1>6]-12 # si >6, on enleve 12 (donc mois vont aller de -5 a +6)
+    tmp1[tmp1< (-6)] <- tmp1[tmp1< (-6)]+12 # si <-6, on ajoute 12 (donc mois vont aller de -6 a +5)
+    tmp1
+  }
+  
+  nei.mon <- unlist(lapply(nei,fonc)) # longueur de 22645*112 analogues
+  
+  # Histogramme
+  count <- hist(x = nei.mon,breaks=seq(-6.5,6.5,1),plot=F)$counts
+  sum(count[6:8])/sum(count)*100 # analogues compris entre m-1 et m+1
+  sum(count[5:9])/sum(count)*100 # analogues compris entre m-2 et m+2
+  
+  # Classique
+  #hist(x=nei.mon,axes=F,breaks=seq(-6.5,6.5,1),col="azure3",xlab="Month(Target Day) - Month(Analog Days)",freq=F,main="")
+  #grid(nx=NA,ny=NULL)
+  #abline(v = c(-6.5:6.5), col = "grey", lty = "dotted",lwd=1)
+  #hist(x=nei.mon,axes=F,breaks=seq(-6.5,6.5,1),col="azure3",xlab="Month(Target Day) - Month(Analog Days)",freq=F,main="",add=T)
+  #lines(c(-6.6,6.5),c(0,0))
+  #axis(2)
+  #axis(1,at =-6:6,tick = F,line = -1)
+  
+  # ggplot2
+  nei.mon <- as.data.frame(nei.mon)
+  ggplot(nei.mon,aes(nei.mon)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12,colour="black",vjust=0),
+          axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
+          legend.position = "right",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
+          legend.title = element_text(hjust=0.5,vjust=2,size = 12,face = "bold"))+
+    geom_histogram(aes(y = stat(count) / sum(count)),breaks=seq(-6.5,6.5,1),col="darkblue",fill="grey")+
+    xlab("Month(Analog Day) - Month(Target Day)")+
+    ylab("Frequency")+
+    scale_x_continuous(breaks=c(-6:6),labels=c(-6:6),minor_breaks = F)
+
+    
+}
+
+# Boxplot de la repartition des analogues qu'on va chercher pour periode coupee en deux (homogene ou pas?)
+plot.period.ana <- function(Q="05",k,nbdays,dist,start="1950-01-01",end="2011-12-31",rean){
+  
+  dates <- getdates(start,end)
+  
+  # Import des analogues
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/save.nei.A/nei_",
+              dist,"_member1_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  nei <- nei[[which(names(nei)==Q)]]
+  
+  # Traitement
+  yr <- as.numeric(unique(substr(dates,1,4))) # annees
+  mid <- which(dates==paste0(as.character(yr[1]+round(length(yr)/2,0)-1),"-12-31")) # position du milieu de la periode
+  
+  nei.inf <- unlist(lapply(nei,function(v){sum(v[-1]<mid)/length(v[-1])*100})) # % des analogues de chaque jour dans la premiere periode
+  nei.sup <- unlist(lapply(nei,function(v){sum(v[-1]>mid)/length(v[-1])*100})) # % des analogues de chaque jour dans la premiere periode
+  
+  # Mise en forme
+  period1 <- paste0(start," -\n",dates[mid])
+  period2 <- paste0(as.character(as.Date(dates[mid])+1)," -\n ",end)
+  
+  target_period <- c(rep(period1,mid),rep(period2,length(nei)-mid))
+  mat <- as.data.frame(cbind(target_period,nei.inf,nei.sup))
+  colnames(mat) <- c("target_period",period1,period2)
+  mat <- pivot_longer(mat,2:3,names_to = "ana_period",values_to = "ana")
+  mat$target_period <- factor(mat$target_period)
+  mat$ana_period <- factor(mat$ana_period)
+  mat$ana <- as.numeric(as.character(mat$ana))
+  
+  # Boxplot
+  ggplot(mat, aes(x=target_period, y=ana, fill=ana_period)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12,colour="black",vjust=0),
+          axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
+          legend.position = "right",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
+          legend.title = element_blank())+#element_text(hjust=0.5,vjust=2,size = 12,face = "bold"))+
+    stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
+    geom_boxplot(outlier.shape = NA,col="darkblue")+
+    scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
+    geom_vline(xintercept=1.5, linetype="dashed")+
+    ylim(0,100)+
+    xlab("Target period")+
+    ylab("Analog days (%)")+
+    labs(fill="Analog period")
+}
+
+# Graphique temporel de la repartition des max
+plot.period.max <- function(bv1="Isere-seul",bv2="Drac-seul",nbdays,start="1950-01-01",end="2011-12-31",spazm=F){
+  
+  dates <- as.Date(getdates(start,end))
+  
+  # Max
+  max.bv1 <- sort(get.ind.extr(bv1,nbdays,start,end,nei = T,spazm,seuil = "qua"))
+  max.bv2 <- sort(get.ind.extr(bv2,nbdays,start,end,nei = T,spazm,seuil = "qua"))
+  
+  vect1 <- rep(0,length(dates));vect2 <- vect1
+  vect1[max.bv1] <- 1; vect2[max.bv2] <- 1
+  
+  ann.1 <- aggregate(vect1,by=list(substr(dates,1,4)),sum)
+  ann.2 <- aggregate(vect2,by=list(substr(dates,1,4)),sum)
+  
+  
+  # Graphique
+  png(filename = paste0("2_Travail/0_Present/Rresults/plot.period.max/plot.period.max_",bv1,"_",bv2,ifelse(spazm,"_spazm",""),".png"),
+      width = 7,height = 4.5,units = "in",res = 300)
+  plot(ann.1[,1],rep(1,nrow(ann.1)),ylim=c(0,3),type="n",yaxt="n",xlab="Year",ylab="")
+  grid(ny=NA,nx=NULL)
+  abline(h=c(1,2),col="grey",lty=3)
+  par(new=T)
+  points(ann.1[,1],rep(2,nrow(ann.1)),cex=ann.1[,2]/2,col="cornflowerblue",pch=19)
+  points(ann.2[,1],rep(1,nrow(ann.2)),cex=ann.2[,2]/2,col="burlywood1",pch=19)
+  legend("topleft",bty="n",c(nam2str(bv1),nam2str(bv2)),pch=19,col=c("cornflowerblue","burlywood1"),cex=1.2,pt.cex=1.2,horiz=T,title = "Catchment")
+  legend("topright",bty="n",as.character(c(1,3,6)),pch=21,pt.cex=c(1/2,3/2,6/2),horiz=T,title="Number of event",cex=1.2)
+  graphics.off()
+}
+  
 # Graphique de la saisonnalite de pwat et du boxplot de comparaison pour deux bvs
 plot.pwat <- function(bv1,bv2,start,end,rean,spazm=c(F,F)){
   
@@ -1726,14 +1965,35 @@ plot.sais.all <- function(descr,k,nbdays=3,start="1950-01-01",end="2011-12-31",r
   
 }
 
+# Saisonalite des indicateurs de maniere propre pour article
+plot.sais.descr.clean <- function(k,dist,nbdays=1,start="1950-01-01",end="2011-12-31",rean){
+  
+  descr <- c("celnei","singnei","rsingnei","dP")
+  nam <- c("Celerity","Singularity","Relative singularity","MPD")
+  dates <- getdates(start,end)
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.sais.descr.clean/plot_sais_",dist,"_k",k,"_mean",nbdays,"day_",start,"_",end,".png"),width = 8,height = 6,units = "in",res=300)
+  par(mfrow=c(2,2),mar=c(3,4,2,2))
+  
+  for(i in 1:length(descr)){
+    des <- get.descriptor(descr[i],k,dist,nbdays,start,end,standardize = F,rean=rean)
+    plot.sais.quantile(dates = dates,vec = des,y.label = paste0(nam2str(descr[i]),ifelse(i==4," (m)","")),main=nam[i])
+  }
+  graphics.off()
+}
+
 # Saisonnalite des extremes
-plot.sais.extr <- function(nbdays,start,end,bv1,bv2,comm=F){
+plot.sais.extr <- function(nbdays,start="1950-01-01",end="2011-12-31",bv1,bv2,comm=F,spazm=F,supseuil=T){
   
   # Extremes
   dates <- getdates(start,end)
-  month.bv1 <- as.numeric(substr(dates[get.ind.max(type = "year",nbdays,start,end,bv1,spazm=T)],6,7))
-  month.bv2 <- as.numeric(substr(dates[get.ind.max(type = "year",nbdays,start,end,bv2,spazm=T)],6,7))
-
+  if(!supseuil){
+  month.bv1 <- as.numeric(substr(dates[get.ind.max(type = "year",nbdays,start,end,bv1,spazm)],6,7))
+  month.bv2 <- as.numeric(substr(dates[get.ind.max(type = "year",nbdays,start,end,bv2,spazm)],6,7))
+  }else{
+    month.bv1 <- as.numeric(substr(dates[get.ind.extr(bv1,nbdays,start,end,nei = T,spazm,seuil = "qua")],6,7))
+    month.bv2 <- as.numeric(substr(dates[get.ind.extr(bv2,nbdays,start,end,nei = T,spazm,seuil = "qua")],6,7))
+  }
+  
   if(comm){
     commun <- which(get.ind.max(type = "year",nbdays,start,end,bv1,spazm=T)==get.ind.max(type = "year",nbdays,start,end,bv2,spazm=T))
     month.bv1 <- month.bv1[-commun]
@@ -1742,16 +2002,20 @@ plot.sais.extr <- function(nbdays,start,end,bv1,bv2,comm=F){
   
   # Cumuls mensuels
   ny <- as.numeric(substr(dates[length(dates)],1,4)) - as.numeric(substr(dates[1],1,4)) + 1
-  cum.bv1 <- aggregate(get.precip(nbdays=1,start,end,bv1,spazm=F),by=list(substr(dates,6,7)),function(v) sum(v)/ny)
-  cum.bv2 <- aggregate(get.precip(nbdays=1,start,end,bv2,spazm=F),by=list(substr(dates,6,7)),function(v) sum(v)/ny)
+  cum.bv1 <- aggregate(get.precip(nbdays=1,start,end,bv1,spazm),by=list(substr(dates,6,7)),function(v) sum(v)/ny)
+  cum.bv2 <- aggregate(get.precip(nbdays=1,start,end,bv2,spazm),by=list(substr(dates,6,7)),function(v) sum(v)/ny)
   
   # Graphique
-  png(filename = paste0("2_Travail/0_Present/Rresults/plot.sais.extr/plot_ann_max_",bv1,"_",bv2,ifelse(comm,"_comm",""),".png"),width = 9,height = 3.5,units = "in",res=200)
+  fac1 <- max(cum.bv1[,2])/(max(table(month.bv1))*0.8) # facteur de division des cumuls mensuels pour rentrer dans l'histogramme
+  fac2 <- max(cum.bv2[,2])/(max(table(month.bv2))*0.8)
+  fac <- round(mean(c(fac1,fac2)),0)
+  
+  png(filename = paste0("2_Travail/0_Present/Rresults/plot.sais.extr/plot_ann_max_",bv1,"_",bv2,ifelse(spazm,"_spazm",""),ifelse(comm,"_comm",""),ifelse(supseuil,"_qua",""),".png"),width = 9,height = 3.5,units = "in",res=200)
   par(mfrow=c(1,2),lwd=2,mar=c(2,3,3,6))
   
   hist(month.bv1,axes=F,breaks=0:12,col="azure3",
-       xlab="",ylab="",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv1))
-  abline(h = c(5,10,15), col = "grey", lty = "dotted",lwd=1)
+       xlab="",ylab="",main=nam2str(bv1))
+  abline(h = axis(2), col = "grey", lty = "dotted",lwd=1)
   abline(v = c(2,5,8,11), col = "grey", lty = "dotted",lwd=1)
   hist(month.bv1,axes=F,breaks=0:12,col="azure3",
        xlab="Month",ylab="Count",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv1),add=T)
@@ -1759,14 +2023,14 @@ plot.sais.extr <- function(nbdays,start,end,bv1,bv2,comm=F){
   axis(2)
   title(ylab="Count", line=2)
   text(0.5:11.5,par("usr")[3]-0.3, labels = month.abb, srt = -45, pos = 1, xpd = TRUE)
-  points(0.5:11.5,cum.bv1[,2]/8,pch=19)
-  lines(0.5:11.5,cum.bv1[,2]/8)
-  axis(side = 4,at = c(0,5,10,15),labels = c(c(0,5*8,10*8,15*8)))
-  text(15,par("usr")[1]+8,"Precipitation (mm)", srt=90,xpd=T)
+  points(0.5:11.5,cum.bv1[,2]/fac,pch=19)
+  lines(0.5:11.5,cum.bv1[,2]/fac)
+  axis(side = 4,at = axis(2),labels = axis(2)*fac)
+  text(15,par("usr")[1]++mean(axis(2)),"Precipitation (mm)", srt=90,xpd=T)
   
   hist(month.bv2,axes=F,breaks=0:12,col="azure3",
-      xlab="",ylab="",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv2))
-  abline(h = c(5,10,15), col = "grey", lty = "dotted",lwd=1)
+      xlab="",ylab="",main=nam2str(bv2))
+  abline(h = axis(2), col = "grey", lty = "dotted",lwd=1)
   abline(v = c(2,5,8,11), col = "grey", lty = "dotted",lwd=1)
   hist(month.bv2,axes=F,breaks=0:12,col="azure3",
        xlab="Month",ylab="Count",ylim=c(0,ifelse(comm,12,15)),main=nam2str(bv2),add=T)
@@ -1774,10 +2038,10 @@ plot.sais.extr <- function(nbdays,start,end,bv1,bv2,comm=F){
   axis(2)
   title(ylab="Count", line=2)
   text(0.5:11.5,par("usr")[3]-0.3, labels = month.abb, srt = -45, pos = 1, xpd = TRUE)
-  points(0.5:11.5,cum.bv2[,2]/8,pch=19)
-  lines(0.5:11.5,cum.bv2[,2]/8)
-  axis(side = 4,at = c(0,5,10,15),labels = c(c(0,5*8,10*8,15*8)))
-  text(15,par("usr")[1]+8,"Precipitation (mm)", srt=90,xpd=T)
+  points(0.5:11.5,cum.bv2[,2]/fac,pch=19)
+  lines(0.5:11.5,cum.bv2[,2]/fac)
+  axis(side = 4,at = axis(2),labels = axis(2)*fac)
+  text(15,par("usr")[1]+mean(axis(2)),"Precipitation (mm)", srt=90,xpd=T)
   
   graphics.off()
 }
@@ -1810,3 +2074,28 @@ plot.wp <- function(wp=c(1,2),rean,k,descriptors,dist,nbdays=3,start="1950-01-01
   
   graphics.off()
 }
+
+# Run les fonctions repetitives
+run <- function(type=1){
+  
+  # Type = 1: compute.density()
+  if(type==1){
+    # Parametres
+    descr <- list(
+      c("celnei","dP"),
+      c("singnei","dP"),
+      c("rsingnei","dP")
+    )
+    wp <- c(1,2)
+    spazm <- F
+    
+    # Fonction
+    for(i in 1:length(descr)){
+      for(j in 1:length(wp)){
+        compute.density(rean="20CR",k = 1,descriptors = descr[[i]],dist = c("TWS","TWS"),nbdays = 3,
+                        start = "1950-01-01",end="2011-12-31",quant = F,wp = wp[j],agreg = T,spazm = spazm)
+      }
+    }
+  }
+}
+
