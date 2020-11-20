@@ -916,20 +916,20 @@ compare.crps.simple <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rad
   
   # Indicateurs
   descr <- list(
-    c("celnei","celnei"),
-    c("celnei","dPnei"),
-    c("singnei","singnei"),
-    c("singnei","dPnei"),
-    c("rsingnei","rsingnei"),
-    c("rsingnei","dPnei")
+    c("cel","sing05"),
+    c("celnei","singnei"),
+    c("cel","rsing05"),
+    c("celnei","rsingnei"),
+    c("sing05","rsing05"),
+    c("singnei","rsingnei")
   )
   
   dist <- list(
-    c("TWS","RMSE"),
     c("TWS","TWS"),
-    c("TWS","RMSE"),
     c("TWS","TWS"),
-    c("TWS","RMSE"),
+    c("TWS","TWS"),
+    c("TWS","TWS"),
+    c("TWS","TWS"),
     c("TWS","TWS")
   )
   
@@ -1612,10 +1612,10 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
   
   if (!update) {
     #coln.new<-c("cel","mind","sing05","sing1","sing2","sing5","lsing05","lsing1","lsing2","lsing5","pers05","pers1","pers2","pers5","q05","q1","q2","q5","pcel","pnei05","pnei1","pnei2","pnei5","snei05","snei1","snei2","snei5")
-    coln.new<-c("celnei","persnei","singnei","rsingnei")
+    coln.new<-c("cel","sing05","q05")
   }
   if (update) {
-    coln.new<-c("dPnei")
+    coln.new<-c("celnei","singnei","rsingnei")
   }
   
   criteria.new<-matrix(NA,ncol=length(coln.new),nrow=N)
@@ -1664,10 +1664,10 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
     for (cc in coln.new){
       
       # dP
-      if (cc=="dPnei") tmp <- c(tmp,mean(criteria[idi05,"dP"],na.rm=TRUE))
+      #if (cc=="dPnei") tmp <- c(tmp,mean(criteria[idi05,"dP"],na.rm=TRUE))
       
       # Celerite
-      #if (cc=="cel") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i-1])} # score de la journee avec la veille
+      if (cc=="cel") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i-1])} # score de la journee avec la veille
       #if (cc=="cel+1") {if (i==N) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i+1])} # score de la journee avec le lendemain
       
       #if(cc=="celAv"){if(1 %in% idi05) idi05 <- idi05[idi05!=1]; tmp <- c(tmp,mean(di[idi05-1]))} # score entre jour J et veille des voisins
@@ -1698,13 +1698,13 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="mind") tmp<-c(tmp,di[soso$ix[2]]) # score minimum obtenu avec la meilleure journee analogue
       #
       ## Singularite
-      #if (cc=="sing05") tmp<-c(tmp,mean(di[idi05])) # moyenne des distances (scores) des 0.5% les plus proches
+      if (cc=="sing05") tmp<-c(tmp,mean(di[idi05])) # moyenne des distances (scores) des 0.5% les plus proches
       #if (cc=="sing1") tmp<-c(tmp,mean(di[idi1]))   # des 1% les plus proches
       #if (cc=="sing2") tmp<-c(tmp,mean(di[idi2]))   # des 2% les plus proches
       #if (cc=="sing5") tmp<-c(tmp,mean(di[idi5]))   # des 5% les plus proches
       #if (cc=="sing10") tmp<-c(tmp,mean(di[idi10])) # des 10% les plus proches
-      #if (cc=="singnei") tmp <- c(tmp,mean(criteria[idi05,"sing05"],na.rm=TRUE))
-      #if (cc=="rsingnei") tmp <- c(tmp,mean(criteria[idi05,"rsing05"],na.rm=TRUE))
+      if (cc=="singnei") tmp <- c(tmp,mean(criteria[idi05,"sing05"],na.rm=TRUE))
+      if (cc=="rsingnei") tmp <- c(tmp,mean(criteria[idi05,"rsing05"],na.rm=TRUE))
       #
       ## Log Singularite
       #if (cc=="lsing05") tmp<-c(tmp,mean(log(di[idi05]))) # moyenne du logarithme des distances des 0.5% les plus proches
@@ -1721,7 +1721,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="pers10") tmp<-c(tmp,mean(ri10$lengths[ri10$values==1])) # du quantile 10%
       #
       ## Quantiles
-      #if (cc=="q05") tmp<-c(tmp,qi05) # Quantile 0.5%
+      if (cc=="q05") tmp<-c(tmp,qi05) # Quantile 0.5%
       #if (cc=="q1") tmp<-c(tmp,qi1)   # Quantile 1%
       #if (cc=="q2") tmp<-c(tmp,qi2)   # Quantile 2%
       #if (cc=="q5") tmp<-c(tmp,qi5)   # Quantile 5%
@@ -1747,7 +1747,7 @@ compute_criteria<-function(k,dist,start="1950-01-01",end="2011-12-31",update=FAL
       #if (cc=="persnei") tmp <- c(tmp,mean(criteria[idi05,"snei05"],na.rm=TRUE))
       
       ## Celerite neighbour: on moyenne la celerite des plus proches voisins
-      #if (cc=="celnei") tmp<-c(tmp,mean(criteria[idi05,"cel"],na.rm=TRUE)) # moyenne des celerites des 0.5% les plus proches
+      if (cc=="celnei") tmp<-c(tmp,mean(criteria[idi05,"cel"],na.rm=TRUE)) # moyenne des celerites des 0.5% les plus proches
       #if (cc=="celnei1") tmp<-c(tmp,mean(criteria[idi1,"cel"],na.rm=TRUE))   # des 1% les plus proches
       #if (cc=="celnei2") tmp<-c(tmp,mean(criteria[idi2,"cel"],na.rm=TRUE))   # des 2% les plus proches
       #if (cc=="celnei5") tmp<-c(tmp,mean(criteria[idi5,"cel"],na.rm=TRUE))   # des 5% les plus proches
@@ -2007,6 +2007,7 @@ compute.desais <- function(descr,dates){
 compute_dist.gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean){
   if (k %in% 1:2) {
     if (dist %in% c("TWS","RMSE","RMSE_I","RMSE_II","Mahalanobis")){
+      #if (dist=="TWS") dist.list<-compute_TWS_par(k,start,end,rean,nb_cores = 6)
       if (dist=="TWS") dist.list<-compute_TWS(k,start,end,rean)
       if (dist=="RMSE") dist.list<-compute_RMSE(k,start,end,rean)
       if (dist=="RMSE_I") dist.list<-compute_RMSE_I(k,start,end,rean)
@@ -2220,6 +2221,44 @@ compute_TWS<-function(k,start="1950-01-01",end="2011-12-31",rean){
     #}
     gc()
   }
+  dist.list
+}
+
+# Calcul des scores TWS comme au-dessus mais optimisé en parallèle
+compute_TWS_par<-function(k,start="1851-01-01",end="2011-12-31",rean,nb_cores=1){
+  gradlist<-grad(k,start,end,rean) ##function coded below
+  gradlon <- gradlist$gradlon
+  gradlat <- gradlist$gradlat
+  
+  N<-dim(gradlon)[3] ## time
+  
+  cl <- makeCluster(nb_cores) # create a cluster with n cores
+  registerDoParallel(cl) # register the cluster
+  
+  dist.list = foreach(i =1:(N-1)) %dopar% { ## no .combine by default result is a list (and no need for .packages)
+    j<-(i+1):N
+    gradlonj<-gradlon[,,j]
+    gradlatj<-gradlat[,,j]
+    if (is.matrix(gradlonj)) gradlonj<-array(gradlonj,c(dim(gradlonj),1)) # si on arrive a la derniere journee, on force la matrice en array pour derouler le code qui suit sans probleme
+    if (is.matrix(gradlatj)) gradlatj<-array(gradlatj,c(dim(gradlatj),1))
+    gradloni<-array(gradlon[,,i],dim(gradlonj)) # on repete j fois le champs de pression de la journee i
+    gradlati<-array(gradlat[,,i],dim(gradlatj))
+    
+    #### numerateur du TWS
+    fct<-function(v) sum(abs(v))
+    dif_grad<-apply(gradloni-gradlonj,3,fct)+apply(gradlati-gradlatj,3,fct) # on calcule la somme des differences entre les gradients de chaque point de grille du jour i et le gradient de chaque point de grille de tous les jours j
+    
+    #### denominateur du TWS
+    max_grad<-apply(pmax(abs(gradloni),abs(gradlonj)),3,sum)+apply(pmax(abs(gradlati),abs(gradlatj)),3,sum) # on calcule la somme des gradients maximums pour chaque point de grille entre ceux du jour i et ceux de tous les jours j 
+    ## apply(data,over time,sum)
+    ## pmax is the parallel maxima, it means out of two (or more) vectors of the same length for each index, the maximal value out of the 2 vectors. the output is a vector of the same length
+    
+    ####calcul du TWS
+    dif_grad/max_grad/2
+  }
+  
+  stopCluster(cl) # shut down the cluster
+  gc()
   dist.list
 }
 
@@ -2491,23 +2530,22 @@ fit.loglik.p0.A<-function(rad,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31
 }
 
 # Sort la matrice de donnees de dat500 (k=1) ou dat1000 (k=2) dans notre fenetre d'analogie pour le jour j (de 1=01/01/1851 a 58804=31/12/2011)
-getdata<-function(k,day0,day1=day0,rean,large_win=F,var="hgt"){
+getdata<-function(k,day0,day1=day0,rean,large_win=F,small_win=F,all=F,var="hgt"){
+  
   nc <- load.nc(rean,var)
-  if(var=="hgt"){
-    num0<-date_to_number(nc[[k]],day0,rean)
-    num1<-date_to_number(nc[[k]],day1,rean)
-    N<-length(num0:num1)
-    infowind<-getinfo_window(k,large_win,rean=rean,var=var)
-    data <- ncvar_get(nc = nc[[k]],varid=var,start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
-    nc_close(nc[[1]]);nc_close(nc[[2]])
-    }else{
-    num0<-date_to_number(nc,day0,rean)
-    num1<-date_to_number(nc,day1,rean)
-    N<-length(num0:num1)
-    infowind<-getinfo_window(k,large_win,rean=rean,var=var)
-    data <- ncvar_get(nc = nc,varid=var,start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
-    nc_close(nc[[1]]);nc_close(nc[[2]])
-    }
+  if(var=="hgt"){ nc <- nc[[k]]}
+  
+  num0<-date_to_number(nc,day0,rean)
+  num1<-date_to_number(nc,day1,rean)
+  if(rean=="ERA20C_4daily"){ # si on est en 6h, on prend le minuit du debut et le 18h de la fin
+      num0 <- num0[1]
+      num1 <- num1[length(num1)]
+  }
+  
+  N<-length(num0:num1)
+  infowind<-getinfo_window(k,large_win,small_win,all,rean,var)
+  data <- ncvar_get(nc = nc,varid=var,start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
+  nc_close(nc)
   data
 }
 
@@ -2518,12 +2556,16 @@ getdates<-function(start="1950-01-01",end="2011-12-31"){
 
 # Date associee a chaque pas de temps dans le fichier NetCDF
 getdays<-function(nc,rean){
+  # Origine
   if(rean == "20CR") orig <- "1800"
   if(substr(rean,1,3) == "JRA") orig <- "1800"
   if(substr(rean,1,3) == "ERA") orig <- "1900"
   if(rean == "NCEP") orig <- "1950"
-  substr(as.POSIXct(nc$dim$time$vals*3600,origin=paste0(orig,'-01-01 00:00'),tz="GMT"),1,10) #format "YYYY-MM-DD"
-}
+  
+  # Vecteur time
+  ti <- nc$dim$time$vals*3600
+  substr(as.POSIXct(ti,origin=paste0(orig,'-01-01 00:00'),tz="GMT"),1,10) #format "YYYY-MM-DD"
+  }
 
 # Importe la liste contenant la distance souhaitee
 getdist<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,threeday=FALSE,period="present"){
@@ -2552,32 +2594,51 @@ getdist4i<-function(i,dist.vec,N,sU){
 }
 
 # Definit la fenetre spatiale d'analogie pour extraire des donnees de data500 et data1000 
-getinfo_window<-function(k,large_win = F,rean,var="hgt"){ 
-  if(var == "hgt"){
-    nc <- load.nc(rean,var)
-    # lat et lon correspondent aux degres de longitude et latitude pour lesquels on a les donnees des geopot 500 et 1000
-    lon<-nc[[k]]$dim$lon$vals # de -30 a 50 deg E tranches de 2 deg -> 41 valeurs
-    lat<-nc[[k]]$dim$lat$vals #de 24 a 72 deg N tranches de 2 deg -> 25 valeurs
-    # time=data500$dim$time$vals # 58804 valeurs par tranches de 24h (du 01-01-1851 au 31-12-2011), valeurs a 9h chaque jour
-    # parametre fenetre d'analogie
-  }
+getinfo_window<-function(k,large_win = F,small_win=F,all=F,rean,var="hgt"){ 
   
-  if(var =="pwat"){
-    nc <- load.nc(rean,var)
-    lon<-nc$dim$lon$vals
-    lat<-nc$dim$lat$vals
-  }
+  # large_win = T pour 1000hPa sur grande fenetre
+  # small_win = T pour PWAT sur une fenetre reduite
+  # all = T pour avoir tout le domaine du fichier netcdf
+  
+  # Import
+  nc <- load.nc(rean,var)
+  if(var == "hgt"){ nc <- nc[[k]]}
+  
+  # Coord
+  lon<-nc$dim$lon$vals
+  lat<-nc$dim$lat$vals
+  nc_close(nc)
+  
+  # Fenetre spatiale
+  if(all){# Complete
+    infolon <- c(1,length(lon)) # indice du 1er point de grille et nbre de points de grille
+    infolat <- c(1,length(lat))
+  }else{ # Incomplete
   
   c_lon<-6 # centre de la fenetre longitude
   c_lat<-44 # centre de la fenetre latitude
   
-  if(k==1 | large_win==T) {# 500hPA
+  if(k==1 | large_win) {# 500hPA
     d_lon<-32 # on prend 32 en longitude pour 500hPa
     d_lat<-16 # on prend 16 en latitude pour 500hPa
   }
-  if (k==2 & large_win==F){ # 1000 hPA
+  
+  if (k==2 & !large_win){ # 1000 hPA
     d_lon<-16 # on prend 16 en longitude pour 1000hPa
     d_lat<-8  # on prend 8 en latitude pour 1000hPa
+  }
+  
+  if(k==1 & small_win & rean=="20CR") {# PWAT
+    d_lon<-1
+    c_lat<-46
+    d_lat<-1
+  }
+  
+  if(k==1 & small_win & rean=="ERA5") {# TCW
+    c_lon<-6.25
+    c_lat<-45.25
+    d_lon<-1.5
+    d_lat<-1.5
   }
   
   deb_lon <- which.min(abs(lon - (c_lon-d_lon/2)))
@@ -2590,10 +2651,11 @@ getinfo_window<-function(k,large_win = F,rean,var="hgt"){
   
   infolon <- c(deb_lon,len_lon) # indice du 1er point de grille et nbre de points de grille
   infolat <- c(deb_lat,len_lat)
+  }
   
   return(rbind(infolon,infolat))# matrice 2x2 
   
-} 
+}
 
 # Ressort le nom du geopotentiel en fonction de k
 getZstr<-function(k){
@@ -2817,6 +2879,23 @@ get.ind.min.max.descr <- function(descr,k,dist,nbdays,start="1950-01-01",end="20
   res
 }
 
+# Renvoie les valeurs max de vent (u et v ensemble)
+get.min.max.wind <- function(k,start="1950-01-01",end="2011-12-31",rean){
+  
+  # Import des donnees
+  uwind <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = "uwind")
+  vwind <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = "vwind")
+  
+  # Valeurs de vent
+  wind <- sqrt(uwind^2+vwind^2)
+  
+  mini <- round(min(wind),1)
+  maxi <- round(max(wind),1)
+  print(paste0("Wind min = ",mini," m/s"))
+  print(paste0("Wind max = ",maxi," m/s"))
+  c(mini,maxi)
+}
+
 # Importation des donnees de precipitation
 get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm=F){
   
@@ -2824,21 +2903,26 @@ get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm
   
   # Chemin
   if(spazm){
-    dir <- "2_Travail/Data/Precip/SPAZM/";end.date <- "2011-12-31"
-  }else{dir <- "2_Travail/Data/Precip/TPS/72_stations/";end.date <- "2019-12-31"}
+    dir <- "2_Travail/Data/Precip/SPAZM/"
+    start.date <- "1950-01-01"
+    end.date <- "2017-12-31"
+  }else{
+    dir <- "2_Travail/Data/Precip/TPS/72_stations/"
+    start.date <- "1950-01-01"
+    end.date <- "2019-12-31"}
   
   # Import
-  precip <- read.csv(file=paste0(dir,bv,"_cum1day_",start,"_",end.date,".csv"))
+  precip <- read.csv(file=paste0(dir,bv,"_cum1day_",start.date,"_",end.date,".csv"))
   precip <- precip[,1]
   
   # Dates
-  if(start != "1950-01-01"){
-      start_diff <- length(seq(as.Date("1950-01-01"),as.Date(start),"days"))
+  if(start > start.date){
+      start_diff <- length(seq(as.Date(start.date),as.Date(start),"days"))
       precip <- precip[start_diff:length(precip)]
     }
   
-  if(end.date!= "2011-12-31"){
-      end_diff <- length(seq(as.Date("2011-12-31"),as.Date(end.date),"days"))
+  if(end < end.date){
+      end_diff <- length(seq(as.Date(end),as.Date(end.date),"days"))
       precip <- precip[1:(length(precip) - end_diff + 1)]
     }
 
@@ -2886,7 +2970,7 @@ get.stdstr<-function(standardize){
 # Importation des WP EDF
 get.wp <- function(nbdays,start="1950-01-01",end="2011-12-31",risk=F,bv="Isere",agreg=F,spazm=F){
   
-  wp <- read.table(file = paste0("2_Travail/Data/WP/type_temps_jour",ifelse(agreg,"_agreg",""),".txt"), quote="\"", comment.char="")
+  wp <- read.table(file = paste0("2_Travail/Data/WP/type_temps_jour_1948_2019",ifelse(agreg,"_agreg",""),".txt"), quote="\"", comment.char="")
   wp[,1] <- as.character(format(as.Date(wp[,1],"%d/%m/%Y"),"%Y-%m-%d"))
   wp <- wp[which(wp[,1]==start):which(wp[,1]==end),2]
   
@@ -2915,7 +2999,7 @@ get.wp <- function(nbdays,start="1950-01-01",end="2011-12-31",risk=F,bv="Isere",
     print(cat1);print(cat2);print(cat3)
   }
   
-  wp
+  as.integer(wp)
 }
 
 # Calcule les gradients pour 500 (k=1) ou 1000 (k=2) pour tous les jours
@@ -2927,11 +3011,11 @@ grad<-function(k,day0,day1,rean,large_win=F){
 }
 
 # Comparaison des sequences de differents nbdays jours
-illustr.precip.seq<-function(nbdays,start="1950-01-01",end="2011-12-31"){
+illustr.precip.seq<-function(bv,nbdays,start="1950-01-01",end="2011-12-31",spazm=F,nei=F){
   
-  precip<-get.precip(nbdays,start,end)
+  precip<-get.precip(nbdays,start,end,bv,spazm)
   cdf<-ecdf(precip)
-  precip0<-get.precip(1,start,end)
+  precip0<-get.precip(1,start,end,bv,spazm)
   cdf0<-ecdf(precip0)
   
   graphics.off()
@@ -2941,15 +3025,25 @@ illustr.precip.seq<-function(nbdays,start="1950-01-01",end="2011-12-31"){
   for (i in 1:nbdays) tmp<-cbind(tmp,precip0[(i:(n+i-1))]) 
   tmp<-t(apply(tmp,1,sort))
   
-  rep <- round(table(tmp[sort(precip,decreasing=T,index.return=T)$ix[1:62],1] > quantile(precip0,0.9))/62*100,0) # points noirs dessus/dessous q90
+  # Pour 62 max
+  #rep <- round(table(tmp[sort(precip,decreasing=T,index.return=T)$ix[1:62],1] > quantile(precip0,0.9))/62*100,0) # points noirs dessus/dessous q90
+  # Pour q99
+  seuil <- quantile(precip,probs=0.99)
+  ind <- get.ind.extr(bv,nbdays,start,end,nei,spazm,seuil="qua")
+  if(nei){
+    hid <- which(precip > seuil)[!(which(precip > seuil) %in% ind)] # pts qu'on retire dans le graphe: au dessus du seuil mais pas independant
+  }
+  seuil0 <- quantile(precip0,probs=0.9)
+  rep <- round(table(tmp[ind,1]> seuil0)/length(ind)*100,0)
   
-  png(file=paste0("2_Travail/0_Present/Rresults/illustr.precip.seq/plotseq_",nbdays,"_",start,"_",end,".png"),width=350,heigh=404,units="px",res=72)
-  plot(range(precip0),range(precip0),type="n",xlab=paste0(nbdays,"-day precip (mm/day)"),ylab="daily precip (mm/day)")
-  for (i in 1:ncol(tmp)) points(precip,tmp[,i],col=i,pch=19,cex=0.8)
-  abline(v=quantile(precip,1-62/length(precip)),lty=2)
-  text(x=quantile(precip,1-62/length(precip))*1.1,y=67,"q = 0.9973",font = 3,srt = 90)
-  abline(h=quantile(precip0,0.9),lty=2)
-  text(x=55,y=quantile(precip0,0.9)*1.2,"q = 0.9",font = 3)
+  png(file=paste0("2_Travail/0_Present/Rresults/illustr.precip.seq/plotseq_",bv,"_mean",nbdays,"days_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(nei,"_nei",""),".png"),width=350,heigh=404,units="px",res=72)
+  plot(range(precip0),range(precip0),type="n",xlab=paste0(nbdays,"-day precip (mm/day)"),ylab="daily precip (mm/day)",main=nam2str(bv))
+  if(!nei){for (i in 1:ncol(tmp)) points(precip,tmp[,i],col=i,pch=19,cex=0.8)}
+  if(nei){for (i in 1:ncol(tmp)) points(precip[-hid],tmp[-hid,i],col=i,pch=19,cex=0.8)}
+  abline(v=seuil,lty=2)
+  text(x=seuil*0.9,y=67,"q = 0.99",font = 3,srt = 90)
+  abline(h=seuil0,lty=2)
+  text(x=55,y=seuil0*1.2,"q = 0.9",font = 3)
   text(x=65,y=5,paste0(rep[1],"%"),font = 2,cex=1.2)
   text(x=65,y=20,paste0(rep[2],"%"),font = 2,cex=1.2)
   dev.off()
@@ -3072,9 +3166,9 @@ image.cumul<-function(crue=FALSE){
 }
 
 # Carte de l'Europe avec fenêtres d'analogie, et carte de la region
-image.europe<- function(){
+image.europe<- function(rean="20CR"){
   
-  png(filename = "2_Travail/0_Present/Rresults/image.europe/image_europe_region.png",width = 1100,height = 500,units = "px")
+  png(filename = paste0("2_Travail/0_Present/Rresults/image.europe/image_europe_region_",rean,".png"),width = 1100,height = 500,units = "px")
   par(mfrow=c(1,2),oma=c(0,1,0,1))
   
   # Carte Europe
@@ -3082,80 +3176,94 @@ image.europe<- function(){
   par(pty="s",mar=c(4,0,4,0),oma=c(0,0,0,0))
   plot(wrld_simpl,xlim=c(-12,24),ylim=c(38,50))
   
-  # Rectangles analogie
-  nc <- load.nc()
-  for(k in 1:1){
-    fen <- getinfo_window(k)
-    tmp <- nc[[k]]
-    lon <- tmp$dim$lon$vals
-    lat <- tmp$dim$lat$vals
-    rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,
-         border=ifelse(k==1,"deepskyblue","blue"),lwd=2)
-  }
-  rect(5.5,44.5,7.2,45.8,border="red",lwd=2)
+  # Rectangle analogie 500hPa
+  nc <- load.nc(rean=rean,var = "hgt")
+  nc <- nc[[1]]
+  fen <- getinfo_window(k=1,rean=rean)
+  lon <- nc$dim$lon$vals
+  lat <- nc$dim$lat$vals
+  nc_close(nc)
+  delta <- abs(lon[1]-lon[2])/2 # demi ditance entre deux points de grille pour tracer precisement la fenetre d'analogie
+  rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,
+         border=ifelse(k==1,"blue","deepskyblue"),lwd=2)
+  #points(expand.grid(lon[fen[1,1]:(fen[1,1]+fen[1,2]-1)],lat[fen[2,1]:(fen[2,1]+fen[2,2]-1)]),pch=19,cex=0.1)
+  
+  # Region d'etude
+  # rect(5.5,44.5,7.2,46,border="red",lwd=2)
+  
+  # Rectangle TCW ERA5
+  rect(xleft = 5.5-delta,ybottom = 44.5-delta,xright = 7+delta,ytop = 46+delta,
+       border="red",lwd=2)
   
   # Carte région
   par(mar=c(4,4,4,3))
-  image.region(pluvios = T,save=F,names = T,crsm=T)
+  image.region(pluvios = F,save=F,names = T,crsm=T,bd_alti = F)
   graphics.off()
   
 }
 
 # Trace la carte du BV avec pluvios, rivieres, villes
-image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F){
+image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F){
   
+  # BVs a tracer
   bv <- c(#"isere",
-          #"isere-seul",
-          #"drac-seul"
-          "tarentaise",
-          "maurienne",
-          "romanche",
-          "drac",
-          "gresivaudan"
+          "isere-seul",
+          "drac-seul"
+          #"tarentaise",
+          #"maurienne",
+          #"romanche",
+          #"drac",
+          #"gresivaudan"
           )
+  
+  # Coordonnees des noms de BV a tracer
   if(names){
     coord.nam <- list(
-      c(960,2010),#c(930,2055), si centre des bv
-      c(940,1985)#c(890,1995)
+      c(930,2055), #c(960,2010)
+      c(890,1995) #c(940,1985)
     )
-    coord.seg <- list(
-      c(960,2015,957,2022),
-      c(929,1985,921,1987)
-    )
+    #coord.seg <- list(
+    #  c(960,2015,957,2022),
+    #  c(929,1985,921,1987)
+    #)
   }
   
   if(save) pdf(file=paste0("2_Travail/0_Present/Rresults/image.region/map_region_",ifelse(pluvios,"pluvios_",""),paste0(bv,collapse = "_"),".pdf"),width = 7.5,height = 7.5)
   
   # Fond de carte
+  if(!bd_alti){
   load(file=paste("2_Travail/Data/Carto/griddata_1x1_IsereSavoieHautesAlpes.Rdata",sep=""))
   Fx<-griddata$Fx
   Fy<-griddata$Fy
   Fz<-griddata$Fz*1000
-  
+  }else{
+  load(file="2_Travail/Data/Carto/bdalti.Rdata")
   Fx<-bdalti$Fx/1000
   Fy<-bdalti$Fy/1000
   Fz<-bdalti$Fz
-    
-  pal <- colorRampPalette(c("darkolivegreen3","lightsalmon4","white"))
-  pal(100)
-  image.plot(Fx,Fy,Fz,col=pal(100),xlab="X (km) - Lambert II extended",ylab="Y (km) - Lambert II extended",legend.line=-2.3, cex.axis=1.3, cex.lab=1.3,xlim=c(min(Fx),975))
-  #gray(seq(0.1,0.99,length=100))
-  # Frontieres climato crsm (Auer, 2005)
-  if(crsm){
-    ligne=read.csv("2_Travail/Data/Carto/Shape_CRSM.csv")
-    lines(ligne[ligne[,1]==1,4],ligne[ligne[,1]==1,5],lwd=3,lty=2,col="black")
   }
+  
+  pal <- colorRampPalette(c("darkolivegreen2","chocolate4","white"))
+  image.plot(Fx,Fy,Fz,col=pal(100),xlab="X (km) - Lambert II extended",ylab="Y (km) - Lambert II extended",
+             legend.line=-2.3, cex.axis=1.3, cex.lab=1.3)
+  #gray(seq(0.1,0.99,length=100))
   
   # Bordure du BV et des sous-BV
   for(i in 1:length(bv)){
     bord<-read.csv(paste0("2_Travail/Data/Carto/borders-lambertII-",bv[i],".csv"),sep=";")
     bord<-cbind(bord$XLII.m,bord$YLII.m)
-    lines(bord,col="white",lwd=3)
+    lines(bord,col="black",lwd=3)
     if(names){
-      text(coord.nam[[i]][1],coord.nam[[i]][2],nam2str(bv[i]),col="white",font=2,cex=2)
-      arrows(coord.seg[[i]][1],coord.seg[[i]][2],coord.seg[[i]][3],coord.seg[[i]][4],
-              col="white",lwd=3,length=0.1)
+      shadowtext(coord.nam[[i]][1],coord.nam[[i]][2],nam2str(bv[i]),col="black",bg="white",font=2,cex=2.5)
+      #arrows(coord.seg[[i]][1],coord.seg[[i]][2],coord.seg[[i]][3],coord.seg[[i]][4],
+      #        col="black",lwd=3,length=0.1)
     }
+  }
+  
+  # Frontieres climato crsm (Auer, 2005)
+  if(crsm){
+    ligne=read.csv("2_Travail/Data/Carto/Shape_CRSM.csv")
+    lines(ligne[ligne[,1]==1,4],ligne[ligne[,1]==1,5],lwd=3,lty=2,col="purple")
   }
   
   # Calcul surfaces
@@ -3167,7 +3275,7 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F){
   
   for (i in id){
     tmp<-riv@lines[[i]]@Lines[[1]]@coords/1000
-    lines(tmp[,1],tmp[,2],col="cyan")
+    lines(tmp[,1],tmp[,2],col="blue",lwd=2)
   }
   
   # Pluvios
@@ -3212,14 +3320,27 @@ load.nc<-function(rean = "20CR",var="hgt"){
     nc<-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/PWAT/20Crv2_EnsembleMean_PWAT_1851-2014_daily.nc"))
   }
   
+  if(rean == "20CR" & var == "uwind"){
+    nc <-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/WIND/20Crv2c_EnsembleMean_UWIND_500_1851-2014_daily.nc"))
+  }
+  
+  if(rean == "20CR" & var == "vwind"){
+    nc <-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/WIND/20Crv2c_EnsembleMean_VWIND_500_1851-2014_daily.nc"))
+  }
+  
   if(rean == "ERA20C"){
     nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_daily.nc")
     nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT1000_1900_2010_daily.nc")
   }
   
   if(rean == "ERA20C_18"){
-    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C_18/ERA20C_HGT500_1900_2010_18h.nc")
-    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA20C_18/ERA20C_HGT1000_1900_2010_18h.nc")
+    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_18h.nc")
+    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT1000_1900_2010_18h.nc")
+  }
+  
+  if(rean == "ERA20C_4daily"){
+    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_4daily.nc")
+    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT1000_1900_2010_4daily.nc")
   }
   
   if(rean == "NCEP"){
@@ -3227,9 +3348,30 @@ load.nc<-function(rean = "20CR",var="hgt"){
     nc1000<-nc_open("2_Travail/Data/Reanalysis/NCEP/NCEP_HGT1000_1950_2010_daily.nc")
   }
   
-  if(rean == "ERA5"){
-    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA5/ERA5_HGT500_1979-01-01_2020-04-30_daily.nc")
-    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA5/ERA5_HGT500_1979-01-01_2020-04-30_daily.nc")
+  if(rean == "ERA5" & var == "hgt"){
+    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA5/HGT500/ERA5_HGT500_1950-01-01_2020-04-30_daily.nc")
+    nc1000<-nc500
+  }
+  
+  if(rean == "ERA5" & var == "tcw"){
+    nc<-nc_open("2_Travail/Data/Reanalysis/ERA5/TCW/ERA5_TCW_1950_2019_daily.nc")
+    names(nc$dim) <- c("lon","lat","time","bnds")
+    names(nc$var)[2] <- "tcw"
+    nc$var$tcw$name <- "tcw"
+  }
+  
+  if(rean == "ERA5" & var == "uwind"){
+    nc <-nc_open("2_Travail/Data/Reanalysis/ERA5/WIND/ERA5_UWIND_1950_2019_daily.nc")
+    names(nc$dim) <- c("lon","lat","time","bnds")
+    names(nc$var)[2] <- "uwind"
+    nc$var$uwind$name <- "uwind"
+  }
+  
+  if(rean == "ERA5" & var == "vwind"){
+    nc <-nc_open("2_Travail/Data/Reanalysis/ERA5/WIND/ERA5_VWIND_1950_2019_daily.nc")
+    names(nc$dim) <- c("lon","lat","time","bnds")
+    names(nc$var)[2] <- "vwind"
+    nc$var$vwind$name <- "vwind"
   }
   
   if(rean == "ERA40"){
@@ -3308,7 +3450,7 @@ make.precip1.isere<-function(start="1950-01-01",end="2011-12-31") {
 manip.spazm <- function(){
   
   # Import
-  load("2_Travail/Data/Precip/SPAZM/accum-drac-isere_SPAZM_1950-2012.Rdata")
+  load("2_Travail/Data/Precip/SPAZM/accum-drac-isere_SPAZM_1950-2017.Rdata")
   
   # Surfaces
   print(paste0("Surface BV Isere: ",length(accum$idx.isere)+length(accum$idx.drac), "km2"))
@@ -3316,46 +3458,93 @@ manip.spazm <- function(){
   print(paste0("Surface BV Drac seul: ",length(accum$idx.drac), "km2"))
   
   # Dates
-  deb <- which(accum$dates == "01/01/50"); fin <- which(accum$dates == "12/31/11")
+  deb <- which(accum$dates == "01/01/50"); fin <- which(accum$dates == "12/31/17")
   accum$sum.isere <- accum$sum.isere[deb:fin]
   accum$sum.drac <- accum$sum.drac[deb:fin]
   
   # Isere
   precip.isere <- (accum$sum.isere+accum$sum.drac)/(length(accum$idx.isere)+length(accum$idx.drac))
   precip.isere.3j <- rollapply(precip.isere,3,mean)
-  write.table(x = precip.isere,file = "2_Travail/Data/Precip/SPAZM/Isere_cum1day_1950-01-01_2011-12-31.csv",sep = ";",row.names = F, col.names = T)
-  write.table(x = precip.isere.3j,file = "2_Travail/Data/Precip/SPAZM/Isere_cum3day_1950-01-01_2011-12-31.csv",sep = ";",row.names = F, col.names = T)
+  write.table(x = precip.isere,file = "2_Travail/Data/Precip/SPAZM/Isere_cum1day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
+  write.table(x = precip.isere.3j,file = "2_Travail/Data/Precip/SPAZM/Isere_cum3day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
   
   # Isere seul
   precip.isere.seul <- accum$sum.isere/length(accum$idx.isere)
   precip.isere.seul.3j <- rollapply(precip.isere.seul,3,mean)
-  write.table(x = precip.isere.seul,file = "2_Travail/Data/Precip/SPAZM/Isere-seul_cum1day_1950-01-01_2011-12-31.csv",sep = ";",row.names = F, col.names = T)
-  write.table(x = precip.isere.seul.3j,file = "2_Travail/Data/Precip/SPAZM/Isere-seul_cum3day_1950-01-01_2011-12-31.csv",sep = ";",row.names = F, col.names = T)
+  write.table(x = precip.isere.seul,file = "2_Travail/Data/Precip/SPAZM/Isere-seul_cum1day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
+  write.table(x = precip.isere.seul.3j,file = "2_Travail/Data/Precip/SPAZM/Isere-seul_cum3day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
   
   # Drac seul
   precip.drac.seul <- accum$sum.drac/length(accum$idx.drac)
   precip.drac.seul.3j <- rollapply(precip.drac.seul,3,mean)
-  write.table(x = precip.drac.seul,file = "2_Travail/Data/Precip/SPAZM/Drac-seul_cum1day_1950-01-01_2011-12-31.csv",sep = ";",row.names = F, col.names = T)
-  write.table(x = precip.drac.seul.3j,file = "2_Travail/Data/Precip/SPAZM/Drac-seul_cum3day_1950-01-01_2011-12-31.csv",sep = ";",row.names = F, col.names = T)
+  write.table(x = precip.drac.seul,file = "2_Travail/Data/Precip/SPAZM/Drac-seul_cum1day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
+  write.table(x = precip.drac.seul.3j,file = "2_Travail/Data/Precip/SPAZM/Drac-seul_cum3day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
   
 }
 
 # Carte de geopotentiel d'un jour donne
-map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F){
+map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F,wind=F,condens=F){
+  
+  # Dates concernees
+  start <- date
+  end <- as.character(as.Date(date)+nbdays-1)
   
   # Import des donnees
-  nc <- load.nc(rean)
-  fen <- getinfo_window(k,rean=rean)
+  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = "hgt")
   
-  if(k==1){nc <- nc$nc500
-  }else{nc <- nc$nc1000}
-  
+  # Import lon/lat et fenetre
+  nc <- load.nc(rean,var="hgt")
+  nc <- nc[[k]]
   lon <- nc$dim$lon$vals
   lat <- nc$dim$lat$vals
-  num0<-date_to_number(nc,date,rean)
+  nc_close(nc)
   
-  geo <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),nbdays))
-  dim(geo) <- c(length(lon),length(lat),nbdays)
+  fen <- getinfo_window(k = k,rean=rean,var = "hgt")
+  gc()
+  
+  if(wind){
+    # Import des donnees
+    uwind <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = "uwind")
+    gc()
+    vwind <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = "vwind")
+    gc()
+    
+    # Import lon/lat
+    nc.wind <- load.nc(rean,var="uwind")
+    lon.wind <- nc.wind$dim$lon$vals
+    lat.wind <- nc.wind$dim$lat$vals
+    nc_close(nc.wind)
+    gc()
+    
+    # Selection d'1 pt sur N uniquement
+    N <- 3
+    if(rean=="ERA5") N <- 24
+    
+    if(nbdays==1){
+      uwind <- uwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N)]
+      vwind <- vwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N)]
+    }else{
+    uwind <- uwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N),]
+    vwind <- vwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N),]
+    }
+    lon.wind <- lon.wind[seq(1,length(lon.wind),N)]
+    lat.wind <- lat.wind[seq(1,length(lat.wind),N)]
+    
+    # Max de vent pour reglage de la taille des fleches
+    if(rean=="20CR"){ # si 20CR, on va chercher le max de vent sur toute la periode
+    maxi.all <- get.min.max.wind(k,start="1950-01-01",end="2011-12-31",rean)[2]
+    }
+    if(rean=="ERA5"){ # si ERA5, pas possible car fichier trop gros, on definit le max a 100m/s
+      maxi.all <- 100
+    }
+    maxi.fen <- get.min.max.wind(k,start,start,rean)[2]
+    
+    if(nbdays>1){ # max de chaque journee de la sequence
+      for(i in 2:nbdays){
+        maxi.fen <- c(maxi.fen,get.min.max.wind(k,as.Date(start)+i-1,as.Date(start)+i-1,rean)[2])
+      }
+    }
+  }
   
   # Parametres graphiques
   if(k==1){ 
@@ -3373,7 +3562,7 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F){
   # Carte
   if(save) {
     png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.geo/",date,"_k",k,"_",nbdays,"day.png"),
-        width = ifelse(nbdays==3,1050,350),height = 350,units = "px")
+        width = ifelse(nbdays==3,1050,600),height = 600,units = "px")
     layout(matrix(1:nbdays,1,nbdays))
   }
   
@@ -3383,31 +3572,73 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F){
   
   for(i in 1:nbdays){
     
+    if(nbdays==1){
+      z <- geo
+    }else{z <- geo[,,i]}
+    
+    # Carte geopotentiel
     if(leg){
-      image.plot(lon,lat,geo[,,i],xlim=c(-20,25),ylim=c(25,70),
+      if(!condens){
+      image.plot(lon,lat,z,xlim=c(-15,25),ylim=c(25,65),
                  col=rev(brewer.pal(n = N, name = "RdBu")),
                  xlab="Longitude (°)",ylab="Latitude (°)",main=as.Date(date)+i-1,
                  legend.line=-2.3, cex.axis=cex, cex.lab=cex, cex.main=cex,
                  breaks = breaks,axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
+      }else{
+        image.plot(lon,lat,z,xlim=c(-15,25),ylim=c(25,65),
+                   col=rev(brewer.pal(n = N, name = "RdBu")),
+                   xlab="",ylab="",main="",xaxt="n",yaxt="n",
+                   breaks = breaks,axis.args = list(at=lab,labels=as.character(lab)))
+      }
     }else{
-      image(lon,lat,geo[,,i],xlim=c(-20,25),ylim=c(25,70),
+      if(!condens){
+      image(lon,lat,z,xlim=c(-15,25),ylim=c(25,65),
             col=rev(brewer.pal(n = N, name = "RdBu")),
             xlab="Longitude (°)",ylab="Latitude (°)",main=as.Date(date)+i-1,
             cex.axis=cex, cex.lab=cex, cex.main=cex,
             breaks = breaks)
+      }else{
+        image(lon,lat,z,xlim=c(-15,25),ylim=c(25,65),
+              col=rev(brewer.pal(n = N, name = "RdBu")),
+              xlab="",ylab="",main="",xaxt="n",yaxt="n",
+              breaks = breaks)
+      }
     }
     
+    # Isohypses
+    if(iso) contour(x=lon,y=lat,z=z, levels=lev, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
+    
+    # Carte monde
     data(wrld_simpl)
     plot(wrld_simpl, add = TRUE)
+    
+    # Region d'etude
     points(6,45,col="red",pch=19)
-    if(win) rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
+    
+    # Fenetre d'analogie
+    delta <- abs(lon[1]-lon[2])/2
+    if(win) rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
+    
+    # Lettre
     if(i==1 & let!=F) mtext(let, side=3, at=-30,line = 2,cex=1.5)
-    if(iso) contour(x=lon,y=lat,z=geo[,,i], levels=lev, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
+    
+    # Vent 500hPa
+    if(wind){
+    coord <- as.matrix(expand.grid(lon.wind,lat.wind))
+    if(nbdays==1){
+    wi <- as.matrix(cbind(as.vector(uwind),as.vector(vwind)))
+    }else{wi <- as.matrix(cbind(as.vector(uwind[,,i]),as.vector(vwind[,,i])))}
+    
+    arrow.plot(a1 = coord,a2 = wi,length=0.08,xpd=F,arrow.ex = 0.4*maxi.fen[i]/maxi.all,lwd=2,true.angle = T)
+    }
+    
+    # Date dans la carte
+    if(condens) shadowtext(5,61,as.Date(date)+i-1,font=2,cex=1.7,col="black",bg="white",r=0.3)
+    
     box()
   }
   
   if(save) graphics.off()
-  
 }
 
 # Carte de geopotentiel d'un jour donne (cartes serrees pour poster)
@@ -3426,6 +3657,7 @@ map.geo.condens <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F)
   
   geo <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),nbdays))
   dim(geo) <- c(length(lon),length(lat),nbdays)
+  nc_close(nc)
   
   # Parametres graphiques
   if(k==1){ 
@@ -4952,17 +5184,18 @@ plot.sais.descr <- function(descr,k,nbdays=3,start="1950-01-01",end="2011-12-31"
 }
 
 # plot generique de la saisonnalite d'un vecteur
-plot.sais.quantile <- function(dates,vec,y.label,main){
+plot.sais.quantile <- function(dates,vec,y.label,main="",colo="blue"){
   
   med <- aggregate(vec,by=list(substr(dates,6,10)),median)[,2]
   q10 <- aggregate(vec,by=list(substr(dates,6,10)),quantile,probs=0.1)[,2]
   q90 <- aggregate(vec,by=list(substr(dates,6,10)),quantile,probs=0.9)[,2]
+  q99 <- aggregate(vec,by=list(substr(dates,6,10)),quantile,probs=0.99)[,2]
   day <- as.Date(sort(unique(substr(dates,6,10))),"%m-%d")
   
-  plot(med,type="n",ylim=c(min(q10),max(q90)),col="blue",xaxt="n",lwd=2,xlab="",ylab=y.label,font.lab=2,main=main)
+  plot(med,type="n",ylim=c(min(q10),max(q99)),col="blue",xaxt="n",lwd=2,xlab="",ylab=y.label,font.lab=2,main=main)
   abline(v=match(unique(substr(dates,6,7)),substr(dates,6,7)),lty=3,col="grey")
   grid(NA,NULL)
-  lines(med,col="blue",lwd=2)
+  lines(med,col=colo,lwd=2)
   axis(1,at = match(unique(substr(dates,6,7)),substr(dates,6,7)),labels = paste0("01-",unique(substr(dates,6,7))))
   lines(q10,col="darkgrey",lwd=2)
   lines(q90,col="darkgrey",lwd=2)
@@ -5261,6 +5494,38 @@ plot.wp.occurence<-function(start="1950-01-01",end="2011-12-31"){
   
 }
 
+# Mise en forme de 20CR wind
+reshape.20CR.wind <- function(var="UWIND"){
+  
+  # Import reanalyse
+  nc <- nc_open(filename = paste0("2_Travail/Data/Reanalysis/20CR/WIND/20Crv2_EnsembleMean_",var,"_500_1851-2014_daily_brut.nc"))
+
+  # Donnees
+  if(var=="UWIND"){
+    vari <- "U_GRD_GDS0_ISBL"
+    vari.name <- "uwind"
+  }else{
+    vari <- "V_GRD_GDS0_ISBL"
+    vari.name <- "vwind"}
+  
+  arr <- ncvar_get(nc = nc,varid = vari,start = c(1,1,1),count=c(length(nc$dim$g0_lon_2$vals),length(nc$dim$g0_lat_1$vals),length(nc$dim$initial_time0_hours$vals)))
+  
+  # Changement noms variables, longitude en negatif et export
+  lon <- nc$dim$g0_lon_2
+  lon$name <- "lon"
+  lon$vals[lon$vals>180] <- lon$vals[lon$vals>180]-360 # on passe les longitudes en negatif
+  
+  lat <- nc$dim$g0_lat_1
+  lat$name <- "lat"
+  
+  time <- nc$dim$initial_time0_hours
+  time$name <- "time"
+  res.form   <- ncvar_def(name = vari.name, units = "m.s", dim = list(lon,lat,time),prec = "double",longname = "Longitudinal Wind")
+  res.create <- nc_create(filename = paste0("2_Travail/Data/Reanalysis/20CR/WIND/20Crv2_EnsembleMean_",var,"_500_1851-2014_daily.nc"), vars = res.form)
+  ncvar_put(nc = res.create, varid = res.form,vals = arr)
+  
+}
+
 # Concatenation et aggregation de ERA20C
 reshape.ERA20C <- function(z = "1000"){
   
@@ -5310,7 +5575,7 @@ reshape.ERA5 <- function(z = "500"){
   # je ne prend que les donnees ERA jusqu'a avril 2020
   
   # Import reanalyse brute
-  nc <- nc_open(filename = paste0("2_Travail/Data/Reanalysis/ERA5/ERA5_",z,"HGT_1979_2019_6h.nc"))
+  nc <- nc_open(filename = paste0("2_Travail/Data/Reanalysis/ERA5/ERA5_HGT",z,"_1979_2019_6h.nc"))
   len.time <- length(seq(as.Date("1979-01-01"),as.Date("2020-04-30"),by="days"))*4
   arr <- ncvar_get(nc = nc,varid = "z",start = c(1,1,1,1),count=c(length(nc$dim$lon$vals),length(nc$dim$lat$vals),1,len.time))
   
@@ -5328,6 +5593,30 @@ reshape.ERA5 <- function(z = "500"){
   res.create <- nc_create(filename = paste0("2_Travail/Data/Reanalysis/ERA5/ERA5_HGT",z,"_1979-01-01_2020-04-30_daily.nc"), vars = res.form)
   ncvar_put(nc = res.create, varid = res.form,vals = arr_final)
   
+}
+
+# Reduction du fichier des distances TWS a la periode souhaitee
+reshape.ERA5.period <- function(){
+  
+  # Import
+  load("2_Travail/0_Present/ERA5/Rresults/compute_dist/TWS_member1_k1_1950-01-01_2019-12-31.Rdata")
+  
+  # Indices a retirer
+  dates <- getdates("1950-01-01","2019-12-31")
+  pos <- which(dates=="2017-12-31")
+  len <- length((pos+1):length(dates))
+  
+  # On les retire
+  length(dist.list) <- pos-1 # on retire les jours cible hors de la periode souhaitee
+
+  for(i in 1:length(dist.list)){ # on retire les jours "analogues" hors de la periode souhaitee
+    if(i%%100==0) print(i)
+    len.i <- length(dist.list[[i]])
+    dist.list[[i]] <- dist.list[[i]][-((len.i-len+1):len.i)]
+  }
+  
+  # Export
+  save(dist.list, file="2_Travail/0_Present/ERA5/Rresults/compute_dist/TWS_member1_k1_1950-01-01_2017-12-31.Rdata")
 }
 
 # Mise en forme de JRA

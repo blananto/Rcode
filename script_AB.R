@@ -12,7 +12,7 @@ N        <- "02" # %age de voisins selectionnes pour l'analogie classique
 Q        <- "05" # %age de voisins selectionnes pour construire les indicateurs 
 M        <- "nrn05" # %age de voisins selectionnes pour l'analogie indicateurs
 start    <- "1950-01-01"
-end      <- "2011-12-31" # end <- "2010-12-31" pour ERA2C
+end      <- "2017-12-31" # end <- "2010-12-31" pour ERA2C
 
 # Import des sorties de la reanalyse et calcul des distances ----
 load.nc(rean = rean)
