@@ -246,6 +246,7 @@ compute.lat.jet <- function(gamme=c(5450,5550),k,start="1851-01-01",end="2010-12
   nc <- load.nc(rean)$nc500
   lon <- nc$dim$lon$vals
   lat <- nc$dim$lat$vals
+  nc_close(nc)
   
   info <- getinfo_window(k,rean=rean) # lon et lat de notre fenetre d'analogie
   lon <- lon[info[1,1]:(info[1,1]+info[1,2]-1)]
@@ -370,6 +371,71 @@ get.mean <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
   geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
   des <- apply(geo,3,function(x) mean(x))
   des <- rollapply(des,nbdays,mean)
+}
+
+# Difference altitude geopotentiel 1900-1930 et 1970-2000
+map.diff.geo <- function(k,rean){
+  
+  # Import des donnees
+  data.deb <- getdata(k = k,day0 = "1900-01-01",day1 = "1930-12-31",rean = rean,all = T,var = "hgt")
+  data.fin <- getdata(k = k,day0 = "1970-01-01",day1 = "2000-12-31",rean = rean,all = T,var = "hgt")
+  
+  # Moyennes et difference
+  mean.deb <- apply(data.deb,1:2,mean)
+  mean.fin <- apply(data.fin,1:2,mean)
+  diff.geo <- mean.fin - mean.deb
+  
+  # Cartes
+  nc <- load.nc(rean,var="hgt")
+  nc <- nc[[k]]
+  lon <- nc$dim$lon$vals
+  lat <- nc$dim$lat$vals
+  fen <- getinfo_window(k = k,rean=rean,var = "hgt")
+  nc_close(nc)
+  
+  png(filename = paste0("2_Travail/1_Past/Rresults/map.diff.geo/map_diff_k",k,"_",rean,".png"),width = 12,height = 6,units = "in",res=300)
+  par(pty="s",mfrow=c(1,3),mar=c(4,6,4,6))
+  
+  breaks <- seq(5350,5850,length.out = 12)
+  N <- 11
+  lab <- seq(5350,5850,100)
+  
+  # debut
+  image.plot(lon,lat,mean.deb,xlim=c(-15,25),ylim=c(25,65),main="1900-1930",
+             col=rev(brewer.pal(n = N, name = "RdBu")),
+             xlab="Longitude (°)",ylab="Latitude (°)",
+             legend.line=-2.3,breaks = breaks,
+             axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
+  
+  data(wrld_simpl)
+  plot(wrld_simpl, add = TRUE)
+  rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
+  
+  # fin
+  image.plot(lon,lat,mean.fin,xlim=c(-15,25),ylim=c(25,65),main="1970-2000",
+             col=rev(brewer.pal(n = N, name = "RdBu")),
+             xlab="Longitude (°)",ylab="Latitude (°)",
+             legend.line=-2.3,breaks = breaks,
+             axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
+  
+  plot(wrld_simpl, add = TRUE)
+  rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
+  
+  # diff
+  breaks <- seq(-50,50,length.out = 12)
+  N <- 11
+  lab <- seq(-50,50,10)
+  
+  image.plot(lon,lat,diff.geo,xlim=c(-15,25),ylim=c(25,65),main="1970-2000 - 1900-1930",
+             col=rev(brewer.pal(n = N, name = "RdBu")),
+             xlab="Longitude (°)",ylab="Latitude (°)",
+             legend.line=-2.3,breaks = breaks,
+             axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
+  
+  plot(wrld_simpl, add = TRUE)
+  rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
+  
+  graphics.off()
 }
 
 # Trace la correlation avec tous les lissages entre un indicateur et les cumuls de precipitation aux pas de temps journalier et annuels, pour une saison
@@ -988,7 +1054,7 @@ plot.trend.wp <- function(start="1900-01-01",end="2010-12-31",rean,liss=1,n.ana=
 }
 
 # Run des fonctions
-run <- function(type=1){
+run.past <- function(type=1){
   
   # plot.trend.descr()
   if(type==1){

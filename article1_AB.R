@@ -81,10 +81,11 @@ combine.quant.bv <- function(){
   dist <- "TWS"
   nbdays <- 3
   start <- "1950-01-01"
-  end <- "2011-12-31"
-  rean <- "20CR"
+  end <- "2017-12-31"
+  rean <- "ERA5"
+  comm <- F
   spazm <- T
-  supseuil <- F
+  supseuil <- T
   
   # Graphiques
   p <- compare.descr.bv(bv1 = bv1,bv2 = bv2,k = k,dist = dist,start = start,end = end,rean = rean,comm = F,nbdays = nbdays,spazm = spazm,save=F,legend=F,supseuil = supseuil)
@@ -105,10 +106,10 @@ combine.quant.wp <- function(){
   dist <- "TWS"
   nbdays <- 3
   start <- "1950-01-01"
-  end <- "2011-12-31"
-  rean <- "20CR"
-  spazm <- F
-  supseuil <- F
+  end <- "2017-12-31"
+  rean <- "ERA5"
+  spazm <- T
+  supseuil <- T
   
   # Graphiques
   p <- compare.descr.flow(flow = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,spazm = spazm,save=F,legend=F,supseuil=supseuil)
@@ -401,12 +402,12 @@ compare.descr.flow <- function(flow=c(1,2),agreg=T,descr=c("celnei","singnei","r
   
   for(i in 1:length(descr)){
     mat <- cbind(mat,get.descriptor(descr[i],k,dist,nbdays,start,end,standardize = F,rean=rean))
-    nam.descr[i] <- ifelse(descr[i]=="dP","MPD",descr[i])
+    nam.descr[i] <- ifelse(descr[i]=="dP","MPD",nam2str(descr[i]))
     colnames(mat)[ncol(mat)] <- nam.descr[i]
   }
   
   # Traitement
-  namflow <- c("Zonal","Meridional","North-East","Anticyclonic")
+  namflow <- c("Atlantic","Mediterranean","North-East","Anticyclonic")
   namflow <- namflow[flow]
   ind.1 <- get.ind.max.flow(flow[1],agreg=agreg,nbdays,start,end,spazm,supseuil)
   ind.2 <- get.ind.max.flow(flow[2],agreg=agreg,nbdays,start,end,spazm,supseuil)
@@ -480,6 +481,31 @@ compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",
   print(paste0("min density: ",min(nb)))
   print(paste0("max density: ",max(nb)))
   save(nb,file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.density/nbnei_",ifelse(quant,"quant_",""),ifelse(wp!=F,paste0("wp",wp,"_"),""),descriptors[1],"_",descriptors[2],ifelse(length(descriptors)==3,paste0("_",descriptors[3]),""),"_",ifelse(agreg,"agreg_",""),ifelse(dist[1]!=dist[2],paste0(dist[1],"_",dist[2]),dist[1]),ifelse(spazm,"_spazm",""),"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+}
+
+# Comparaison des indicateurs calcules en moyenne journaliere ou sur les champs instantanes a 18h (ERA20C)
+compare.ERA20C.ERA20C18 <- function(descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start="1950-01-01",end="2010-12-31"){
+  
+  # Parametres graphiques
+  png(filename = paste0("2_Travail/0_Present/Rresults/compare.ERA20C.ERA20C18/scatterplot_k",k,"_",dist,"_mean",nbdays,"days_",start,"_",end,".png"),width = 7,height = 7,units = "in",res = 300)
+  par(mfrow=c(2,2),pty="s",mar=c(4,2,3,0))
+  
+  # Boucle sur les indicateurs
+  for(i in 1:length(descr)){
+    
+    # Import
+    ind.era20c <- get.descriptor(descr[i],k,dist,nbdays,start,end,standardize = F,
+                                 rean = "ERA20C",period = "present")
+    ind.era20c18 <- get.descriptor(descr[i],k,dist,nbdays,start,end,standardize = F,
+                                 rean = "ERA20C_18",period = "present")
+    ran <- range(ind.era20c,ind.era20c18)
+    
+    # Scatterplot
+    plot(ind.era20c,ind.era20c18,xlim=ran,ylim=ran,xlab="ERA20C daily",ylab="ERA20C 1800 UTC",main=nam2str(descr[i],whole = T),pch=19)
+    abline(0,1,col="red",lwd=2)
+    text(ran[2]-1/3*(ran[2]-ran[1]),ran[2]-2/3*(ran[2]-ran[1]),paste0("R2 = ",round(cor(ind.era20c,ind.era20c18),2)),font=2)
+  }
+  graphics.off()
 }
 
 # Compte le % de sequences d'un meme flux en dessous d'un certain quantile de deux descripteurs
@@ -576,6 +602,26 @@ get.bdalti.region <- function(){
   
 }
 
+# Correlation en valeur et en rang des indicateurs
+get.cor.descr <- function(k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean,period="present"){
+  
+  #Indicateurs
+  descr <- list(
+    c("celnei","dP"),
+    c("singnei","dP"),
+    c("rsingnei","dP")
+  )
+  
+  for(i in 1:length(descr)){
+    des1 <- get.descriptor(descr[[i]][1],k,dist,nbdays,start,end,standardize = F,rean,period=period)
+    des2 <- get.descriptor(descr[[i]][2],k,dist,nbdays,start,end,standardize = F,rean,period=period)
+    print(descr[[i]])
+    print(paste0("Classique: ",round(cor(des1,des2,method="pearson"),2)))
+    print(paste0("Rang: ",round(cor(des1,des2,method="spearman"),2)))
+  }
+  
+}
+
 # Calcul de dP
 get.dP <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
   geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
@@ -602,46 +648,95 @@ get.ind.max.flow <- function(flow,agreg,nbdays,start,end,spazm=F,supseuil=F){
 }
 
 # Calcul de pwat moyen journalier
-get.pwat <- function(k=1,nbdays,start="1950-01-01",end="2011-12-31",rean){
-  pwat <- getdata(k = k,day0 = start,day1 = end,rean = rean,var = "pwat") 
-  des <- apply(pwat,3,function(x) mean(x))
-  des <- rollapply(des,nbdays,mean)
+get.pwat <- function(k=1,nbdays,start="1950-01-01",end="2011-12-31",rean,small_win){
+  
+  # Import
+  if(rean=="20CR") vari <- "pwat"
+  if(rean=="ERA5") vari <- "tcw"
+  pwat <- getdata(k = k,day0 = start,day1 = end,rean = rean,var = vari,small_win=small_win) 
+  
+  # Moyenne sur la fenetre
+  if(small_win & rean=="20CR"){# si small_win et 20CR, tableau et non array car seulement 2 pts de grille
+  des <- apply(pwat,2,function(x) mean(x))
+  }else{des <- apply(pwat,3,function(x) mean(x))}
+  
+  # Moyenne glissante sur nbdays
+  des <- rollapply(des,nbdays,mean) 
 }
 
 # Carte composite des anomalies par wp ou groupement de wp
-map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F,anomalies=T){
+map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F,anomalies=T,wind=F){
   
   # Import wp
   tt <- get.wp(nbdays = 1,start,end,risk=F,bv = "Isere",agreg=agreg)
   ind <- which(tt == wp)
   
-  # Import geopotentiel
-  nc <- load.nc(rean)
-  fen <- getinfo_window(k)
+  # Import des donnees
+  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = "hgt")
   
-  if(k==1){nc <- nc$nc500
-  }else{nc <- nc$nc1000}
-  
+  # Import lon/lat et fenetre
+  nc <- load.nc(rean,var="hgt")
+  nc <- nc[[k]]
   lon <- nc$dim$lon$vals
   lat <- nc$dim$lat$vals
-  num0 <- date_to_number(nc,start,rean)
-  leng <- length(seq(as.Date(start),as.Date(end),"days"))
+  nc_close(nc)
   
-  geo <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),leng))
-  dim(geo) <- c(length(lon),length(lat),leng)
+  fen <- getinfo_window(k = k,rean=rean,var = "hgt")
   
+  # Vent
+  if(wind){
+    # Import des donnees
+    uwind <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = "uwind")
+    vwind <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = "vwind")
+    
+    # Import lon/lat
+    nc.wind <- load.nc(rean,var="uwind")
+    lon.wind <- nc.wind$dim$lon$vals
+    lat.wind <- nc.wind$dim$lat$vals
+    
+    # Selection d'1 pt sur N uniquement
+    N <- 3
+    if(rean=="ERA5") N <- 24
+    
+    uwind <- uwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N),]
+    vwind <- vwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N),]
+    lon.wind <- lon.wind[seq(1,length(lon.wind),N)]
+    lat.wind <- lat.wind[seq(1,length(lat.wind),N)]
+    
+    # Max de vent pour reglage de la taille des fleches
+    if(rean=="20CR"){
+    maxi.all <- get.min.max.wind(k,start="1950-01-01",end="2011-12-31",rean)[2]
+    }
+    if(rean=="ERA5"){
+      maxi.all <-100
+    }
+  }
+  
+  # Traitement: composites
+  geo.wp <- geo[,,ind]
+  comp <- apply(geo.wp,1:2,mean)
+  
+  if(wind){
+  uwind.wp <- uwind[,,ind]
+  vwind.wp <- vwind[,,ind]
+  comp.uwind <- apply(uwind.wp,1:2,mean)
+  comp.vwind <- apply(vwind.wp,1:2,mean)
+  maxi.fen <- max(sqrt(comp.uwind^2+comp.vwind^2))
+  }
+  
+  # Traitement: anomalies
   if(anomalies){
-  geo_all <- ncvar_get(nc,varid="hgt",start=c(1,1,num0),count=c(length(lon),length(lat),22645))
-  dim(geo_all) <- c(length(lon),length(lat),22645)}
-  
-  
-  # Traitement
-  geo <- geo[,,ind]
-  comp <- apply(geo,1:2,mean)
-  
-  if(anomalies){
-    comp_all <- apply(geo_all,1:2,mean)
-    comp <- comp - comp_all}
+    comp_all <- apply(geo,1:2,mean)
+    comp <- comp - comp_all
+    
+    if(wind){
+    comp.uwind.all <- apply(uwind,1:2,mean)
+    comp.vwind.all <- apply(vwind,1:2,mean)
+    comp.uwind <- comp.uwind - comp.uwind.all
+    comp.vwind <- comp.vwind - comp.vwind.all
+    maxi.fen <- max(sqrt(comp.uwind^2+comp.vwind^2))
+    }
+    }
   
   # Parametres graphiques
   if(anomalies){
@@ -664,7 +759,7 @@ map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F
   }
   
   # Noms des circulations
-  if(agreg){namflow <- c("Zonal","Meridional","North-East","Anticyclonic")
+  if(agreg){namflow <- c("Atlantic","Mediterranean","North-East","Anticyclonic")
   }else{namflow <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
                      "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")}
   namflow <- namflow[wp]
@@ -674,13 +769,13 @@ map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F
   cex <- 1.5
     
     if(leg){
-      image.plot(lon,lat,comp,xlim=c(-20,25),ylim=c(25,70),
+      image.plot(lon,lat,comp,xlim=c(-15,25),ylim=c(25,65),
                  col=rev(brewer.pal(n = N, name = "RdBu")),
                  xlab="",ylab="",main="",xaxt="n",yaxt="n",
                  legend.line=-2.3, cex.axis=cex, cex.lab=cex, cex.main=cex,
                  breaks = breaks,axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
     }else{
-      image(lon,lat,comp,xlim=c(-20,25),ylim=c(25,70),
+      image(lon,lat,comp,xlim=c(-15,25),ylim=c(25,65),
             col=rev(brewer.pal(n = N, name = "RdBu")),
             xlab="",ylab="",main="",xaxt="n",yaxt="n",
             cex.axis=cex, cex.lab=cex, cex.main=cex,
@@ -691,9 +786,19 @@ map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F
     plot(wrld_simpl, add = TRUE)
     points(6,45,col="red",pch=19)
     if(win) rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
-    if(let!=F) mtext(let, side=3, at=-23,line = 0,cex=1.4)
+    if(let!=F) mtext(let, side=3, at=-20,line = 0,cex=1.4)
     if(iso) contour(x=lon,y=lat,z=comp, levels=lev, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
-    shadowtext(3,66,namflow,font=2,cex=2,col="black",bg="white",r=0.3)
+    
+    # Vent 500hPa
+    if(wind){
+      coord <- as.matrix(expand.grid(lon.wind,lat.wind))
+      wi <- as.matrix(cbind(as.vector(comp.uwind),as.vector(comp.vwind)))
+      
+      arrow.plot(a1 = coord,a2 = wi,length=0.05,xpd=F,arrow.ex = 0.4*maxi.fen/maxi.all,lwd=2)
+    }
+    
+    shadowtext(5,61,namflow,font=2,cex=2,col="black",bg="white",r=0.3)
+    
     box()
 }
 
@@ -845,7 +950,7 @@ map.min.max <- function(descr,k,dist,nbdays,start,end,rean,poster=F){
 }
 
 # Carte des geopotentiels des sequences min et max de plusieurs descripteur
-map.min.max.all <- function(descr=c("celnei","singnei","rsingnei"),k,dist,nbdays,start,end,rean){
+map.min.max.all <- function(descr=c("celnei","singnei","rsingnei"),k,dist,nbdays,start,end,rean,wind=F){
   
   # Parametres graphiques
   nam <- nam2str(descr,whole = T)
@@ -874,7 +979,8 @@ map.min.max.all <- function(descr=c("celnei","singnei","rsingnei"),k,dist,nbdays
     text(1,0.5,nam[i],cex=2.5,font=2)
     
     # min et max
-    des <- get.descriptor(descr[i],k,dist,nbdays,start,end,T,rean,F)
+    des <- get.descriptor(descriptor = descr[i],k = k,dist = dist,nbdays = nbdays,
+                          start = start,end = end,standardize = F,rean = rean,threeday = F)
     ind.min <- which.min(des)
     ind.max <- which.max(des)
     
@@ -884,8 +990,8 @@ map.min.max.all <- function(descr=c("celnei","singnei","rsingnei"),k,dist,nbdays
     # min
     ind <- ind.min
       for(j in 1:3){
-        date <- getdates()[ind+j-1]
-        map.geo.condens(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = F,leg=F,iso = T)
+        date <- getdates(start,end)[ind+j-1]
+        map.geo(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = F,leg=F,iso = F,wind = wind,condens = T)
         if(j==1) mtext(let[(i-1)*2+1], side=3, at=-25,line = -3,cex=1.2)
         }
     #plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
@@ -893,8 +999,8 @@ map.min.max.all <- function(descr=c("celnei","singnei","rsingnei"),k,dist,nbdays
     # max
     ind <- ind.max
     for(j in 1:3){
-      date <- getdates()[ind+j-1]
-      map.geo.condens(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = F,leg=F,iso = T)
+      date <- getdates(start,end)[ind+j-1]
+      map.geo(date = date,rean = rean,k = k,nbdays = 1,save = F,win = T,let = F,leg=F,iso = F,wind = wind,condens = T)
       if(j==1) mtext(let[(i-1)*2+2], side=3, at=-25,line = -3,cex=1.2)
       }
   }
@@ -914,11 +1020,12 @@ map.pwat <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T){
   
   # Import des donnees
   nc <- load.nc(rean,var = "pwat")
-  fen <- getinfo_window(k,var = "pwat")
+  fen <- getinfo_window(k,var = "pwat",rean = rean)
   
   lon <- nc$dim$lon$vals
   lat <- nc$dim$lat$vals
   num0<-date_to_number(nc,date,rean)
+  nc_close(nc)
   
   pwat <- ncvar_get(nc,varid="pwat",start=c(1,1,num0),count=c(length(lon),length(lat),nbdays))
   dim(pwat) <- c(length(lon),length(lat),nbdays)
@@ -968,24 +1075,25 @@ map.pwat <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T){
 }
 
 # Carte composite de geopotentiel et d'anomalies pour deux WP
-map.wp.flow <- function(flow=c(1,2),agreg=T,k,rean,start="1950-01-01",end="2011-12-31"){
+map.wp.flow <- function(flow=c(1,2),agreg=T,k,rean,start="1950-01-01",end="2011-12-31",wind=F){
   
   # Noms des circulations
-  if(agreg){namflow <- c("Zonal","Meridional","North-East","Anticyclonic")
+  if(agreg){namflow <- c("Atlantic","Mediterranean","North-East","Anticyclonic")
   }else{namflow <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
              "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")}
   namflow <- namflow[flow]
   
   # Graphique
-  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.wp.flow/map_wp_flow_",namflow[1],"_",namflow[2],"_wp","_","_member",member,"_k",k,"_",start,"_",end,".png"),width = 6,height = 5,units = "in",res=200)
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.wp.flow/map_wp_flow_",namflow[1],"_",namflow[2],"_wp","_member",member,"_k",k,"_",start,"_",end,".png"),width = 6,height = 5,units = "in",res=200)
   layout(matrix(1:6,2,3,byrow=F),width=c(1.3,1.3,0.4))
   par(pty="s",mar=c(0,3,1,1))
   let <- list(c("a)","c)"),c("b)","d)"))
+  let <- list(c(F,F),c(F,F))
   
   # Cartes composites
   for(i in 1:length(flow)){
-    map.composite.wp(flow[i],k,start,end,rean,leg=F,let=let[[i]][1],agreg=agreg,anomalies = F)
-    map.composite.wp(flow[i],k,start,end,rean,leg=F,let=let[[i]][2],agreg=agreg,anomalies = T)
+    map.composite.wp(flow[i],k,start,end,rean,leg=F,let=let[[i]][1],agreg=agreg,anomalies = F,wind=wind,iso = T)
+    map.composite.wp(flow[i],k,start,end,rean,leg=F,let=let[[i]][2],agreg=agreg,anomalies = T,wind=wind,iso = T)
   }
   
   # Legende cartes
@@ -1271,7 +1379,7 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
   }
   
   # Parametres graphiques
-  if(quant){gamme <- c(0,3931)
+  if(quant){gamme <- c(0,3756)
   }else{gamme <- c(0,4319)}
   
   if(sea){
@@ -1338,21 +1446,21 @@ plot.empir.bv.combine <- function(){
   # Parametres
   bv1 <- "Isere-seul"
   bv2 <- "Drac-seul"
-  rean <- c("20CR","20CR")
+  rean <- c("ERA5","ERA5")
   k <- c(1,1)
   descr <- list(
     c("celnei","dP"),
     c("singnei","dP"),
     c("rsingnei","dP")
   )
-  nam <- c("Celerity","Singularity","Relative singularity")
+  nam <- c("Celerity vs. MPD","Singularity vs. MPD","Relative singularity vs. MPD")
   dist <- c("TWS","TWS")
   nbdays=3
   start="1950-01-01"
-  end="2011-12-31"
+  end="2017-12-31"
   let <- list(c("a)","b)"),c("c)","d)"),c("e)","f)"))
   radtype="nrn05"
-  CV=TRUE;threeday=c(F,F);spazm=F;save=F;quant=T;sea=F;pwat=F;comm=F;max=T;supseuil=T
+  CV=TRUE;threeday=c(F,F);spazm=T;save=F;quant=T;sea=F;pwat=F;comm=F;max=T;supseuil=T
   
   # Graphique
   png(file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.empir.bv-CV/plot_combine_",bv1,"_",bv2,ifelse(spazm,"_spazm",""),ifelse(quant,"_quant",""),ifelse(supseuil,"_supseuil",""),".png"),width=6,height=9,units = "in",res=200)
@@ -1366,8 +1474,10 @@ plot.empir.bv.combine <- function(){
     
     # Graphiques
     par(mar=c(4,1.5,1.5,0),pty="s")
-    plot.empir.bv(bv1,bv2,rean,k,descr[[i]],dist,nbdays,start,end,radtype,
-                  CV,threeday,spazm,save,let[[i]],quant,sea,pwat,comm,max,supseuil)
+    plot.empir.bv(bv1 = bv1,bv2 = bv2,rean = rean,k = k,descriptors = descr[[i]],dist = dist,
+                  nbdays = nbdays,start = start,end = end,radtype = radtype,
+                  CV = CV,threeday = threeday,spazm = spazm,save = save,let = let[[i]],
+                  quant = quant,sea = sea,pwat = pwat,comm = comm,max = max,supseuil = supseuil)
   }
   graphics.off()
 }
@@ -1533,13 +1643,13 @@ plot.empir.wp <- function(wp=1:8,rean,k,descriptors,dist,nbdays=3,start="1950-01
   
   if(agreg){
     #namflow <- c("Zonal","Meridional","North-East","Anticyclonic")
-    namflow <- c("Oceanic","Mediterranean","Continental","Anticyclonic")
+    namflow <- c("Atlantic","Mediterranean","Continental","Anticyclonic")
   }else{namflow <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
                      "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")}
   namflow <- namflow[wp]
   
   gamme <- list(rep(c(0,2965),length(wp)))
-  if(agreg & quant) gamme <- list(c(0,3146),c(0,1475))
+  if(agreg & quant) gamme <- list(c(0,3142),c(0,1505))
   if(agreg & !quant) gamme <- list(c(0,2386),c(0,1405))
   
   for(i in wp){
@@ -1582,7 +1692,7 @@ plot.empir.wp.combine <- function(){
   
   # Parametres
   wp <- c(1,2)
-  namflow <- c("Zonal","Meridional")
+  namflow <- c("Atlantic","Mediterranean")
   rean <- c("20CR","20CR")
   k <- c(1,1)
   descr <- list(
@@ -1590,7 +1700,7 @@ plot.empir.wp.combine <- function(){
     c("singnei","dP"),
     c("rsingnei","dP")
   )
-  nam <- c("Celerity","Singularity","Relative singularity")
+  nam <- c("Celerity vs. MPD","Singularity vs. MPD","Relative singularity vs. MPD")
   
   dist <- c("TWS","TWS")
   nbdays=3
@@ -1599,7 +1709,7 @@ plot.empir.wp.combine <- function(){
   let <- list(c("a)","b)"),c("c)","d)"),c("e)","f)"))
   radtype="nrn05"
   agreg=T
-  CV=TRUE;threeday=c(F,F);spazm=F;save=F;quant=T;sea=F;pwat=F;comm=F;supseuil=T
+  CV=TRUE;threeday=c(F,F);spazm=T;save=F;quant=T;sea=F;pwat=F;comm=F;supseuil=T
   
   # Graphique
   png(file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.empir.wp-CV/plot_combine_",namflow[1],"_",namflow[2],ifelse(spazm,"_spazm",""),ifelse(quant,"_quant",""),ifelse(supseuil,"_supseuil",""),".png"),width=6,height=9,units = "in",res=200)
@@ -1622,10 +1732,10 @@ plot.empir.wp.combine <- function(){
 # Combinaison des deux graphiques plot.period.ana() et plot.month.ana()
 plot.fig.ana <- function(Q="05",k,nbdays,dist,start="1950-01-01",end="2011-12-31",rean){
   
-  plot1 <- plot.period.ana(Q,k,nbdays,dist,start,end,rean)
-  plot2 <- plot.month.ana(Q,k,nbdays,dist,start,end,rean)
-  plot.final <- ggarrange(plot1, NULL, plot2, nrow=1,ncol=3,widths = c(1.5,0.05,1),labels = c("a)","","b)"))
-  ggsave(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k1/plot.fig.ana/plot_fig_ana.png"),plot = plot.final,width = 10,height = 4.5)
+  plot1 <- plot.month.ana(Q,k,nbdays,dist,start,end,rean)
+  plot2 <- plot.period.ana(Q,k,nbdays,dist,start,end,rean)
+  plot.final <- ggarrange(plot1, NULL, plot2, nrow=1,ncol=3,widths = c(1,0.05,1.5),labels = c("a)","","b)"))
+  ggsave(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k1/plot.fig.ana/plot_fig_ana_mean",nbdays,"days.png"),plot = plot.final,width = 10,height = 4.5)
 }
   
 # Repartition des mois des analogues par rapport au mois cible
@@ -1651,8 +1761,8 @@ plot.month.ana <- function(Q="05",k,nbdays,dist,start="1950-01-01",end="2011-12-
   
   # Histogramme
   count <- hist(x = nei.mon,breaks=seq(-6.5,6.5,1),plot=F)$counts
-  sum(count[6:8])/sum(count)*100 # analogues compris entre m-1 et m+1
-  sum(count[5:9])/sum(count)*100 # analogues compris entre m-2 et m+2
+  print(sum(count[6:8])/sum(count)*100) # analogues compris entre m-1 et m+1
+  print(sum(count[5:9])/sum(count)*100) # analogues compris entre m-2 et m+2
   
   # Classique
   #hist(x=nei.mon,axes=F,breaks=seq(-6.5,6.5,1),col="azure3",xlab="Month(Target Day) - Month(Analog Days)",freq=F,main="")
@@ -1745,16 +1855,34 @@ plot.period.max <- function(bv1="Isere-seul",bv2="Drac-seul",nbdays,start="1950-
   
   # Graphique
   png(filename = paste0("2_Travail/0_Present/Rresults/plot.period.max/plot.period.max_",bv1,"_",bv2,ifelse(spazm,"_spazm",""),".png"),
-      width = 7,height = 4.5,units = "in",res = 300)
-  plot(ann.1[,1],rep(1,nrow(ann.1)),ylim=c(0,3),type="n",yaxt="n",xlab="Year",ylab="")
-  grid(ny=NA,nx=NULL)
-  abline(h=c(1,2),col="grey",lty=3)
-  par(new=T)
-  points(ann.1[,1],rep(2,nrow(ann.1)),cex=ann.1[,2]/2,col="cornflowerblue",pch=19)
-  points(ann.2[,1],rep(1,nrow(ann.2)),cex=ann.2[,2]/2,col="burlywood1",pch=19)
-  legend("topleft",bty="n",c(nam2str(bv1),nam2str(bv2)),pch=19,col=c("cornflowerblue","burlywood1"),cex=1.2,pt.cex=1.2,horiz=T,title = "Catchment")
-  legend("topright",bty="n",as.character(c(1,3,6)),pch=21,pt.cex=c(1/2,3/2,6/2),horiz=T,title="Number of event",cex=1.2)
+      width = 5,height = 2.5,units = "in",res = 300)
+  
+  # Nouvelle version
+  layout(matrix(1:3,nrow = 3,ncol = 1,byrow = T),heights=c(1,1,0.1))
+  par(mar=c(2,4,2,0))
+  plot(ann.1,type="l",ylim=c(0,6),col="cornflowerblue",pty="n", main=nam2str(bv1),xlab="",ylab="Number of event")
+  grid()
+  lines(ann.1,col="cornflowerblue")
+  
+  plot(ann.2,type="l",ylim=c(0,6),col="burlywood1",pty="n", main=nam2str(bv2),xlab="Year",ylab="Number of event")
+  grid()
+  lines(ann.2,col="burlywood1")
+  
+  par(mar=c(0,0,0,0))
+  plot(1,1,type="n",xaxt="n",yaxt="n",bty="n")
+  text(1.035,1,"Year")
   graphics.off()
+  
+  # Ancienne version
+  #plot(ann.1[,1],rep(1,nrow(ann.1)),ylim=c(0,3),type="n",yaxt="n",xlab="Year",ylab="")
+  #grid(ny=NA,nx=NULL)
+  #abline(h=c(1,2),col="grey",lty=3)
+  #par(new=T)
+  #points(ann.1[,1],rep(2,nrow(ann.1)),cex=sqrt(ann.1[,2])*0.8,bg="cornflowerblue",pch=21)
+  #points(ann.2[,1],rep(1,nrow(ann.2)),cex=sqrt(ann.2[,2])*0.8,bg="burlywood1",pch=21)
+  #legend("topleft",bty="n",c(nam2str(bv1),nam2str(bv2)),pch=19,col=c("cornflowerblue","burlywood1"),cex=1.2,pt.cex=1.2,horiz=T,title = "Catchment")
+  #legend("topright",bty="n",as.character(c(1,3,6)),pch=21,pt.cex=c(1*0.8,sqrt(3)*0.8,sqrt(6)*0.8),horiz=T,title="Number of event",cex=1.2)
+  #graphics.off()
 }
   
 # Graphique de la saisonnalite de pwat et du boxplot de comparaison pour deux bvs
@@ -1865,25 +1993,29 @@ plot.pwat.flow <- function(nbdays,start,end,rean){
 }
 
 # Graphique de la saisonnalite de pwat avec les max annuels des deux influences Z et M
-plot.pwat.sais <- function(flow=c(1,2),agreg=T,start,end,rean,spazm=c(F,F)){
+plot.pwat.sais <- function(flow=c(1,2),agreg=T,start="1950-01-01",end="2011-12-31",rean,spazm=F,small_win=F,supseuil=F){
   
   # Imports
   dates <- getdates(start,end)
   year <- substr(seq(as.Date("2020-01-01"),as.Date("2020-12-31"),"days"),6,10) # pour ajouter les pts sur la saisonalite
   
-  pw <- get.pwat(k = 1,nbdays = 1,start,end,rean)
+  pw <- get.pwat(k = 1,nbdays = 1,start,end,rean,small_win = small_win)
   
-  ind.1 <- get.ind.max.flow(flow = flow[1],agreg = agreg,nbdays = 3,start = start,end = end,spazm = spazm[1])
-  ind.2 <- get.ind.max.flow(flow = flow[2],agreg = agreg,nbdays = 3,start = start,end = end,spazm = spazm[2])
+  ind.1 <- get.ind.max.flow(flow = flow[1],agreg = agreg,nbdays = 3,start = start,end = end,spazm = spazm,supseuil = supseuil)
+  ind.2 <- get.ind.max.flow(flow = flow[2],agreg = agreg,nbdays = 3,start = start,end = end,spazm = spazm,supseuil = supseuil)
   
   # Graphique
-  png(filename = paste0("2_Travail/0_Present/Rresults/plot.pwat.sais/plot_pwat_sais.png"),width = 7,height = 4,units = "in",res = 200)
+  png(filename = paste0("2_Travail/0_Present/Rresults/plot.pwat.sais/plot_pwat_sais",ifelse(spazm,"_spazm",""),ifelse(small_win,"_small_win",""),ifelse(supseuil,"_supseuil",""),"_",rean,".png"),width = 7,height = 4,units = "in",res = 200)
   par(mar=c(2,4,1,1))
-  plot.sais.quantile(dates = dates,vec = pw,label = "PW (mm)")
+  plot.sais.quantile(dates = dates,vec = pw,y.label = "PW (mm)",colo="red")
   points(match(substr(dates[ind.1],6,10),year),pw[ind.1],pch=21,bg="cornflowerblue",cex=1.2)
   points(match(substr(dates[ind.2],6,10),year),pw[ind.2],pch=21,bg="burlywood1",cex=1.2)
+  abline(h=median(pw[ind.1]),lwd=2,lty=2,col="cornflowerblue")
+  abline(h=median(pw[ind.2]),lwd=2,lty=2,col="burlywood1")
   legend("topleft",inset=.02,bty="n",pt.bg=c("cornflowerblue","burlywood1"),pch=21,pt.cex = 1.2,
-          c("Zonal","Meridional"))
+          c("Atlantic","Mediterranean"))
+  #legend(5,27,bty="n",col=c("cornflowerblue","burlywood1"),lty=2,lwd=2,
+  #       c("Zonal (median)","Meridional (median)"))
   graphics.off()
 }
 
@@ -2076,7 +2208,7 @@ plot.wp <- function(wp=c(1,2),rean,k,descriptors,dist,nbdays=3,start="1950-01-01
 }
 
 # Run les fonctions repetitives
-run <- function(type=1){
+run.article <- function(type=1){
   
   # Type = 1: compute.density()
   if(type==1){
@@ -2087,13 +2219,40 @@ run <- function(type=1){
       c("rsingnei","dP")
     )
     wp <- c(1,2)
-    spazm <- F
+    #wp <- F
+    #wp <- 1:8
+    #spazm <- c(F,T)
+    spazm <- T
+    quant <- c(T,F)
     
     # Fonction
     for(i in 1:length(descr)){
       for(j in 1:length(wp)){
-        compute.density(rean="20CR",k = 1,descriptors = descr[[i]],dist = c("TWS","TWS"),nbdays = 3,
-                        start = "1950-01-01",end="2011-12-31",quant = F,wp = wp[j],agreg = T,spazm = spazm)
+        for(k in 1:length(spazm)){
+          for(l in 1:length(quant)){
+            compute.density(rean="ERA5",k = 1,descriptors = descr[[i]],dist = c("TWS","TWS"),nbdays = 3,
+                            start = "1950-01-01",end="2017-12-31",quant = quant[l],wp = wp[j],agreg = T,spazm = spazm[k])
+          }
+        }
+      }
+    }
+  }
+  
+  # Type = 2: illustr.precip.seq()
+  if(type==2){
+    bv <- c("Isere","Isere-seul","Drac-seul")
+    nbdays <- c(2,3,4,5)
+    spazm <- c(F,T)
+    nei <- c(F,T)
+    
+    for(i in 1:length(bv)){
+      for(j in 1:length(nbdays)){
+        for(k in 1:length(spazm)){
+          for(l in 1:length(nei)){
+            illustr.precip.seq(bv = bv[i],nbdays = nbdays[j],
+                               start = "1950-01-01",end="2011-12-31",spazm = spazm[k],nei = nei[l])
+          }
+        }
       }
     }
   }
