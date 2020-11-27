@@ -264,7 +264,7 @@ compare.density.wp.all <- function(wp=c(1,2),agreg=T,k,dist,nbdays,start,end,rea
   )
   
   if(wp[1]==1 & wp[2]==2 & agreg){
-    namwp <- c("Zonal","Meridional")
+    namwp <- c("Atlantic","Mediterranean")
   }else{namwp <- wp}
   
   # Imports
@@ -450,6 +450,31 @@ compare.descr.flow <- function(flow=c(1,2),agreg=T,descr=c("celnei","singnei","r
     ggsave(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compare.descr.flow/plot_",namflow[1],"_",namflow[2],"_",nbdays,"day_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(supseuil,"_supseuil",""),".png"),plot=p,width = 20,height = 11,units="cm",dpi = 200)
     graphics.off()
   }else{p}
+}
+
+# Calcul des champs composites par wp pour Z500, wind
+compute.composite.wp <- function(wp=1,agreg=T,k=1,var="hgt",start,end,rean,spazm){
+  
+  print(1)
+  tt <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = "Isere",agreg = agreg,spazm = spazm)
+  ind <- which(tt==wp)
+  
+  # Import
+  print(2)
+  field <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = var)
+  gc()
+  
+  # Traitement
+  print(3)
+  moy_field <- apply(field,1:2,mean)
+  moy_wp <- apply(field[,,ind],1:2,mean)
+  anom_wp <- moy_wp - moy_field
+  gc()
+  
+  # Export
+  res <- list(moy_field=moy_field,moy_wp=moy_wp,anom_wp=anom_wp)
+  save(res, file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.composite.wp/composite_",var,"_wp",wp,"_agreg=",agreg,"_k",k,"_",start,"_",end,".Rdata"))
+  
 }
 
 # Calcul densite de points dans un plan
@@ -664,36 +689,38 @@ get.pwat <- function(k=1,nbdays,start="1950-01-01",end="2011-12-31",rean,small_w
   des <- rollapply(des,nbdays,mean) 
 }
 
-# Carte composite des anomalies par wp ou groupement de wp
+# Carte composite des anomalies par wp ou groupement de wp (20CR)
 map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F,anomalies=T,wind=F){
   
   # Import wp
-  tt <- get.wp(nbdays = 1,start,end,risk=F,bv = "Isere",agreg=agreg)
+  tt <- get.wp(nbdays = 1,start,end,risk=F,bv = "Isere",agreg=agreg,spazm = T)
   ind <- which(tt == wp)
   
   # Import des donnees
   geo <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = "hgt")
-  
+  gc()
   # Import lon/lat et fenetre
   nc <- load.nc(rean,var="hgt")
   nc <- nc[[k]]
   lon <- nc$dim$lon$vals
   lat <- nc$dim$lat$vals
   nc_close(nc)
-  
+  gc()
   fen <- getinfo_window(k = k,rean=rean,var = "hgt")
   
   # Vent
   if(wind){
     # Import des donnees
     uwind <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = "uwind")
-    vwind <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = "vwind")
-    
+   gc()
+     vwind <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = "vwind")
+    gc()
     # Import lon/lat
     nc.wind <- load.nc(rean,var="uwind")
     lon.wind <- nc.wind$dim$lon$vals
     lat.wind <- nc.wind$dim$lat$vals
-    
+    nc_close(nc.wind)
+    gc()
     # Selection d'1 pt sur N uniquement
     N <- 3
     if(rean=="ERA5") N <- 24
@@ -800,6 +827,125 @@ map.composite.wp <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F
     shadowtext(5,61,namflow,font=2,cex=2,col="black",bg="white",r=0.3)
     
     box()
+}
+
+# Carte composite des anomalies par wp ou groupement de wp, pour des composites deja calcules car trop lourds (ERA5)
+map.composite.wp.light <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,agreg=F,anomalies=T,wind=F){
+  
+  # Import des donnees
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.composite.wp/composite_hgt_wp",wp,"_agreg=",agreg,"_k",k,"_",start,"_",end,".Rdata"))
+  comp.hgt <- res
+  
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.composite.wp/composite_uwind_wp",wp,"_agreg=",agreg,"_k",k,"_",start,"_",end,".Rdata"))
+  comp.uwind <- res
+  
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.composite.wp/composite_vwind_wp",wp,"_agreg=",agreg,"_k",k,"_",start,"_",end,".Rdata"))
+  comp.vwind <- res
+  
+  fen <- getinfo_window(k = k,rean=rean,var = "hgt")
+  
+  if(anomalies){
+    comp.hgt <- comp.hgt$anom_wp
+    comp.uwind <- comp.uwind$anom_wp
+    comp.vwind <- comp.vwind$anom_wp
+  }else{
+    comp.hgt <- comp.hgt$moy_wp
+    comp.uwind <- comp.uwind$moy_wp
+    comp.vwind <- comp.vwind$moy_wp
+  }
+  
+  if(rean=="ERA5"){
+    lon <- seq(-20,30,0.25)
+    lat <- seq(25,70,0.25)
+    lon.wind <- seq(-30,30,0.25)
+    lat.wind <- seq(27,70,0.25)
+    delta=0.25
+  }
+  
+  # Traitement du vent
+  if(wind){
+
+    # Selection d'1 pt sur N uniquement
+    N <- 3
+    if(rean=="ERA5") N <- 24
+    
+    comp.uwind <- comp.uwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N)]
+    comp.vwind <- comp.vwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N)]
+    lon.wind <- lon.wind[seq(1,length(lon.wind),N)]
+    lat.wind <- lat.wind[seq(1,length(lat.wind),N)]
+    
+    # Max de vent pour reglage de la taille des fleches
+    if(rean=="20CR"){
+      maxi.all <- get.min.max.wind(k,start="1950-01-01",end="2011-12-31",rean)[2]
+    }
+    if(rean=="ERA5"){
+      maxi.all <-100
+    }
+    maxi.fen <- max(sqrt(comp.uwind^2+comp.vwind^2))
+    }
+  
+  # Parametres graphiques
+  if(anomalies){
+    breaks <- seq(-200,200,length.out = 12)
+    N <- 11
+    lab <- seq(-200,200,50)
+    lev <- seq(-200,200,100)
+  }else{
+    if(k==1){ 
+      breaks <- seq(4850,6100,length.out = 12)
+      N <- 11
+      lab <- seq(4900,6100,200)
+      lev <- seq(4900,6100,100)
+    }else{
+      breaks <- seq(-300,400,length.out = 8)
+      N <- 7
+      lab <- seq(-300,400,100)
+      lev <- lab
+    }
+  }
+  
+  # Noms des circulations
+  if(agreg){namflow <- c("Atlantic","Mediterranean","North-East","Anticyclonic")
+  }else{namflow <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
+                     "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")}
+  namflow <- namflow[wp]
+  
+  # Carte
+  par(pty="s")
+  cex <- 1.5
+  
+  if(leg){
+    image.plot(lon,lat,comp.hgt,xlim=c(-15,25),ylim=c(25,65),
+               col=rev(brewer.pal(n = N, name = "RdBu")),
+               xlab="",ylab="",main="",xaxt="n",yaxt="n",
+               legend.line=-2.3, cex.axis=cex, cex.lab=cex, cex.main=cex,
+               breaks = breaks,axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
+  }else{
+    image(lon,lat,comp.hgt,xlim=c(-15,25),ylim=c(25,65),
+          col=rev(brewer.pal(n = N, name = "RdBu")),
+          xlab="",ylab="",main="",xaxt="n",yaxt="n",
+          cex.axis=cex, cex.lab=cex, cex.main=cex,
+          breaks = breaks)
+  }
+  
+  data(wrld_simpl)
+  plot(wrld_simpl, add = TRUE)
+  points(6,45,col="red",pch=19)
+  if(win) rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
+  if(let!=F) mtext(let, side=3, at=-20,line = 0,cex=1.4)
+  if(iso) contour(x=lon,y=lat,z=comp, levels=lev, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
+  
+  # Vent 500hPa
+  if(wind){
+    coord <- as.matrix(expand.grid(lon.wind,lat.wind))
+    wi <- as.matrix(cbind(as.vector(comp.uwind),as.vector(comp.vwind)))
+    
+    arrow.plot(a1 = coord,a2 = wi,length=0.05,xpd=F,arrow.ex = 0.4*maxi.fen/maxi.all,lwd=2)
+  }
+  
+  shadowtext(5,61,namflow,font=2,cex=2,col="black",bg="white",r=0.3)
+  
+  box()
 }
 
 # Carte des geopotentiels aux 4 coins du plan celnei TWS - celnei RMSE
@@ -1074,8 +1220,45 @@ map.pwat <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T){
   
 }
 
+# Carte d'un jour océanique et med avec leur 1er analogue pour review
+map.review <- function(wp=1,k,nbdays=1,dist,start,end,rean){
+  
+  # Imports
+  dates <- getdates(start,end)
+  tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/save.nei.A/nei_",dist,"_member1_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  nei <- nei$`05`
+  
+  # Distances
+  dist.vec <- getdist(k = k,dist = dist,start = start,end = end,rean = rean,threeday = F,period = "present")
+  gc()
+  dist.vec<-unlist(dist.vec)
+  gc()
+  N <- length(dates)
+  U<-c(0,(N-1):1); # U = 0, 22644, 22643, 22642, ...
+  sU<-sapply(1:(N-1),function(x) sum(U[1:x])) # on fait la somme de U[1], U[1:2], etc pour obtenir la position de la derniere distance qui separe chaque date
+  gc()
+  
+  
+  # Selection
+  ind <- sample(which(tt==wp),1)
+  ind.ana <- nei[[ind]][51]
+  score <- getdist4i(ind,dist.vec,N,sU)
+  print(round(sort(score)[51],3))
+  rm(dist.vec)
+  
+  # Map
+  png(filename = paste0("2_Travail/0_Present/ERA5/Rresults/overall/k1/map.review/map_review_wp",wp,".png"),width = 700,height = 300,units = "px")
+  par(pty="s",mfrow=c(1,2),mar=c(0,0,0,7))
+  map.geo(date = dates[ind],rean = rean,k = k,nbdays = nbdays,save = F,win = T,let = F,leg = T,iso = F,wind = T,condens = T)
+  gc()
+  map.geo(date = dates[ind.ana],rean = rean,k = k,nbdays = nbdays,save = F,win = T,let = F,leg = T,iso = F,wind = T,condens = T)
+  gc()
+  graphics.off()
+}
+
 # Carte composite de geopotentiel et d'anomalies pour deux WP
-map.wp.flow <- function(flow=c(1,2),agreg=T,k,rean,start="1950-01-01",end="2011-12-31",wind=F){
+map.wp.flow <- function(flow=c(1,2),agreg=T,k,rean,start="1950-01-01",end="2011-12-31",wind=F,light=F){
   
   # Noms des circulations
   if(agreg){namflow <- c("Atlantic","Mediterranean","North-East","Anticyclonic")
@@ -1088,12 +1271,23 @@ map.wp.flow <- function(flow=c(1,2),agreg=T,k,rean,start="1950-01-01",end="2011-
   layout(matrix(1:6,2,3,byrow=F),width=c(1.3,1.3,0.4))
   par(pty="s",mar=c(0,3,1,1))
   let <- list(c("a)","c)"),c("b)","d)"))
-  let <- list(c(F,F),c(F,F))
+  #let <- list(c(F,F),c(F,F))
   
   # Cartes composites
+  if(!light){
   for(i in 1:length(flow)){
-    map.composite.wp(flow[i],k,start,end,rean,leg=F,let=let[[i]][1],agreg=agreg,anomalies = F,wind=wind,iso = T)
-    map.composite.wp(flow[i],k,start,end,rean,leg=F,let=let[[i]][2],agreg=agreg,anomalies = T,wind=wind,iso = T)
+    print(i)
+    map.composite.wp(flow[i],k,start,end,rean,leg=F,let=let[[i]][1],agreg=agreg,anomalies = F,wind=wind,iso = F)
+    print(i)
+    map.composite.wp(flow[i],k,start,end,rean,leg=F,let=let[[i]][2],agreg=agreg,anomalies = T,wind=wind,iso = F)
+  }
+  }else{
+    for(i in 1:length(flow)){
+      print(i)
+      map.composite.wp.light(flow[i],k,start,end,rean,leg=F,let=let[[i]][1],agreg=agreg,anomalies = F,wind=wind,iso = F)
+      print(i)
+      map.composite.wp.light(flow[i],k,start,end,rean,leg=F,let=let[[i]][2],agreg=agreg,anomalies = T,wind=wind,iso = F)
+    }
   }
   
   # Legende cartes
@@ -1294,7 +1488,7 @@ plot.dP.descr <- function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="201
 }
 
 # Plan des indicateurs colorie par densite pour deux bv differents
-plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),spazm=F,save=T,let=F,quant=F,sea=F,pwat=F,comm=F,max=T,supseuil=F){
+plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",radtype="nrn05",CV=TRUE,threeday=c(F,F),spazm=F,save=T,let=F,quant=F,sea=F,pwat=F,comm=F,max=T,supseuil=F,review=F){
   
   # Definition du repertoire de travail (lecture et ecriture)
   if(rean[1] != rean[2]){ 
@@ -1435,7 +1629,20 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
   #points(descr1[ale],descr2[ale],pch=19,cex=0.9)
   if(max) points(descr1[ind.extr2],descr2[ind.extr2],pch=22,bg=bg2,cex=cex2) 
   if(length(let)!=1) mtext(let[2],side=3,adj=-0.2,line=-0.5,font=1,cex=1.2)
-  
+  if(review){
+    review.max.1 <- which(descr1>80)
+    review.max.2 <- which(descr2>80)
+    review.max <- sample(intersect(review.max.1,review.max.2),1)
+    print(review.max)
+    
+    review.min.1 <- which(descr1<20)
+    review.min.2 <- which(descr2<20)
+    review.min <- sample(intersect(review.min.1,review.min.2),1)
+    print(review.min)
+    
+    points(descr1[23036],descr2[23036],pch=19,cex=1.5,col="green")
+    points(descr1[13371],descr2[13371],pch=19,cex=1.5,col="red")
+  }
   if(save) graphics.off()
   
 }
@@ -2007,7 +2214,7 @@ plot.pwat.sais <- function(flow=c(1,2),agreg=T,start="1950-01-01",end="2011-12-3
   # Graphique
   png(filename = paste0("2_Travail/0_Present/Rresults/plot.pwat.sais/plot_pwat_sais",ifelse(spazm,"_spazm",""),ifelse(small_win,"_small_win",""),ifelse(supseuil,"_supseuil",""),"_",rean,".png"),width = 7,height = 4,units = "in",res = 200)
   par(mar=c(2,4,1,1))
-  plot.sais.quantile(dates = dates,vec = pw,y.label = "PW (mm)",colo="red")
+  plot.sais.quantile(dates = dates,vec = pw,y.label = "TCW (mm)",colo="red")
   points(match(substr(dates[ind.1],6,10),year),pw[ind.1],pch=21,bg="cornflowerblue",cex=1.2)
   points(match(substr(dates[ind.2],6,10),year),pw[ind.2],pch=21,bg="burlywood1",cex=1.2)
   abline(h=median(pw[ind.1]),lwd=2,lty=2,col="cornflowerblue")

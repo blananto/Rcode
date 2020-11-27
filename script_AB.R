@@ -2,7 +2,7 @@
 setwd("../../")
 
 # Parametres ----
-rean     <- "20CR"
+rean     <- "ERA5"
 member   <- 1
 seasonal <- FALSE
 k        <- 1

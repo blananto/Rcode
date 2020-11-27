@@ -30,7 +30,6 @@ library("raster") # brick
 library("foreach") # Parallel for loop (need every step to be independant)
 library("parallel") # check number of cores
 library("doParallel") # Parallelization of calculation
-
 # Fonctions graphiques
 addcircle<-function(radius){
   usr<-par("usr")
@@ -952,13 +951,15 @@ compare.crps.simple <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rad
     crps.all <- cbind(crps.all,crps[,"all ecdf"])
     crps.pos <- cbind(crps.pos,crps[,"pos ecdf"])
     crps.p0 <- cbind(crps.p0,crps[,"p0 binom"])
-    lab <-c(lab,paste0(namdescr[[i]]," ",dist[[i]],collapse="-\n"))
+    #lab <-c(lab,paste0(namdescr[[i]]," ",dist[[i]],collapse="-\n"))
+    lab <-c(lab,paste0(nam2str(namdescr[[i]]),collapse="-\n"))
   }
   
   # Indices des lignes completes sans NA, des precip positives et des max annuels
   idx<-which(apply(crps.all,1,function(v) all(!is.na(v)))) 
   idx.pos <- intersect(idx,which(precip>0))
-  idx.extr <- intersect(idx,get.ind.max(type="year",nbdays,start,end))
+  #idx.extr <- intersect(idx,get.ind.max(type="year",nbdays,start,end))
+  idx.extr <- intersect(idx,get.ind.extr())
   
   print(length(idx))
   
@@ -977,8 +978,8 @@ compare.crps.simple <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rad
   normalize.extr <- mean(score$crps[idx.extr,"pos ecdf"])
   
   # Graphiques
-  png(filename = paste0(get.dirstr(k,rean),"compare.crps.simple/","member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".png"),width = 900,height = 500,units = "px")
-  par(mfrow=c(1,3),mar=c(12,5,4,5))
+  png(filename = paste0(get.dirstr(k,rean),"compare.crps.simple/","member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,get.stdstr(standardize),"_",radtype,".png"),width = 800,height = 500,units = "px")
+  par(mfrow=c(1,2),mar=c(8,4,4,3))
   
     # all ecdf
   plot(c(1,ndescr),c(0,max(1-meancrps.all/normalize.all)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45))
@@ -990,19 +991,19 @@ compare.crps.simple <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rad
   axis(2,cex.axis=1.8)
   grid()
   abline(v=1:ndescr,lty=2,col=gray(0.5))
-  title("all ecdf",font=2,cex.main=1.8)
+  title("Overall",font=2,cex.main=1.8)
   
     # pos ecdf
-  plot(c(1,ndescr),c(0,max(1-meancrps.pos/normalize.pos)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45))
-  points(1:ndescr,1-meancrps.pos/normalize.pos,pch=19)
-  lines(1:ndescr,1-meancrps.pos/normalize.pos,lty=3)
-  
-  box()
-  axis(1,labels=lab,las=3,at=1:ndescr,cex.axis=1.5,padj = 1)
-  axis(2,cex.axis=1.8)
-  grid()
-  abline(v=1:ndescr,lty=2,col=gray(0.5))
-  title("pos ecdf",font=2,cex.main=1.8)
+  #plot(c(1,ndescr),c(0,max(1-meancrps.pos/normalize.pos)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45))
+  #points(1:ndescr,1-meancrps.pos/normalize.pos,pch=19)
+  #lines(1:ndescr,1-meancrps.pos/normalize.pos,lty=3)
+  #
+  #box()
+  #axis(1,labels=lab,las=3,at=1:ndescr,cex.axis=1.5,padj = 1)
+  #axis(2,cex.axis=1.8)
+  #grid()
+  #abline(v=1:ndescr,lty=2,col=gray(0.5))
+  #title("pos ecdf",font=2,cex.main=1.8)
   
     # Annual maximum
   plot(c(1,ndescr),c(0,max(1-meancrps.extr/normalize.extr)),axes=FALSE,xlab="",ylab="",type="n",ylim=c(0,0.45))
@@ -1014,7 +1015,7 @@ compare.crps.simple <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rad
   axis(2,cex.axis=1.8)
   grid()
   abline(v=1:ndescr,lty=2,col=gray(0.5))
-  title("Annual maximum",font=2,cex.main=1.8)
+  title("Extreme precip (>q99)",font=2,cex.main=1.8)
   
   graphics.off()
   
@@ -2970,7 +2971,7 @@ get.stdstr<-function(standardize){
 # Importation des WP EDF
 get.wp <- function(nbdays,start="1950-01-01",end="2011-12-31",risk=F,bv="Isere",agreg=F,spazm=F){
   
-  wp <- read.table(file = paste0("2_Travail/Data/WP/type_temps_jour_1948_2019",ifelse(agreg,"_agreg",""),".txt"), quote="\"", comment.char="")
+  wp <- read.table(file = paste0("2_Travail/Data/WP/type_temps_jour_1948_2019",ifelse(agreg,"_agreg",""),".txt"), quote="\"", comment.char="",sep=",")
   wp[,1] <- as.character(format(as.Date(wp[,1],"%d/%m/%Y"),"%Y-%m-%d"))
   wp <- wp[which(wp[,1]==start):which(wp[,1]==end),2]
   
@@ -3562,12 +3563,15 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F,wind=F,c
   # Carte
   if(save) {
     png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.geo/",date,"_k",k,"_",nbdays,"day.png"),
-        width = ifelse(nbdays==3,1050,600),height = 600,units = "px")
+        width = ifelse(nbdays==3,800,600),height = 250,units = "px")
     layout(matrix(1:nbdays,1,nbdays))
   }
   
   par(pty="s")
-  if(nbdays==3) par(mar=c(6,4,6,4))
+  if(nbdays==3){
+    #par(mar=c(6,4,6,4))
+    par(mar=c(0,0,0,7))
+  } 
   cex <- ifelse(nbdays==3,1.8,1.5)
   
   for(i in 1:nbdays){
@@ -3824,6 +3828,8 @@ nam2str<-function(nams,cloud=FALSE,whole=F){
     if(nams[i] == "Isere-seul") nams[i] <- "Isère"
     if(nams[i] == "Drac-seul") nams[i] <- "Drac"
     if(nams[i] == "dP") nams[i] <- "MPD"
+    if(nams[i] == "sing05") nams[i] <- "sing"
+    if(nams[i] == "rsing05") nams[i] <- "rsing"
     if(nams[i] == "celnei" & whole) nams[i] <- "Celerity"
     if(nams[i] == "singnei" & whole) nams[i] <- "Singularity"
     if(nams[i] == "rsingnei" & whole) nams[i] <- "Relative singularity"
