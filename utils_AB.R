@@ -30,6 +30,7 @@ library("raster") # brick
 library("foreach") # Parallel for loop (need every step to be independant)
 library("parallel") # check number of cores
 library("doParallel") # Parallelization of calculation
+
 # Fonctions graphiques
 addcircle<-function(radius){
   usr<-par("usr")
@@ -2795,6 +2796,13 @@ get.dirstr<-function(k=NULL,rean,period="present"){
   dirstr
 }
 
+# Calcul de dP
+get.dP <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
+  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
+  des <- apply(geo,3,function(x) max(x)-min(x))
+  des <- rollapply(des,nbdays,mean)
+}
+
 # Renvoie les indices des nbre events extremes de precip a partir d'une certaine reference
 get.ind.extr <- function(bv="Isere",nbdays=3, start="1950-01-01", end="2011-12-31", nei=T, spazm=F,seuil="qua"){
   
@@ -5202,7 +5210,8 @@ plot.sais.quantile <- function(dates,vec,y.label,main="",colo="blue"){
   abline(v=match(unique(substr(dates,6,7)),substr(dates,6,7)),lty=3,col="grey")
   grid(NA,NULL)
   lines(med,col=colo,lwd=2)
-  axis(1,at = match(unique(substr(dates,6,7)),substr(dates,6,7)),labels = paste0("01-",unique(substr(dates,6,7))))
+  #axis(1,at = match(unique(substr(dates,6,7)),substr(dates,6,7)),labels = month.abb,srt=45)
+  text(x=match(unique(substr(dates,6,7)),substr(dates,6,7)),y=par("usr")[3]-0.05*(max(q99)-min(q10)), labels = month.abb, srt = -45, pos = 1, xpd = TRUE)
   lines(q10,col="darkgrey",lwd=2)
   lines(q90,col="darkgrey",lwd=2)
 }
