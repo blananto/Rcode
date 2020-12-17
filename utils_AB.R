@@ -3020,14 +3020,12 @@ grad<-function(k,day0,day1,rean,large_win=F){
 }
 
 # Comparaison des sequences de differents nbdays jours
-illustr.precip.seq<-function(bv,nbdays,start="1950-01-01",end="2011-12-31",spazm=F,nei=F){
+illustr.precip.seq<-function(bv,nbdays,start="1950-01-01",end="2011-12-31",spazm=F,nei=F,save=T){
   
   precip<-get.precip(nbdays,start,end,bv,spazm)
   cdf<-ecdf(precip)
   precip0<-get.precip(1,start,end,bv,spazm)
   cdf0<-ecdf(precip0)
-  
-  graphics.off()
   
   tmp<-NULL
   n<-length(precip)
@@ -3045,7 +3043,7 @@ illustr.precip.seq<-function(bv,nbdays,start="1950-01-01",end="2011-12-31",spazm
   seuil0 <- quantile(precip0,probs=0.9)
   rep <- round(table(tmp[ind,1]> seuil0)/length(ind)*100,0)
   
-  png(file=paste0("2_Travail/0_Present/Rresults/illustr.precip.seq/plotseq_",bv,"_mean",nbdays,"days_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(nei,"_nei",""),".png"),width=350,heigh=404,units="px",res=72)
+  if(save) png(file=paste0("2_Travail/0_Present/Rresults/illustr.precip.seq/plotseq_",bv,"_mean",nbdays,"days_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(nei,"_nei",""),".png"),width=350,heigh=404,units="px",res=72)
   plot(range(precip0),range(precip0),type="n",xlab=paste0(nbdays,"-day precip (mm/day)"),ylab="daily precip (mm/day)",main=nam2str(bv))
   if(!nei){for (i in 1:ncol(tmp)) points(precip,tmp[,i],col=i,pch=19,cex=0.8)}
   if(nei){for (i in 1:ncol(tmp)) points(precip[-hid],tmp[-hid,i],col=i,pch=19,cex=0.8)}
@@ -3055,7 +3053,7 @@ illustr.precip.seq<-function(bv,nbdays,start="1950-01-01",end="2011-12-31",spazm
   text(x=55,y=seuil0*1.2,"q = 0.9",font = 3)
   text(x=65,y=5,paste0(rep[1],"%"),font = 2,cex=1.2)
   text(x=65,y=20,paste0(rep[2],"%"),font = 2,cex=1.2)
-  dev.off()
+  if(save) dev.off()
 }
 
 # Trace la carte avec taille des pluvios par cumul

@@ -99,6 +99,22 @@ combine.boxplot.wp <- function(){
   graphics.off()
 }
 
+combine.precip.seq <- function(start="1950-01-01",end="2017-12-31"){
+  
+  bv <- c("Isere-seul","Drac-seul")
+  nbdays <- c(2,3,4)
+  
+  png(filename=paste0("2_Travail/0_Present/Rresults/illustr.precip.seq/plotseq_combine_",start,"_",end,".png"),width = 8,height = 6,units = "in",res = 400)
+  par(mfrow=c(2,3),pty="s",mar=c(4,3,3,0))
+  
+  for(i in 1:length(bv)){
+    for(j in 1:length(nbdays)){
+      illustr.precip.seq(bv = bv[i],nbdays = nbdays[j],start = start,end = end,spazm = T,nei = T,save = F)
+    }
+  }
+  graphics.off()
+}
+
 # Combinaison des boxplots par bv pour article
 combine.quant.bv <- function(){
   
@@ -1381,6 +1397,25 @@ map.review <- function(wp=1,k,nbdays=1,dist,start,end,rean){
   graphics.off()
 }
 
+map.review.combine <- function(){
+  
+  png(filename = "2_Travail/0_Present/ERA5/Rresults/overall/k1/map.review.combine/map.combine.1.png",width = 8,height = 4,units = "in",res=400)
+  par(mfrow=c(2,3),mar=c(3,0,0,7),pty="s")
+  dates <- c("2013-01-25","2013-01-26","2013-01-27","1986-08-10","1986-08-11","1986-08-12")
+  for(i in 1:length(dates)){
+    map.geo(date = dates[i],rean = "ERA5",k = 1,nbdays = 1,save = F,win = T,let = F,leg = T,iso = F,wind = T,condens = T)
+  }
+  graphics.off()
+  
+  png(filename = "2_Travail/0_Present/ERA5/Rresults/overall/k1/map.review.combine/map.combine.2.png",width = 6,height = 6,units = "in",res=400)
+  par(mfrow=c(3,2),mar=c(3,2,0,7),pty="s")
+  dates <- c("2002-02-24","1980-02-04","1955-09-20","2015-10-26","1999-09-04","1987-03-12")
+  for(i in 1:length(dates)){
+    map.geo(date = dates[i],rean = "ERA5",k = 1,nbdays = 1,save = F,win = T,let = F,leg = T,iso = F,wind = T,condens = T)
+  }
+  graphics.off()
+}
+
 # Carte composite de geopotentiel et d'anomalies pour deux WP
 map.wp.flow <- function(flow=c(1,2),agreg=T,k,rean,start="1950-01-01",end="2011-12-31",wind=F,light=F){
   
@@ -2000,8 +2035,8 @@ plot.empir.bv <- function(bv1,bv2,rean,k,descriptors,dist,nbdays=3,start="1950-0
     review.min <- sample(intersect(review.min.1,review.min.2),1)
     print(review.min)
     
-    points(descr1[23036],descr2[23036],pch=19,cex=1.5,col="green")
-    points(descr1[13371],descr2[13371],pch=19,cex=1.5,col="red")
+    #points(descr1[23036],descr2[23036],pch=19,cex=1.5,col="green")
+    #points(descr1[13371],descr2[13371],pch=19,cex=1.5,col="red")
   }
   if(save) graphics.off()
   
@@ -2789,6 +2824,22 @@ plot.wp <- function(wp=c(1,2),rean,k,descriptors,dist,nbdays=3,start="1950-01-01
   #text(x = 1,y = 0.75,"Geopotential height (m)",cex=1.6)
   
   graphics.off()
+}
+
+# Donne la proportion de n-days EPS ayant n days superieurs au quantile 0.9 de precip journaliere
+precip.seq <- function(nbdays,bv="Isere-seul",start="1950-01-01",end="2017-12-31",spazm=T,nei=T){
+  
+  precip <- get.precip(nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm)
+  precip0 <- get.precip(nbdays = 1,start = start,end = end,bv = bv,spazm = spazm)
+  
+  tmp <- NULL
+  n<-length(precip)
+  for (i in 1:nbdays) tmp<-cbind(tmp,precip0[(i:(n+i-1))]) 
+  
+  ind <- get.ind.extr(bv = bv,nbdays = nbdays,start = start,end = end,nei = nei,spazm = spazm,seuil = "qua")
+  tmp <- tmp[ind,]
+  seuil.0 <- quantile(precip0,probs=0.9)
+  print(table(apply(tmp,1,function(v){sum(v>seuil.0)}))/nrow(tmp))
 }
 
 # Run les fonctions repetitives

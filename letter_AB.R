@@ -744,6 +744,7 @@ scatterplot.descr.precip <- function(bv,type="cum",descr,k,dist,nbdays,start="19
   graphics.off()
 }
 
+# Scatterplot de 2 indicateurs VS precip par saison au pas de temps interannuel
 scatterplot.descr.precip.interannual <- function(descr=c("dP","singnei"),bv="Isere-seul",k,dist,start="1950-01-01",end="2017-12-31",rean="ERA5",spazm=T){
   
   dates <- getdates(start,end)
@@ -766,7 +767,7 @@ scatterplot.descr.precip.interannual <- function(descr=c("dP","singnei"),bv="Ise
   sais <- c("winter","spring","summer","autumn")
   sta <- c("12-01","03-01","06-01","09-01")
   N <- c(90,92,92,91)
-  ind.sais <- vector(length=nrow(data))
+  ind.sais <- vector(length=length(dates))
   
   for(i in 1:length(sais)){
       pos.sta <- which(substr(dates,6,10)== sta[i])
@@ -794,17 +795,16 @@ scatterplot.descr.precip.interannual <- function(descr=c("dP","singnei"),bv="Ise
   des2.inter <- as.matrix(des2.inter[sort(as.matrix(des2.inter[,1]),index.return=T)$ix,-1])
 
   # Graphique
-  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/scatterplot.descr.precip.interannual/scatterplot_",bv,"_",descr[1],"_",descr[2],".png"),width = 8,height = 5,units = "in",res=400)
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/scatterplot.descr.precip.interannual/scatterplot_",bv,"_",descr[1],"_",descr[2],ifelse(spazm,"_spazm",""),".png"),width = 8,height = 5,units = "in",res=400)
   par(pty="s",mfcol=c(2,4))
   for(i in 1:4){
-  plot(des1.inter[,i],precip.inter[,i],pch=19)
-    print(cor(na.omit(des1.inter[,i]),na.omit(precip.inter[,i])))
-    plot(des2.inter[,i],precip.inter[,i],pch=19)
-    print(cor(na.omit(des2.inter[,i]),na.omit(precip.inter[,i])))
+  plot(des1.inter[,i],precip.inter[,i],pch=19,xlab=nam2str(descr[1],whole=T), ylab="Precipitation (mm)",
+       main=paste0(sais[i]," (R = ",round(cor(na.omit(des1.inter[,i]),na.omit(precip.inter[,i])),2),")"))
+  plot(des2.inter[,i],precip.inter[,i],pch=19,xlab=nam2str(descr[2],whole=T), ylab="Precipitation (mm)",
+        main=paste0(sais[i]," (R = ",round(cor(na.omit(des2.inter[,i]),na.omit(precip.inter[,i])),2),")"))
   }
   graphics.off()
 }
-
 
 # Scatterplot d'un descripteur et de l'occurrence des WP par saison et par reanalyse avec lissage possible
 scatterplot.descr.wp <- function(descr,wp=1,k,dist,start="1950-01-01",end="2010-12-31",rean="20CR",liss=1){
