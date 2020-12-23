@@ -95,10 +95,11 @@ combine.boxplot.wp <- function(){
   f <- compare.density.wp.all(wp = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,quant = F,save = F,legend = T,spazm=spazm,supseuil=supseuil)
   
   ggarrange(c,d,e,f,labels = c("a)","b)","c)","d)"),ncol = 2,nrow = 2,widths=c(1.1,0.9),common.legend = T,legend="right")
-  ggsave(filename = paste0(get.dirstr(k,rean),"combine.boxplot.wp/plot_all_wp",wp1,"_wp",wp2,"_",nbdays,"day_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(supseuil,"_supseuil",""),".png"),width = 12,height = 9,units="in",dpi = 400)
+  ggsave(filename = paste0(get.dirstr(k,rean),"combine.boxplot.wp/plot_all_wp",wp1,"_wp",wp2,"_",nbdays,"day_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(supseuil,"_supseuil",""),".tiff"),width = 12,height = 9,units="in",dpi = 400)
   graphics.off()
 }
 
+# Combine les scatterplot de illustr.precip.seq
 combine.precip.seq <- function(start="1950-01-01",end="2017-12-31"){
   
   bv <- c("Isere-seul","Drac-seul")
@@ -1636,6 +1637,7 @@ plot.density.clean <- function(descr=c("celnei","singnei","rsingnei","dP"),k,dis
   let <- list(c("a)","b)","c)"),c("d)","e)","f)"),c("g)","h)","i)"))
   
   png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.density.clean/plot_density",ifelse(quant,"_quant",""),ifelse(spazm,"_spazm",""),".png"),width = 7,height = 9,units = "in",res=400)
+  
   layout(matrix(c(rep(1,3),2:4,rep(5,3),6:8,rep(9,3),10:12),nrow=6,ncol=3,byrow=T),widths=c(1,1,1),heights=c(0.2,1,0.2,1,0.2,1))
   for(i in 1:3){
     print(i)

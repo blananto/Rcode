@@ -130,7 +130,7 @@ compute.cor.descr.precip.clean <- function(k,dist,bv="Isere-seul",sais="winter",
   
   dates <- getdates(start,end)
   nyear <- length(unique(substr(dates,1,4)))
-  descr <- c("celnei","singnei","rsingnei","dP")
+  descr <- c("celnei","singnei","rsingnei","dP","cel","sing05","rsing05")
   
   # Import indicateur
   des <- matrix(data = NA,nrow = length(dates),ncol = length(descr))
@@ -198,8 +198,8 @@ compute.cor.descr.precip.clean <- function(k,dist,bv="Isere-seul",sais="winter",
     }
     
     # Calcul correlation annuelle
-    des.tmp <- apply(des.sais,2,mean)
-    precip.tmp <- apply(precip.sais,2,mean)
+    des.tmp <- apply(des.sais,2,median)
+    precip.tmp <- apply(precip.sais,2,median)
     
     for(j in 1:10){
       des.j <- rollapply(des.tmp,j,mean)
@@ -209,7 +209,74 @@ compute.cor.descr.precip.clean <- function(k,dist,bv="Isere-seul",sais="winter",
   }
   
   corr <- list(corr.daily=corr.daily,corr.yearly=corr.yearly)
-  save(corr,file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.cor.descr.precip.clean/",bv,"_",sais,".Rdata"))
+  save(corr,file=paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.cor.descr.precip.clean/",bv,"_",sais,"_median.Rdata"))
+}
+
+# Calcul des valeurs d'indicateur (et precip) moyennees par saison
+compute.descr.interannual <- function(k,dist,bv="Isere",spazm=T,start="1950-01-01",end="2017-12-31",rean){
+  
+  dates <- getdates(start,end)
+  nyear <- length(unique(substr(dates,1,4)))
+  descr <- c("celnei","singnei","rsingnei","dP","cel","sing05","rsing05")
+  
+  # Import indicateur
+  des <- matrix(data = NA,nrow = length(dates),ncol = length(descr))
+  colnames(des) <- nam2str(descr,whole=T)
+  for(i in 1:length(descr)){
+    des[,i] <- get.descriptor(descriptor = descr[i],k = k,dist = dist,nbdays = 1,start = start,end = end,
+                              standardize = F,rean = rean,threeday = F,period = "present")
+  }
+  
+  # Import NAO
+  NAO <- get.nao(start = substr(start,1,4),end = substr(end,1,4),sais = "all",daily = T)[,4]
+  des <- cbind(des,NAO)
+  
+  # Import WP
+  wp <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = spazm)
+  wp <- cbind(wp,wp,wp,wp)
+  colnames(wp) <- c("Atlantic","Mediterranean","Northeast","Anticyclonic")
+  wp[wp[,1]!=1,1] <- 0;wp[wp[,1]==1,1] <- 1
+  wp[wp[,2]!=2,2] <- 0;wp[wp[,2]==2,2] <- 1
+  wp[wp[,3]!=5,3] <- 0;wp[wp[,3]==5,3] <- 1
+  wp[wp[,4]!=8,4] <- 0;wp[wp[,4]==8,4] <- 1
+  des <- cbind(des,wp)
+  
+  # Import precip
+  precip <- get.precip(nbdays = 1,start = start,end = end,bv = bv,spazm = spazm)
+  
+  # Moyennes interannuelles
+  sais <- c("winter","spring","summer","autumn")
+  sta <- c("12-01","03-01","06-01","09-01")
+  N <- c(90,92,92,91)
+  ind.sais <- vector(length=length(dates))
+  
+  for(i in 1:length(sais)){
+    pos.sta <- which(substr(dates,6,10)== sta[i])
+    if(sais[i]=="winter"){pos.sta <- pos.sta[-length(pos.sta)]}
+    pos.all <- pos.sta
+    for(j in 1:(N[i]-1)){ # saisons de longueur 90 jours
+      pos.all <- sort(c(pos.all,pos.sta+j))
+    }
+    ind.sais[pos.all] <- i
+  }
+  
+  precip.inter <- aggregate(precip,by=list(as.numeric(year),ind.sais),sum)
+  colnames(precip.inter) <- c("year","season","val")
+  precip.inter <- pivot_wider(precip.inter,names_from = "season",values_from = "val")
+  precip.inter <- precip.inter[,-2] # on enleve saison 0
+  precip.inter <- as.matrix(precip.inter[sort(as.matrix(precip.inter[,1]),index.return=T)$ix,-1]) # bon ordre
+  
+  ind.inter <- apply(des,2,function(v){aggregate(v,by=list(as.numeric(year),ind.sais),mean)})
+  for(i in 1:length(ind.inter)) colnames(ind.inter[[i]]) <- c("year","season","val")
+  ind.inter <- lapply(ind.inter,function(mat){pivot_wider(mat,names_from = "season",values_from = "val")})
+  for(i in 1:length(ind.inter)){
+    ind.inter[[i]] <- as.matrix(ind.inter[[i]][sort(as.matrix(ind.inter[[i]][,1]),index.return=T)$ix,-c(1,2)])
+  } 
+  
+  # Export
+  save(precip.inter,file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.descr.interannual/precip_interannual_",bv,"_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
+  save(ind.inter,file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.descr.interannual/descr_interannual_k",k,"_",dist,"_",start,"_",end,".Rdata"))
+  
 }
 
 # Import de la serie mensuelle de NAO
@@ -312,7 +379,7 @@ plot.cor.interannual <- function(bv1="Isere-seul",bv2="Drac-seul",rean){
   bv <- c(bv1,bv2)
   
   # BV1
-   corr.bv1 <- matrix(NA,4,9)
+   corr.bv1 <- matrix(NA,4,12)
     for(i in 1:length(sais)){
       load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k1/compute.cor.descr.precip.clean/",bv1,"_",sais[i],".Rdata"))
       corr.bv1[i,] <- corr$corr.yearly[1,]
@@ -322,7 +389,7 @@ plot.cor.interannual <- function(bv1="Isere-seul",bv2="Drac-seul",rean){
    pch.bv1 <- sign.bv1; pch.bv1 <- apply(pch.bv1,2,function(v){v[v==-1] <- 19;v[v==1] <- 15;return(v)})
    
    # BV2
-   corr.bv2 <- matrix(NA,4,9)
+   corr.bv2 <- matrix(NA,4,12)
    for(i in 1:length(sais)){
      load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k1/compute.cor.descr.precip.clean/",bv2,"_",sais[i],".Rdata"))
      corr.bv2[i,] <- corr$corr.yearly[1,]
@@ -336,6 +403,9 @@ plot.cor.interannual <- function(bv1="Isere-seul",bv2="Drac-seul",rean){
              "olivedrab3",
              "darkorange",
              "royalblue",
+             "orange",
+             "yellow",
+             "purple",
              "grey",
              "darkgoldenrod3",
              "darkorchid2",
@@ -346,6 +416,9 @@ plot.cor.interannual <- function(bv1="Isere-seul",bv2="Drac-seul",rean){
                  "Singularity",
                  "Relative singularity",
                  "MPD",
+                 "cel",
+                 "sing",
+                 "rqing",
                  "NAO",
                  "Oceanic",
                  "Mediterranean",
@@ -580,6 +653,40 @@ plot.cor.descr.precip.clean <- function(k,bv="Isere-seul",sais="winter",rean,sav
   if(save) graphics.off()
 }
 
+# Code temporaire pour tracer des densites d'indicateurs sur une periode en journalier
+plot.density.descr <- function(descr="sing05",start="1994-12-01",end="1995-02-28",k,dist,rean){
+  
+  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = "1950-01-01",end = "2017-12-31",
+                        standardize = F,rean = rean,threeday = F,period = "present")
+  
+  dates <- getdates(start = "1950-01-01",end = "2017-12-31")
+  des.winter <- des[which()]
+  des.per <- des[which(dates==start):which(dates==end)]
+  plot(density(des.per))
+  des.per <- des[which(dates=="2013-12-01"):which(dates=="2014-01-28")]
+  lines(density(des.per),col="red")
+  min(des.per)
+  quantile(des.per,probs=0.1)
+  
+  
+}
+
+# Run
+run.letter <- function(type=1){
+  
+  if(type==1){# compute.cor.descr.precip.clean
+    bv <- "Drac-seul"# c("Isere","Isere-seul","Drac-seul")
+    sais <- c("winter","spring","summer","autumn")
+    
+    for(i in 1:length(bv)){
+      for(j in 1:length(sais)){
+        compute.cor.descr.precip.clean(k = 1,dist = "TWS",bv = bv[i],sais = sais[j],spazm = T,start = start,end=end,rean = rean)
+      }
+    }
+  }
+  
+}
+
 # Scatterplot d'un descripteur et de NAO par saison et par reanalyse avec lissage possible
 scatterplot.descr.nao <- function(descr,k,dist,start="1865-01-01",end="2010-12-31",rean="20CR",liss=1){
   
@@ -745,63 +852,41 @@ scatterplot.descr.precip <- function(bv,type="cum",descr,k,dist,nbdays,start="19
 }
 
 # Scatterplot de 2 indicateurs VS precip par saison au pas de temps interannuel
-scatterplot.descr.precip.interannual <- function(descr=c("dP","singnei"),bv="Isere-seul",k,dist,start="1950-01-01",end="2017-12-31",rean="ERA5",spazm=T){
+scatterplot.descr.precip.interannual <- function(descr=c("dP","singnei"),colo=c("NAO","Atlantic"),bv="Isere-seul",k,dist,start="1950-01-01",end="2017-12-31",rean="ERA5",spazm=T){
   
-  dates <- getdates(start,end)
-  year <- substr(dates,1,4)
-  dec <- which(substr(dates,6,7)=="12")
-  year[dec] <- as.character(as.numeric(year[dec])+1)
+  des <- c("celnei","singnei","rsingnei","dP","cel","sing05","rsing05","NAO","Atlantic","Mediterranean","Northeast","Anticyclonic")
   
-  # Import indicateur
-  des <- matrix(data = NA,nrow = length(dates),ncol = length(descr))
-  colnames(des) <- nam2str(descr,whole=T)
-  for(i in 1:length(descr)){
-    des[,i] <- get.descriptor(descriptor = descr[i],k = k,dist = dist,nbdays = 1,start = start,end = end,
-                              standardize = F,rean = rean,threeday = F,period = "present")
-  }
+  # Import
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.descr.interannual/precip_interannual_",bv,"_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.descr.interannual/descr_interannual_k",k,"_",dist,"_",start,"_",end,".Rdata"))
   
-  # Import precip
-  precip <- get.precip(nbdays = 1,start = start,end = end,bv = bv,spazm = spazm)
+  des1.inter <- ind.inter[[which(des==descr[1])]]
+  des2.inter <- ind.inter[[which(des==descr[2])]]
+  des1.colo <- ind.inter[[which(des==colo[1])]]
+  des2.colo <- ind.inter[[which(des==colo[2])]]
   
-  # Moyennes interannuelles
-  sais <- c("winter","spring","summer","autumn")
-  sta <- c("12-01","03-01","06-01","09-01")
-  N <- c(90,92,92,91)
-  ind.sais <- vector(length=length(dates))
+  # Affichage des annees min et max de precip, des1 et des2
+  ann.start <- as.numeric(substr(start,1,4))
+  print("Precipitation")
+  print(apply(precip.inter,2,function(v){paste0("Annee min = ",which.min(v)+ann.start-1," et Annee max = ",which.max(v)+ann.start-1)}))
   
-  for(i in 1:length(sais)){
-      pos.sta <- which(substr(dates,6,10)== sta[i])
-      if(sais[i]=="winter"){pos.sta <- pos.sta[-length(pos.sta)]}
-      pos.all <- pos.sta
-      for(j in 1:(N[i]-1)){ # saisons de longueur 90 jours
-        pos.all <- sort(c(pos.all,pos.sta+j))
-      }
-    ind.sais[pos.all] <- i
-  }
+  print(nam2str(descr[1],whole=T))
+  print(apply(des1.inter,2,function(v){paste0("Annee min = ",which.min(v)+ann.start-1," et Annee max = ",which.max(v)+ann.start-1)}))
   
-  precip.inter <- aggregate(precip,by=list(as.numeric(year),ind.sais),sum)
-  colnames(precip.inter) <- c("year","season","val")
-  precip.inter <- pivot_wider(precip.inter,names_from = "season",values_from = "val")
-  precip.inter <- precip.inter[,-2] # on enleve saison 0
-  precip.inter <- as.matrix(precip.inter[sort(as.matrix(precip.inter[,1]),index.return=T)$ix,-1]) # bon ordre
-  
-  ind.inter <- apply(des,2,function(v){aggregate(v,by=list(as.numeric(year),ind.sais),mean)})
-  colnames(ind.inter[[1]]) <- colnames(ind.inter[[2]]) <- c("year","season","val")
-  ind.inter <- lapply(ind.inter,function(mat){pivot_wider(mat,names_from = "season",values_from = "val")})
-  
-  des1.inter <- ind.inter[[1]][,-2]
-  des1.inter <- as.matrix(des1.inter[sort(as.matrix(des1.inter[,1]),index.return=T)$ix,-1])
-  des2.inter <- ind.inter[[2]][,-2]
-  des2.inter <- as.matrix(des2.inter[sort(as.matrix(des2.inter[,1]),index.return=T)$ix,-1])
-
+  print(nam2str(descr[2],whole=T))
+  print(apply(des2.inter,2,function(v){paste0("Annee min = ",which.min(v)+ann.start-1," et Annee max = ",which.max(v)+ann.start-1)}))
   # Graphique
   png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/scatterplot.descr.precip.interannual/scatterplot_",bv,"_",descr[1],"_",descr[2],ifelse(spazm,"_spazm",""),".png"),width = 8,height = 5,units = "in",res=400)
   par(pty="s",mfcol=c(2,4))
   for(i in 1:4){
-  plot(des1.inter[,i],precip.inter[,i],pch=19,xlab=nam2str(descr[1],whole=T), ylab="Precipitation (mm)",
-       main=paste0(sais[i]," (R = ",round(cor(na.omit(des1.inter[,i]),na.omit(precip.inter[,i])),2),")"))
-  plot(des2.inter[,i],precip.inter[,i],pch=19,xlab=nam2str(descr[2],whole=T), ylab="Precipitation (mm)",
-        main=paste0(sais[i]," (R = ",round(cor(na.omit(des2.inter[,i]),na.omit(precip.inter[,i])),2),")"))
+    plot(des1.inter[,i],precip.inter[,i],pch=19,xlab=nam2str(descr[1],whole=T), ylab="Precipitation (mm)",
+         main=paste0(sais[i]," (R = ",round(cor(na.omit(des1.inter[,i]),na.omit(precip.inter[,i])),2),")"),
+         col=getcol(des1.colo[,i]))
+    addscale(des1.colo[,i])
+    plot(des2.inter[,i],precip.inter[,i],pch=19,xlab=nam2str(descr[2],whole=T), ylab="Precipitation (mm)",
+         main=paste0(sais[i]," (R = ",round(cor(na.omit(des2.inter[,i]),na.omit(precip.inter[,i])),2),")"),
+         col=getcol(des2.colo[,i]))
+    addscale(des2.colo[,i])
   }
   graphics.off()
 }

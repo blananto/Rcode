@@ -3175,7 +3175,7 @@ image.cumul<-function(crue=FALSE){
 # Carte de l'Europe avec fenêtres d'analogie, et carte de la region
 image.europe<- function(rean="20CR"){
   
-  png(filename = paste0("2_Travail/0_Present/Rresults/image.europe/image_europe_region_",rean,".png"),width = 1100,height = 500,units = "px")
+  tiff(filename = paste0("2_Travail/0_Present/Rresults/image.europe/image_europe_region_",rean,".tiff"),width = 13,height = 6,units = "in",res = 400)
   par(mfrow=c(1,2),oma=c(0,1,0,1))
   
   # Carte Europe
@@ -3203,7 +3203,7 @@ image.europe<- function(rean="20CR"){
        border="red",lwd=2)
   
   # Carte région
-  par(mar=c(4,4,4,3))
+  par(mar=c(4,4,4,4))
   image.region(pluvios = F,save=F,names = T,crsm=T,bd_alti = F)
   graphics.off()
   
@@ -3227,7 +3227,7 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F){
   if(names){
     coord.nam <- list(
       c(930,2055), #c(960,2010)
-      c(890,1995) #c(940,1985)
+      c(894,1995) #c(940,1985)
     )
     #coord.seg <- list(
     #  c(960,2015,957,2022),
@@ -3255,6 +3255,15 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F){
              legend.line=-2.3, cex.axis=1.3, cex.lab=1.3)
   #gray(seq(0.1,0.99,length=100))
   
+  # Rivieres
+  riv<-readOGR("2_Travail/Data/Carto/Principales/Principales/riviere2_3.shp")
+  id<-c(552,554,553,381)#isere,Drac,Arc,Romanche
+  
+  for (i in id){
+    tmp<-riv@lines[[i]]@Lines[[1]]@coords/1000
+    lines(tmp[,1],tmp[,2],col="blue",lwd=2)
+  }
+  
   # Bordure du BV et des sous-BV
   for(i in 1:length(bv)){
     bord<-read.csv(paste0("2_Travail/Data/Carto/borders-lambertII-",bv[i],".csv"),sep=";")
@@ -3275,15 +3284,6 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F){
   
   # Calcul surfaces
   #geometry::polyarea(bord[,1],bord[,2]) pour calculer la surface!
-  
-  # Rivieres
-  riv<-readOGR("2_Travail/Data/Carto/Principales/Principales/riviere2_3.shp")
-  id<-c(552,554,553,381)#isere,Drac,Arc,Romanche
-  
-  for (i in id){
-    tmp<-riv@lines[[i]]@Lines[[1]]@coords/1000
-    lines(tmp[,1],tmp[,2],col="blue",lwd=2)
-  }
   
   # Pluvios
   if(pluvios){
