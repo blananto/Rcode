@@ -3175,7 +3175,7 @@ image.cumul<-function(crue=FALSE){
 # Carte de l'Europe avec fenêtres d'analogie, et carte de la region
 image.europe<- function(rean="20CR"){
   
-  tiff(filename = paste0("2_Travail/0_Present/Rresults/image.europe/image_europe_region_",rean,".tiff"),width = 13,height = 6,units = "in",res = 400)
+  png(filename = paste0("2_Travail/0_Present/Rresults/image.europe/image_europe_region_",rean,".png"),width = 13,height = 6,units = "in",res = 600)
   par(mfrow=c(1,2),oma=c(0,1,0,1))
   
   # Carte Europe
@@ -3204,7 +3204,7 @@ image.europe<- function(rean="20CR"){
   
   # Carte région
   par(mar=c(4,4,4,4))
-  image.region(pluvios = F,save=F,names = T,crsm=T,bd_alti = F)
+  image.region(pluvios = F,save=F,names = F,crsm=F,bd_alti = F)
   graphics.off()
   
 }
@@ -3213,9 +3213,9 @@ image.europe<- function(rean="20CR"){
 image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F){
   
   # BVs a tracer
-  bv <- c(#"isere",
-          "isere-seul",
-          "drac-seul"
+  bv <- c("isere"
+          #"isere-seul",
+          #"drac-seul"
           #"tarentaise",
           #"maurienne",
           #"romanche",
@@ -3838,6 +3838,7 @@ nam2str<-function(nams,cloud=FALSE,whole=F){
     if(nams[i] == "rsing05") nams[i] <- "rsing"
     if(nams[i] == "celnei" & whole) nams[i] <- "Celerity"
     if(nams[i] == "singnei" & whole) nams[i] <- "Singularity"
+    if(nams[i] == "sing" & whole) nams[i] <- "Singularity"
     if(nams[i] == "rsingnei" & whole) nams[i] <- "Relative singularity"
     }
   
