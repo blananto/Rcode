@@ -13,7 +13,12 @@ compute.composite.sais <- function(sais="winter",year="1995",k=1,var="hgt",start
   if(sais=="autumn") {sta <- "09-01"; N <- 91}
   
   pos.sta <- which(substr(dates,6,10)== sta)
-  if(sais=="winter"){pos.sta <- pos.sta[-length(pos.sta)]} # on retire le dernier hiver incomplet
+  yr <- year
+  
+  if(sais=="winter"){
+    pos.sta <- pos.sta[-length(pos.sta)] # on retire le dernier hiver incomplet
+    yr <- as.character(as.numeric(yr)-1) # pour deb.year: on prend le premier decembre de l'annee d'avant
+    } 
   
   pos.all <- pos.sta
   for(i in 1:(N-1)){ # saisons de longueur 90 jours
@@ -21,7 +26,7 @@ compute.composite.sais <- function(sais="winter",year="1995",k=1,var="hgt",start
   }
   
   # Dates de la saison et de l'annee d'interet
-  deb.year <- which(dates==paste0(year,"-",sta))
+  deb.year <- which(dates==paste0(yr,"-",sta))
   pos.year <- deb.year:(deb.year+N-1)
   
   # Import
@@ -292,7 +297,7 @@ compute.descr.interannual <- function(k,dist,bv="Isere",spazm=T,start="1950-01-0
   # Import precip
   precip <- get.precip(nbdays = 1,start = start,end = end,bv = bv,spazm = spazm)
   
-  # Moyennes interannuelles
+  # Moyennes interannuelles saisonnieres ou non
   sais <- c("winter","spring","summer","autumn")
   sta <- c("12-01","03-01","06-01","09-01")
   N <- c(90,92,92,91)
@@ -314,6 +319,9 @@ compute.descr.interannual <- function(k,dist,bv="Isere",spazm=T,start="1950-01-0
   precip.inter <- precip.inter[,-2] # on enleve saison 0
   precip.inter <- as.matrix(precip.inter[sort(as.matrix(precip.inter[,1]),index.return=T)$ix,-1]) # bon ordre
   
+  precip.inter.ann <- aggregate(precip,by=list(substr(dates,1,4)),sum)
+  precip.inter <- cbind(precip.inter,precip.inter.ann[,2])
+  
   ind.inter <- apply(des,2,function(v){aggregate(v,by=list(as.numeric(year),ind.sais),mean,na.rm=T)})
   for(i in 1:length(ind.inter)) colnames(ind.inter[[i]]) <- c("year","season","val")
   ind.inter <- lapply(ind.inter,function(mat){pivot_wider(mat,names_from = "season",values_from = "val")})
@@ -321,12 +329,85 @@ compute.descr.interannual <- function(k,dist,bv="Isere",spazm=T,start="1950-01-0
     ind.inter[[i]] <- as.matrix(ind.inter[[i]][sort(as.matrix(ind.inter[[i]][,1]),index.return=T)$ix,-c(1,2)])
   }
   
+  ind.inter.ann <- apply(des,2,function(v){aggregate(v,by=list(substr(dates,1,4)),mean,na.rm=T)})
+  for(i in 1:length(ind.inter)) ind.inter[[i]] <- cbind(ind.inter[[i]],ind.inter.ann[[i]][,2])
+  
   # Export
   save(precip.inter,file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.descr.interannual/precip_interannual_",bv,"_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
   save(ind.inter,file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.descr.interannual/descr_interannual_k",k,"_",dist,"_",start,"_",end,".Rdata"))
   
 }
 
+# Corrplot entre les differents indicateurs pour une saison ou l'année entière
+corrplot.descr <- function(k,dist,sais="year",start="1950-01-01",end="2017-12-31",rean,save=T){
+  
+  # Import des indicateurs interannuels
+  ind <- c("sing05","dP","NAO","Atlantic","Mediterranean","Northeast","Anticyclonic")
+  season <- c("winter","spring","summer","autumn","year")
+  pos <- which(season==sais)
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.descr.interannual/descr_interannual_k",k,"_",dist,"_",start,"_",end,".Rdata"))
+  
+  # Traitement et tracé de la figure
+  if(save){
+    png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k1/corrplot.descr/corrplot_descr_",sais,"_",start,"_",end,".png"),width = 10,height = 6,units = "in",res = 600)
+  }
+
+    tab <- matrix(NA,nrow(ind.inter[[1]]),length(ind.inter))
+    for(j in 1:length(ind.inter)) tab[,j] <- ind.inter[[j]][,pos]
+    colnames(tab) <- names(ind.inter)
+    tab <- tab[,ind] # selection des indicateurs
+    tab.cor <- cor(tab,use="pairwise.complete.obs")
+    colnames(tab.cor) <- rownames(tab.cor) <- nam2str(colnames(tab.cor),whole=T)
+    
+    # Corrplot
+    corrplot(corr = tab.cor,method="circle",type="upper",diag=F,addCoef.col="black",
+             title=nam2str(sais),addgrid.col = "black",tl.col="black",tl.srt=45,mar=c(0,0,1,0),cex.main=2,oma=c(0,0,0,0))
+
+  if(save) graphics.off()
+}
+
+# Corrplot combiné: deux saisons
+corrplot.descr.combine <- function(k,dist,sais=c("year","winter"),start="1950-01-01",end="2017-12-31",rean){
+
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k1/corrplot.descr/corrplot_descr_",sais[1],"_",sais[2],"_",start,"_",end,".png"),width = 10,height = 4,units = "in",res = 600)
+  par(mfrow=c(1,2))
+  corrplot.descr(k = k,dist = dist,sais = sais[1],start = start,end = end,rean = rean,save = F)
+  corrplot.descr(k = k,dist = dist,sais = sais[2],start = start,end = end,rean = rean,save = F)
+  graphics.off()
+}
+
+# Corrplot entre les differents indicateurs pour les 4 saisons
+corrplot.descr.season <- function(k,dist,start="1950-01-01",end="2017-12-31",rean){
+  
+  # Import des indicateurs interannuels
+  ind <- c("sing05","dP","NAO","Atlantic","Mediterranean","Northeast","Anticyclonic")
+  sais <- c("winter","spring","summer","autumn")
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.descr.interannual/descr_interannual_k",k,"_",dist,"_",start,"_",end,".Rdata"))
+  
+  # Traitement et tracé de la figure
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k1/corrplot.descr/corrplot_descr_season_",start,"_",end,".png"),width = 10,height = 10,units = "in",res = 600)
+  par(mfrow=c(2,2),mar=c(0,0,3,0))
+  
+  for(i in 1:length(sais)){
+    
+    # Extraction de la liste et calcul correlation
+    tab <- matrix(NA,nrow(ind.inter[[1]]),length(ind.inter))
+    for(j in 1:length(ind.inter)) tab[,j] <- ind.inter[[j]][,i]
+    colnames(tab) <- names(ind.inter)
+    tab <- tab[,ind] # selection des indicateurs
+    tab.cor <- cor(tab,use="pairwise.complete.obs")
+    colnames(tab.cor) <- rownames(tab.cor) <- nam2str(colnames(tab.cor),whole=T)
+    
+    # Corrplot
+    corrplot(corr = tab.cor,method="circle",type="lower",diag=F,addCoef.col="black",
+             title=sais[i],addgrid.col = "black",tl.col="black",tl.srt=45,mar=c(0,0,1,0),cex.main=2)
+  }
+  
+  graphics.off()
+  
+  
+}
+  
 # Import de la serie mensuelle de NAO
 get.nao <- function(start="1950",end="2019",sais="all",daily=F,normalized=F){
   if(!daily){
@@ -389,53 +470,77 @@ map.composite.sais <- function(sais="winter",descr="sing05",years=c(NA,NA),k,sta
     delta=0.25
   }
   
+  # Pour couleur et legende
+  breaks <- seq(4850,6100,length.out = 12)
+  N <- 11
+  lab <- seq(4900,6100,200)
+  pos.lab <- ecdf(seq(4850,6100))(lab)
+  
   fen <- getinfo_window(k = k,large_win = F,small_win = F,all = F,rean = rean,var = "hgt")
   
   # Carte
-  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.composite.sais/composite_",sais,"_",descr,"_k",k,"_",start,"_",end,".png"),width=8,height=6,units = "in",res=300)
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.composite.sais/composite_",sais,"_",descr,"_k",k,"_",start,"_",end,".png"),width=8,height=5,units = "in",res=300)
  
-  par(pty="s",mfrow=c(2,3),mar=c(0,0,3,7))
+  layout(matrix(c(1:3,1,4:5),2,3,byrow=T))
+  par(pty="s",mar=c(0,0,2,6))
   cex <- 1.5
   ann <- as.character(c(ann.min,ann.max))
   res <- list(res.min,res.max)
   
+  # Composite saison toute periode
+  image(lon,lat,res[[1]][[1]],xlim=c(-15,25),ylim=c(25,65),
+        col=rev(brewer.pal(n = N, name = "RdBu")),
+        xlab="",ylab="",main="",xaxt="n",yaxt="n",
+        cex.axis=cex, cex.lab=cex, cex.main=cex,
+        breaks = breaks)
+  title(main=nam2str(sais),cex=3)
+  data(wrld_simpl)
+  plot(wrld_simpl, add = TRUE)
+  points(6,45,col="red",pch=19)
+  if(win) rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
+  if(iso) contour(x=lon,y=lat,z=res[[1]][[1]], levels=breaks, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
+  if(leg){
+    par(xpd=T)
+    colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
+              labels = lab,at =  pos.lab,
+              vertical = T,cex=1.4,xlim=c(26,29),ylim=c(25,65),align = "l")
+    par(xpd=F)
+  }
+  
   for(i in 1:2){
-    for(j in 1:3){
+    for(j in c(3:2)){
       
-      if(j!=3){ 
-        breaks <- seq(4850,6100,length.out = 12)
-        N <- 11
-        lab <- seq(4900,6100,200)
-        lev <- seq(4900,6100,100)
-      }else{
+      if(j==3){ 
         breaks <- seq(-200,200,length.out = 12)
         N <- 11
         lab <- seq(-200,200,50)
-        lev <- seq(-200,200,100)
-      }
-      
-      if(leg){
-        image.plot(lon,lat,res[[i]][[j]],xlim=c(-15,25),ylim=c(25,65),
-                   col=rev(brewer.pal(n = N, name = "RdBu")),
-                   xlab="",ylab="",main="",xaxt="n",yaxt="n",
-                   legend.line=-2.3, cex.axis=cex, cex.lab=cex, cex.main=cex,
-                   breaks = breaks,axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
-        if(j!=1) title(main=ann[i])
-        
+        pos.lab <- ecdf(seq(-200,200))(lab)
       }else{
+        breaks <- seq(4850,6100,length.out = 12)
+        N <- 11
+        lab <- seq(4900,6100,200)
+        pos.lab <- ecdf(seq(4850,6100))(lab)
+      }
+
         image(lon,lat,res[[i]][[j]],xlim=c(-15,25),ylim=c(25,65),
               col=rev(brewer.pal(n = N, name = "RdBu")),
               xlab="",ylab="",main="",xaxt="n",yaxt="n",
               cex.axis=cex, cex.lab=cex, cex.main=cex,
               breaks = breaks)
-        if(j!=1) title(main=ann[i])
-      }
-      
-      data(wrld_simpl)
-      plot(wrld_simpl, add = TRUE)
-      points(6,45,col="red",pch=19)
-      if(win) rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
-      if(iso) contour(x=lon,y=lat,z=res[[i]][[j]], levels=breaks, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
+        title(main=paste0(nam2str(sais)," ",ann[i],ifelse(j==3," (anomalies)","")),cex=3)
+        
+        data(wrld_simpl)
+        plot(wrld_simpl, add = TRUE)
+        points(6,45,col="red",pch=19)
+        if(win) rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
+        if(iso) contour(x=lon,y=lat,z=res[[i]][[j]], levels=breaks, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
+        if(leg){
+          par(xpd=T)
+          colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
+                      labels = lab,at =  pos.lab,
+                      vertical = T,cex=1.4,xlim=c(26,29),ylim=c(25,65),align = "l")
+          par(xpd=F)
+        }
     }
   }
   graphics.off()
@@ -523,10 +628,10 @@ plot.cor.one <- function(bv="Isere",spazm=T,rean){
     # Nom saison x 2
     par(mar=c(0,0,0,0))
     plot.new()
-    text(0.5,0.5,sais[i],cex=2,font=2)
+    text(0.5,0.5,nam2str(sais[i]),cex=2,font=2)
     par(mar=c(0,0,0,0))
     plot.new()
-    text(0.5,0.5,sais[i+1],cex=2,font=2)
+    text(0.5,0.5,nam2str(sais[i+1]),cex=2,font=2)
     
     plot.cor.descr.precip.clean(k = 1,bv = bv,sais = sais[i],spazm = spazm,rean = rean,save = F)
     plot.cor.descr.precip.clean(k = 1,bv = bv,sais = sais[i+1],spazm = spazm,rean = rean,save = F)
@@ -544,13 +649,13 @@ plot.cor.one <- function(bv="Isere",spazm=T,rean){
   }
   
   # Legende
-  colo <- c("red",
-            "blue",
+  colo <- c("darkorange",
+            "purple",
             "black",
-            "olivedrab3",
-            "darkorange",
-            "darkgrey",
-            "darkorchid2"
+            "blue",
+            "red",
+            "darkgreen",
+            "grey"
   )
   
   ind.name <- c("Singularity",
@@ -670,13 +775,13 @@ plot.cor.interannual.one <- function(bv="Isere",spazm=T,rean){
   lty.bv <- sign; lty.bv[lty.bv==-1] <- 2
   
   # Graphique
-  colo <- c("red",
-            "blue",
+  colo <- c("darkorange",
+            "purple",
             "black",
-            "olivedrab3",
-            "darkorange",
-            "darkgrey",
-            "darkorchid2"
+            "blue",
+            "red",
+            "darkgreen",
+            "grey"
   )
   
   ind.name <- c("Singularity",
@@ -870,14 +975,14 @@ plot.cor.descr.precip.clean <- function(k,bv="Isere-seul",sais="winter",spazm=T,
   ltyp <- sign; ltyp[ltyp==-1] <- 2
   
   # Couleurs
-  colo <- c("red",
-            "blue",
+  colo <- c("darkorange",
+            "purple",
             "black",
-            "olivedrab3",
-            "darkorange",
-            "darkgrey",
-            "darkorchid2"
-            )
+            "blue",
+            "red",
+            "darkgreen",
+            "grey"
+  )
   
   # Graphique
   if(save){
@@ -907,7 +1012,7 @@ plot.cor.descr.precip.clean <- function(k,bv="Isere-seul",sais="winter",spazm=T,
   for(i in 1:ncol(corr.yearly)){
     lines(1:nrow(corr.yearly),corr.yearly[,i]*sign[i],lty=ltyp[i],col=colo[i],lwd=2)
   }
-  rect(xleft = 0.8,ybottom = -0.2,xright = 1.2,ytop = 1,lty = 2)
+  #rect(xleft = 0.8,ybottom = -0.2,xright = 1.2,ytop = 1,lty = 2)
   
   if(save) graphics.off()
 }
@@ -993,11 +1098,11 @@ scatterplot.all <- function(k,dist,bv,descr=c("dP","sing05"),start="1950-01-01",
   
   for(i in 1:length(comb)){
     print(i)
-    des1 <- ind.inter[[which(names(ind.inter)==comb[[i]][1])]][,1] # on ne prend que l'hiver
-    des2 <- ind.inter[[which(names(ind.inter)==comb[[i]][2])]][,1]
+    des1 <- ind.inter[[which(names(ind.inter)==comb[[i]][1])]][,5] # on ne prend que l'hiver
+    des2 <- ind.inter[[which(names(ind.inter)==comb[[i]][2])]][,5]
     plot(des1,des2,pch=21,xlab="",ylab=paste0(nam2str(comb[[i]][2],whole=T),ifelse(comb[[i]][2]=="MPD"," (m)","")),
          main=paste0("winter"," (R = ",round(cor(des1,des2,use="pairwise.complete.obs"),2),")"),
-         bg=pal(n = length(des1))[rank(precip.inter[,1])],col=colo)
+         bg=pal(n = length(des1))[rank(precip.inter[,5])],col=colo)
     title(xlab=paste0(nam2str(comb[[i]][1],whole=T),ifelse(comb[[i]][1]=="MPD"," (m)","")),line=2)
     if(i==1) mtext(text = "c)",side = 3,line=1,adj = -1)
   }
@@ -1008,6 +1113,44 @@ scatterplot.all <- function(k,dist,bv,descr=c("dP","sing05"),start="1950-01-01",
   mini <- min(precip.inter[,1],na.rm=T);maxi <- max(precip.inter[,1],na.rm=T);mil <- (maxi-mini)/2+mini
   leg <- paste0(as.character(round(c(mini,mil,maxi),0))," mm")
   color.legend(0,0.1,0.2,0.9,legend = leg,gradient="y",rect.col = pal(length(des1)),align="rb",cex=0.8,font=2,pos=4)
+  
+  graphics.off()
+}
+
+# Scatterplot entre descripteurs
+scatterplot.descr <- function(k,dist,start="1950-01-01",end="2017-12-31",rean){
+  
+  # Import indicateurs
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.descr.interannual/descr_interannual_k",k,"_",dist,"_",start,"_",end,".Rdata"))
+       
+  # Scatterplot des differentes combinaisons d'indicateurs
+  comb <- list(
+    c("sing05","dP"),
+    c("sing05","Atlantic"),
+    c("dP","Atlantic"),
+    c("dP","NAO")
+  )
+  
+  year <- seq(as.numeric(substr(start,1,4)),as.numeric(substr(end,1,4)))
+  colo <- rep("black",length(year))
+  pos.1 <- which(year==1989);pos.2 <- which(year==1995)
+  colo[pos.1] <- "red";colo[pos.2] <- "blue"
+  
+  letter <- c("a)","b)","c)","d)")
+  
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k1/scatterplot.descr/scatterplot_descr_",start,"_",end,".png"),width = 7,height = 2,units = "in",res=600)
+  par(mfrow=c(1,4),mar=c(3,4,1.5,0),pty="s")
+  for(i in 1:length(comb)){
+    print(i)
+    des1 <- ind.inter[[which(names(ind.inter)==comb[[i]][1])]][,1] # on ne prend que l'hiver
+    des2 <- ind.inter[[which(names(ind.inter)==comb[[i]][2])]][,1]
+    plot(des1,des2,pch=19,xlab="",ylab="",col=colo,main=paste0("R = ",round(cor(des1,des2,use="pairwise.complete.obs"),2)))
+    grid()
+    points(des1,des2,pch=19,col=colo)
+    title(xlab=paste0(nam2str(comb[[i]][1],whole=T),ifelse(comb[[i]][1]=="dP"," (m)","")),line=2)
+    title(ylab=paste0(nam2str(comb[[i]][2],whole=T),ifelse(comb[[i]][2]=="dP"," (m)","")),line=2)
+    mtext(text = letter[i],side = 3,line=1,adj = -0.2)
+  }
   
   graphics.off()
 }
@@ -1177,7 +1320,63 @@ scatterplot.descr.precip <- function(bv,type="cum",descr,k,dist,nbdays,start="19
 }
 
 # Scatterplot de 2 indicateurs VS precip par saison au pas de temps interannuel
-scatterplot.descr.precip.interannual <- function(descr=c("dP","singnei"),colo=c("NAO","Atlantic"),bv="Isere-seul",k,dist,start="1950-01-01",end="2017-12-31",rean="ERA5",spazm=T){
+scatterplot.descr.precip.interannual <- function(descr=c("dP","sing05"),bv="Isere",k,dist,start="1950-01-01",end="2017-12-31",rean="ERA5",spazm=T){
+  
+  des <- c("celnei","singnei","rsingnei","dP","cel","sing05","rsing05","NAO","Atlantic","Mediterranean","Northeast","Anticyclonic")
+  sais <- c("winter","spring","summer","autumn")
+  
+  # Import
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.descr.interannual/precip_interannual_",bv,"_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.descr.interannual/descr_interannual_k",k,"_",dist,"_",start,"_",end,".Rdata"))
+  des1.inter <- ind.inter[[which(des==descr[1])]]
+  des2.inter <- ind.inter[[which(des==descr[2])]]
+  
+  # Xlim et Ylim
+  xlim1 <- range(des1.inter,na.rm=T)
+  xlim2 <- range(des2.inter,na.rm=T)
+  ylim <- range(precip.inter[,1:4],na.rm=T)
+  
+  # Affichage des annees min et max de precip, des1 et des2
+  ann.start <- as.numeric(substr(start,1,4))
+  print("Precipitation")
+  print(apply(precip.inter,2,function(v){paste0("Annee min = ",which.min(v)+ann.start-1," et Annee max = ",which.max(v)+ann.start-1)}))
+  
+  print(nam2str(descr[1],whole=T))
+  print(apply(des1.inter,2,function(v){paste0("Annee min = ",which.min(v)+ann.start-1," et Annee max = ",which.max(v)+ann.start-1)}))
+  
+  print(nam2str(descr[2],whole=T))
+  print(apply(des2.inter,2,function(v){paste0("Annee min = ",which.min(v)+ann.start-1," et Annee max = ",which.max(v)+ann.start-1)}))
+  
+  # Graphique
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/scatterplot.descr.precip.interannual/scatterplot_",bv,"_",descr[1],"_",descr[2],ifelse(spazm,"_spazm",""),".png"),width = 8,height = 4,units = "in",res=400)
+  par(pty="s",mfcol=c(2,4),mar=c(3,4,2,0))
+  for(i in 1:4){
+    if(i==1){
+      year <- seq(as.numeric(substr(start,1,4)),as.numeric(substr(end,1,4)))
+      colo <- rep("black",length(year))
+      pos.1 <- which(year==1989);pos.2 <- which(year==1995)
+      colo[pos.1] <- "red";colo[pos.2] <- "blue"
+    }else{colo <- "black"}
+    
+    plot(des1.inter[,i],precip.inter[,i],pch=19,main=paste0(nam2str(sais[i])," (R = ",round(cor(na.omit(des1.inter[,i]),na.omit(precip.inter[,i])),2),")"),
+         col=colo,xlab="",ylab="",xlim=xlim1,ylim=ylim)
+    grid()
+    points(des1.inter[,i],precip.inter[,i],pch=19,col=colo)
+    title(xlab = paste0(nam2str(descr[1],whole=T),ifelse(descr[1]=="dP"," (m)","")),line=2)
+    title(ylab = "Precipitation (mm)",line=2)
+    
+    plot(des2.inter[,i],precip.inter[,i],pch=19,main=paste0(nam2str(sais[i])," (R = ",round(cor(na.omit(des2.inter[,i]),na.omit(precip.inter[,i])),2),")"),
+         col=colo,xlab="",ylab="",xlim=xlim2,ylim=ylim)
+    grid()
+    points(des2.inter[,i],precip.inter[,i],pch=19,col=colo)
+    title(xlab = paste0(nam2str(descr[2],whole=T),ifelse(descr[2]=="dP"," (m)","")),line=2)
+    title(ylab = "Precipitation (mm)",line=2)
+  }
+  graphics.off()
+}
+
+# Scatterplot de 2 indicateurs VS precip par saison au pas de temps interannuel
+scatterplot.descr.precip.interannual.color <- function(descr=c("dP","singnei"),colo=c("NAO","Atlantic"),bv="Isere-seul",k,dist,start="1950-01-01",end="2017-12-31",rean="ERA5",spazm=T){
   
   des <- c("celnei","singnei","rsingnei","dP","cel","sing05","rsing05","NAO","Atlantic","Mediterranean","Northeast","Anticyclonic")
   sais <- c("winter","spring","summer","autumn")
@@ -1202,7 +1401,7 @@ scatterplot.descr.precip.interannual <- function(descr=c("dP","singnei"),colo=c(
   print(nam2str(descr[2],whole=T))
   print(apply(des2.inter,2,function(v){paste0("Annee min = ",which.min(v)+ann.start-1," et Annee max = ",which.max(v)+ann.start-1)}))
   # Graphique
-  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/scatterplot.descr.precip.interannual/scatterplot_",bv,"_",descr[1],"_",descr[2],ifelse(spazm,"_spazm",""),".png"),width = 8,height = 5,units = "in",res=400)
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/scatterplot.descr.precip.interannual/scatterplot_color_",bv,"_",descr[1],"_",descr[2],ifelse(spazm,"_spazm",""),".png"),width = 8,height = 5,units = "in",res=400)
   par(pty="s",mfcol=c(2,4))
   for(i in 1:4){
     plot(des1.inter[,i],precip.inter[,i],pch=19,xlab=nam2str(descr[1],whole=T), ylab="Precipitation (mm)",

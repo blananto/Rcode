@@ -2888,6 +2888,27 @@ get.ind.min.max.descr <- function(descr,k,dist,nbdays,start="1950-01-01",end="20
   res
 }
 
+# Calcul du min de geopotentiel dans la fenetre
+get.max <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
+  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
+  des <- apply(geo,3,function(x) max(x))
+  des <- rollapply(des,nbdays,mean)
+}
+
+# Calcul du mean de geopotentiel dans la fenetre
+get.mean <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
+  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
+  des <- apply(geo,3,function(x) mean(x))
+  des <- rollapply(des,nbdays,mean)
+}
+
+# Calcul du min de geopotentiel dans la fenetre
+get.min <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
+  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
+  des <- apply(geo,3,function(x) min(x))
+  des <- rollapply(des,nbdays,mean)
+}
+
 # Renvoie les valeurs max de vent (u et v ensemble)
 get.min.max.wind <- function(k,start="1950-01-01",end="2011-12-31",rean){
   
@@ -2979,7 +3000,7 @@ get.stdstr<-function(standardize){
 # Importation des WP EDF
 get.wp <- function(nbdays,start="1950-01-01",end="2011-12-31",risk=F,bv="Isere",agreg=F,spazm=F){
   
-  wp <- read.table(file = paste0("2_Travail/Data/WP/type_temps_jour_1948_2019",ifelse(agreg,"_agreg",""),".txt"), quote="\"", comment.char="",sep=",")
+  wp <- read.table(file = paste0("2_Travail/Data/WP/type_temps_jour_1948_2019",ifelse(agreg,"_agreg",""),".txt"), quote="\"", comment.char="",sep=" ")
   wp[,1] <- as.character(format(as.Date(wp[,1],"%d/%m/%Y"),"%Y-%m-%d"))
   wp <- wp[which(wp[,1]==start):which(wp[,1]==end),2]
   
@@ -3840,6 +3861,11 @@ nam2str<-function(nams,cloud=FALSE,whole=F){
     if(nams[i] == "singnei" & whole) nams[i] <- "Singularity"
     if(nams[i] == "sing" & whole) nams[i] <- "Singularity"
     if(nams[i] == "rsingnei" & whole) nams[i] <- "Relative singularity"
+    if(nams[i] == "winter") nams[i] <- "Winter"
+    if(nams[i] == "spring") nams[i] <- "Spring"
+    if(nams[i] == "summer") nams[i] <- "Summer"
+    if(nams[i] == "autumn") nams[i] <- "Autumn"
+    if(nams[i] == "year") nams[i] <- "Year"
     }
   
   if(!cloud && length(nams)==2 && nams != c("A","A")){ # si on ne l'utilise pas pour un nuage de points, alors nams de longueur 1
