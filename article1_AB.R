@@ -1527,7 +1527,8 @@ plot.density.max.clean <- function(descr=c("celnei","singnei","rsingnei","dP"),k
   gamme <- c(6,3756)
   let <- list(c("a)","b)","c)","d)"),c("e)","f)","g)","h)"),c("i)","j)","k)","l)"))
   
-  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.density.max.clean/plot_density_max",ifelse(quant,"_quant",""),ifelse(spazm,"_spazm",""),".png"),width = 9,height = 9,units = "in",res=400)
+  #png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.density.max.clean/plot_density_max",ifelse(quant,"_quant",""),ifelse(spazm,"_spazm",""),".png"),width = 9,height = 9,units = "in",res=400)
+  tiff(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.density.max.clean/plot_density_max",ifelse(quant,"_quant",""),ifelse(spazm,"_spazm",""),".tiff"),width = 9,height = 9,units = "in",res=600)
   layout(matrix(c(rep(1,4),2:5,rep(6,4),7:10,rep(11,4),12:15),nrow=6,ncol=4,byrow=T),widths=c(1,1,1,1),heights=c(0.2,1,0.2,1,0.2,1))
   for(i in 1:3){
     print(i)
@@ -1655,7 +1656,7 @@ plot.density.clean <- function(descr=c("celnei","singnei","rsingnei","dP"),k,dis
   let <- list(c("a)","b)","c)"),c("d)","e)","f)"),c("g)","h)","i)"))
   
   png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.density.clean/plot_density",ifelse(quant,"_quant",""),ifelse(spazm,"_spazm",""),".png"),width = 7,height = 9,units = "in",res=400)
-  
+  tiff(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.density.clean/plot_density",ifelse(quant,"_quant",""),ifelse(spazm,"_spazm",""),".tiff"),width = 7,height = 9,units = "in",res=600)
   layout(matrix(c(rep(1,3),2:4,rep(5,3),6:8,rep(9,3),10:12),nrow=6,ncol=3,byrow=T),widths=c(1,1,1),heights=c(0.2,1,0.2,1,0.2,1))
   for(i in 1:3){
     print(i)
@@ -2474,22 +2475,37 @@ plot.period.max <- function(bv1="Isere-seul",bv2="Drac-seul",nbdays,start="1950-
   ann.1 <- aggregate(vect1,by=list(substr(dates,1,4)),sum)
   ann.2 <- aggregate(vect2,by=list(substr(dates,1,4)),sum)
   
+  yr <- as.integer(ann.1[,1])
+  ann <- t(cbind(ann.1[,2],ann.2[,2]))
   
   # Graphique
-  png(filename = paste0("2_Travail/0_Present/Rresults/plot.period.max/plot.period.max_",bv1,"_",bv2,ifelse(spazm,"_spazm",""),".png"),
-      width = 6,height = 3,units = "in",res = 300)
+  tiff(filename = paste0("2_Travail/0_Present/Rresults/plot.period.max/plot.period.max_",bv1,"_",bv2,ifelse(spazm,"_spazm",""),".tiff"),
+     width = 9,height = 3,units = "in",res = 600)
+  #png(filename = paste0("2_Travail/0_Present/Rresults/plot.period.max/plot.period.max_",bv1,"_",bv2,ifelse(spazm,"_spazm",""),".png"),
+  #     width = 9,height = 3,units = "in",res = 600)
   
   # Nouvelle version
   par(mar=c(2,4,2,0))
-  plot(ann.1,type="l",ylim=c(0,6),col="cornflowerblue",pty="n",xlab="",ylab="Number of events")
+  xlabel <- seq(1950,2010,10)
+  barplot(ann,beside=T, names.arg = yr, col=c("cornflowerblue","burlywood1"),
+          xlab="",ylab="Number of events",ylim=c(0,6.5),xaxt="n")
   grid()
-  lines(ann.1,col="cornflowerblue",lwd=2)
-  lines(ann.2,col="burlywood1",lwd=2)
+  box()
+  axis(side = 1,at = seq(2,length(yr)*3,15),labels = seq(1950,2015,5),tick = T)
+  par(new=T)
+  barplot(ann,beside=T, names.arg = ann.1[,1], col=c("cornflowerblue","burlywood1"),
+          xlab="",ylab="Number of events",ylim=c(0,6.5),xaxt="n")
   
-  legend("topright",inset=.02,bty="n",lty=1,lwd=2,col=c("cornflowerblue","burlywood1"),legend = c(nam2str(bv1),nam2str(bv2)))
+  legend("topright",inset=.02,bty="n",fill=c("cornflowerblue","burlywood1"),legend = c(nam2str(bv1),nam2str(bv2)),cex=1)
   graphics.off()
   
   # Ancienne version
+  #par(mar=c(2,4,2,0))
+  #plot(ann.1,type="l",ylim=c(0,6),col="cornflowerblue",pty="n",xlab="",ylab="Number of events")
+  #grid()
+  #lines(ann.1,col="cornflowerblue",lwd=2)
+  #lines(ann.2,col="burlywood1",lwd=2)
+  
   #plot(ann.1[,1],rep(1,nrow(ann.1)),ylim=c(0,3),type="n",yaxt="n",xlab="Year",ylab="")
   #grid(ny=NA,nx=NULL)
   #abline(h=c(1,2),col="grey",lty=3)

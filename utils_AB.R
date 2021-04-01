@@ -30,6 +30,7 @@ library("raster") # brick
 library("foreach") # Parallel for loop (need every step to be independant)
 library("parallel") # check number of cores
 library("doParallel") # Parallelization of calculation
+library("viridis") # Viridis Color Palette
 
 # Fonctions graphiques
 addcircle<-function(radius){
@@ -73,7 +74,8 @@ addscale<-function(vec,r=2,legend="",centered=FALSE,rev=FALSE){
   text(xmin+width/2,ymin+heigh,labels=legend,pos=3)
 }
 colpalette<-function(rev=FALSE){
-  col<-timPalette(113)[10:110]
+  #col<-timPalette(113)[10:110]
+  col<- viridis(100)
   if (rev) col<-rev(col)
   col
 }
@@ -2316,8 +2318,8 @@ compute_D500_1000<-function(start="1950-01-01",end="2011-12-31",rean){
 }
 
 # Trouve le jour de NetCDF associe a la date
-date_to_number<-function(nc,day,rean){
-  which(getdays(nc,rean)==day)
+date_to_number<-function(nc,day,rean,climat=NULL){
+  which(getdays(nc,rean,climat)==day)
 }
 
 # Calcul des parametres de la loi empirique selon le voisinage au sens des indicateurs
@@ -2531,21 +2533,22 @@ fit.loglik.p0.A<-function(rad,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31
   save(fit,file=paste0(get.dirstr(k,rean),"fit.loglik.p0-CV.A/",rad,"_",dist,"_member",member,"_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
 }
 
-# Sort la matrice de donnees de dat500 (k=1) ou dat1000 (k=2) dans notre fenetre d'analogie pour le jour j (de 1=01/01/1851 a 58804=31/12/2011)
-getdata<-function(k,day0,day1=day0,rean,large_win=F,small_win=F,all=F,var="hgt"){
+# Extrait les donnees d'un netcdf (k=1 pour 500hPa, k=2 pour 1000hPa) pour notre fenetre d'analogie
+getdata<-function(k,day0,day1=day0,rean=NULL,climat=NULL,run=1,large_win=F,small_win=F,all=F,ssp=NULL,var="hgt"){
   
-  nc <- load.nc(rean,var)
+  # Import du netcdf
+  nc <- load.nc(rean,var,climat,run,ssp)
   if(var=="hgt"){ nc <- nc[[k]]}
   
-  num0<-date_to_number(nc,day0,rean)
-  num1<-date_to_number(nc,day1,rean)
-  if(rean=="ERA20C_4daily"){ # si on est en 6h, on prend le minuit du debut et le 18h de la fin
-      num0 <- num0[1]
-      num1 <- num1[length(num1)]
-  }
-  
+  # Definition du premier et dernier pas de temps a extraire
+  num0<-date_to_number(nc,day0,rean,climat)
+  num1<-date_to_number(nc,day1,rean,climat)
   N<-length(num0:num1)
-  infowind<-getinfo_window(k,large_win,small_win,all,rean,var)
+  
+  # Definition de la fenetre spatiale a extraire
+  infowind<-getinfo_window(k,large_win,small_win,all,rean,var,climat,run,ssp)
+  
+  # Extraction
   data <- ncvar_get(nc = nc,varid=var,start=c(infowind[1,1],infowind[2,1],num0),count=c(infowind[1,2],infowind[2,2],N))
   nc_close(nc)
   data
@@ -2557,17 +2560,32 @@ getdates<-function(start="1950-01-01",end="2011-12-31"){
 }
 
 # Date associee a chaque pas de temps dans le fichier NetCDF
-getdays<-function(nc,rean){
-  # Origine
-  if(rean == "20CR") orig <- "1800"
-  if(substr(rean,1,3) == "JRA") orig <- "1800"
-  if(substr(rean,1,3) == "ERA") orig <- "1900"
-  if(rean == "NCEP") orig <- "1950"
+getdays<-function(nc,rean,climat=NULL){
   
-  # Vecteur time
-  ti <- nc$dim$time$vals*3600
-  substr(as.POSIXct(ti,origin=paste0(orig,'-01-01 00:00'),tz="GMT"),1,10) #format "YYYY-MM-DD"
+  # Les reanalyses: origines differentes et pas de temps horaire
+  if(is.null(climat)){
+    
+    # Origine
+    if(rean == "20CR") orig <- "1800"
+    if(rean == "NCEP") orig <- "1950"
+    if(substr(rean,1,3) == "JRA") orig <- "1800"
+    if(substr(rean,1,3) == "ERA") orig <- "1900"
+    
+    # Vecteur temps
+    ti <- nc$dim$time$vals*3600
+    substr(as.POSIXct(ti,origin=paste0(orig,'-01-01 00:00'),tz="GMT"),1,10) #format "YYYY-MM-DD"
+    
+  # Les modeles de climat: origine en 1850 et pas de temps journalier
+  }else{
+    
+    # Origine
+    if(climat == "cnrm") orig <- "1850"
+    
+    # Vecteur temps
+    ti <- nc$dim$time$vals
+    as.character(as.Date(ti,origin=as.Date(paste0(orig,"-01-01")))) #format "YYYY-MM-DD"
   }
+}
 
 # Importe la liste contenant la distance souhaitee
 getdist<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,threeday=FALSE,period="present"){
@@ -2595,15 +2613,15 @@ getdist4i<-function(i,dist.vec,N,sU){
   return(di)
 }
 
-# Definit la fenetre spatiale d'analogie pour extraire des donnees de data500 et data1000 
-getinfo_window<-function(k,large_win = F,small_win=F,all=F,rean,var="hgt"){ 
+# Repere les indices d'un netcdf pour definir la fenetre spatiale d'analogie
+getinfo_window<-function(k,large_win = F,small_win=F,all=F,rean=NULL,var="hgt",climat=NULL,run=1,ssp=NULL){ 
   
   # large_win = T pour 1000hPa sur grande fenetre
   # small_win = T pour PWAT sur une fenetre reduite
   # all = T pour avoir tout le domaine du fichier netcdf
   
   # Import
-  nc <- load.nc(rean,var)
+  nc <- load.nc(rean,var,climat,run,ssp)
   if(var == "hgt"){ nc <- nc[[k]]}
   
   # Coord
@@ -2616,43 +2634,45 @@ getinfo_window<-function(k,large_win = F,small_win=F,all=F,rean,var="hgt"){
     infolon <- c(1,length(lon)) # indice du 1er point de grille et nbre de points de grille
     infolat <- c(1,length(lat))
   }else{ # Incomplete
-  
-  c_lon<-6 # centre de la fenetre longitude
-  c_lat<-44 # centre de la fenetre latitude
-  
-  if(k==1 | large_win) {# 500hPA
-    d_lon<-32 # on prend 32 en longitude pour 500hPa
-    d_lat<-16 # on prend 16 en latitude pour 500hPa
-  }
-  
-  if (k==2 & !large_win){ # 1000 hPA
-    d_lon<-16 # on prend 16 en longitude pour 1000hPa
-    d_lat<-8  # on prend 8 en latitude pour 1000hPa
-  }
-  
-  if(k==1 & small_win & rean=="20CR") {# PWAT
-    d_lon<-1
-    c_lat<-46
-    d_lat<-1
-  }
-  
-  if(k==1 & small_win & rean=="ERA5") {# TCW
-    c_lon<-6.25
-    c_lat<-45.25
-    d_lon<-1.5
-    d_lat<-1.5
-  }
-  
-  deb_lon <- which.min(abs(lon - (c_lon-d_lon/2)))
-  fin_lon <- which.min(abs(lon - (c_lon+d_lon/2)))
-  len_lon <- fin_lon - deb_lon + 1
-  
-  deb_lat <- which.min(abs(lat - (c_lat-d_lat/2)))
-  fin_lat <- which.min(abs(lat - (c_lat+d_lat/2)))
-  len_lat <- fin_lat - deb_lat + 1
-  
-  infolon <- c(deb_lon,len_lon) # indice du 1er point de grille et nbre de points de grille
-  infolat <- c(deb_lat,len_lat)
+    
+    c_lon<-6 # centre de la fenetre longitude
+    c_lat<-44 # centre de la fenetre latitude
+    
+    if(k==1 | large_win) {# 500hPA
+      d_lon<-32 # on prend 32 en longitude pour 500hPa
+      d_lat<-16 # on prend 16 en latitude pour 500hPa
+    }
+    
+    if (k==2 & !large_win){ # 1000 hPA
+      d_lon<-16 # on prend 16 en longitude pour 1000hPa
+      d_lat<-8  # on prend 8 en latitude pour 1000hPa
+    }
+    
+    if(!is.null(rean)){
+      if(k==1 & small_win & rean=="20CR") {# PWAT
+        d_lon<-1
+        c_lat<-46
+        d_lat<-1
+      }
+      
+      if(k==1 & small_win & rean=="ERA5") {# TCW
+        c_lon<-6.25
+        c_lat<-45.25
+        d_lon<-1.5
+        d_lat<-1.5
+      }
+    }
+    
+    deb_lon <- which.min(abs(lon - (c_lon-d_lon/2)))
+    fin_lon <- which.min(abs(lon - (c_lon+d_lon/2)))
+    len_lon <- fin_lon - deb_lon + 1
+    
+    deb_lat <- which.min(abs(lat - (c_lat-d_lat/2)))
+    fin_lat <- which.min(abs(lat - (c_lat+d_lat/2)))
+    len_lat <- fin_lat - deb_lat + 1
+    
+    infolon <- c(deb_lon,len_lon) # indice du 1er point de grille et nbre de points de grille
+    infolat <- c(deb_lat,len_lat)
   }
   
   return(rbind(infolon,infolat))# matrice 2x2 
@@ -3000,7 +3020,7 @@ get.stdstr<-function(standardize){
 # Importation des WP EDF
 get.wp <- function(nbdays,start="1950-01-01",end="2011-12-31",risk=F,bv="Isere",agreg=F,spazm=F){
   
-  wp <- read.table(file = paste0("2_Travail/Data/WP/type_temps_jour_1948_2019",ifelse(agreg,"_agreg",""),".txt"), quote="\"", comment.char="",sep=" ")
+  wp <- read.table(file = paste0("2_Travail/Data/WP/type_temps_jour_1948_2019",ifelse(agreg,"_agreg",""),".txt"), quote="\"", comment.char="",sep=ifelse(agreg,","," "))
   wp[,1] <- as.character(format(as.Date(wp[,1],"%d/%m/%Y"),"%Y-%m-%d"))
   wp <- wp[which(wp[,1]==start):which(wp[,1]==end),2]
   
@@ -3336,90 +3356,152 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F){
   if(save) graphics.off()
 }
 
-# Charge les fichiers NetCDF 500 hPa et 1000 hPa d'un membre donne
-load.nc<-function(rean = "20CR",var="hgt"){
+# Charge les fichiers NetCDF 500 hPa (et 1000 hPa pour certains) d'une reanayse ou d'un run d'un modele de climat
+load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
   
-  if(rean == "20CR" & var == "hgt"){
-    nc500<-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/Membre_",member,"/20Crv2c_Membre_",member,"_HGT500_1851-2011_daily.nc"))
-    nc1000<-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/Membre_",member,"/20Crv2c_Membre_",member,"_HGT1000_1851-2011_daily.nc"))
-  }
-  
-  if(rean == "20CR" & var == "pwat"){
-    nc<-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/PWAT/20Crv2_EnsembleMean_PWAT_1851-2014_daily.nc"))
-  }
-  
-  if(rean == "20CR" & var == "uwind"){
-    nc <-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/WIND/20Crv2c_EnsembleMean_UWIND_500_1851-2014_daily.nc"))
-  }
-  
-  if(rean == "20CR" & var == "vwind"){
-    nc <-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/WIND/20Crv2c_EnsembleMean_VWIND_500_1851-2014_daily.nc"))
-  }
-  
-  if(rean == "ERA20C"){
-    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_daily.nc")
-    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT1000_1900_2010_daily.nc")
-  }
-  
-  if(rean == "ERA20C_18"){
-    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_18h.nc")
-    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT1000_1900_2010_18h.nc")
-  }
-  
-  if(rean == "ERA20C_4daily"){
-    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_4daily.nc")
-    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT1000_1900_2010_4daily.nc")
-  }
-  
-  if(rean == "NCEP"){
-    nc500<-nc_open("2_Travail/Data/Reanalysis/NCEP/NCEP_HGT500_1950_2010_daily.nc")
-    nc1000<-nc_open("2_Travail/Data/Reanalysis/NCEP/NCEP_HGT1000_1950_2010_daily.nc")
-  }
-  
-  if(rean == "ERA5" & var == "hgt"){
-    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA5/HGT500/ERA5_HGT500_1950-01-01_2020-04-30_daily.nc")
-    nc1000<-nc500
-  }
-  
-  if(rean == "ERA5" & var == "tcw"){
-    nc<-nc_open("2_Travail/Data/Reanalysis/ERA5/TCW/ERA5_TCW_1950_2019_daily.nc")
-    names(nc$dim) <- c("lon","lat","time","bnds")
-    names(nc$var)[2] <- "tcw"
-    nc$var$tcw$name <- "tcw"
-  }
-  
-  if(rean == "ERA5" & var == "uwind"){
-    nc <-nc_open("2_Travail/Data/Reanalysis/ERA5/WIND/ERA5_UWIND_1950_2019_daily.nc")
-    names(nc$dim) <- c("lon","lat","time","bnds")
-    names(nc$var)[2] <- "uwind"
-    nc$var$uwind$name <- "uwind"
-  }
-  
-  if(rean == "ERA5" & var == "vwind"){
-    nc <-nc_open("2_Travail/Data/Reanalysis/ERA5/WIND/ERA5_VWIND_1950_2019_daily.nc")
-    names(nc$dim) <- c("lon","lat","time","bnds")
-    names(nc$var)[2] <- "vwind"
-    nc$var$vwind$name <- "vwind"
-  }
-  
-  if(rean == "ERA40"){
-    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA40/ERA40_HGT500_1957-09-01_2002-08-31_daily.nc")
-    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA40/ERA40_HGT1000_1957-09-01_2002-08-31_daily.nc")
-  }
-  
-  if(rean == "ERA40"){
-    nc500<-nc_open("2_Travail/Data/Reanalysis/ERA40/ERA40_HGT500_1957-09-01_2002-08-31_daily.nc")
-    nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA40/ERA40_HGT1000_1957-09-01_2002-08-31_daily.nc")
-  }
-  
-  if(rean == "JRA55"){
-    nc500<-nc_open("2_Travail/Data/Reanalysis/JRA55/JRA55_HGT500_1958_2019_daily.nc")
-    nc1000<-nc_open("2_Travail/Data/Reanalysis/JRA55/JRA55_HGT500_1958_2019_daily.nc")
-  }
-  
-  if(rean == "JRA55C"){
-    nc500<-nc_open("2_Travail/Data/Reanalysis/JRA55C/JRA55C_HGT500_1972-11-01_2012-12-31_daily.nc")
-    nc1000<-nc_open("2_Travail/Data/Reanalysis/JRA55C/JRA55C_HGT500_1972-11-01_2012-12-31_daily.nc")
+  # Import de la reanalyse souhaitee
+  if(!is.null(rean)){
+    # Reanalyses brutes, pour differentes variables
+    if(rean == "20CR" & var == "hgt"){
+      member <- 1
+      nc500<-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/Membre_",member,"/20Crv2c_Membre_",member,"_HGT500_1851-2011_daily.nc"))
+      nc1000<-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/Membre_",member,"/20Crv2c_Membre_",member,"_HGT1000_1851-2011_daily.nc"))
+    }
+    
+    if(rean == "20CR" & var == "pwat"){
+      nc<-nc_open("2_Travail/Data/Reanalysis/20CR/PWAT/20Crv2_EnsembleMean_PWAT_1851-2014_daily.nc")
+    }
+    
+    if(rean == "20CR" & var == "uwind"){
+      nc <-nc_open("2_Travail/Data/Reanalysis/20CR/WIND/20Crv2c_EnsembleMean_UWIND_500_1851-2014_daily.nc")
+    }
+    
+    if(rean == "20CR" & var == "vwind"){
+      nc <-nc_open("2_Travail/Data/Reanalysis/20CR/WIND/20Crv2c_EnsembleMean_VWIND_500_1851-2014_daily.nc")
+    }
+    
+    if(rean == "ERA20C"){
+      nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_daily.nc")
+      nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT1000_1900_2010_daily.nc")
+    }
+    
+    if(rean == "ERA20C_18"){
+      nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_18h.nc")
+      nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT1000_1900_2010_18h.nc")
+    }
+    
+    if(rean == "ERA20C_4daily"){
+      nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_4daily.nc")
+      nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT1000_1900_2010_4daily.nc")
+    }
+    
+    if(rean == "NCEP"){
+      nc500<-nc_open("2_Travail/Data/Reanalysis/NCEP/NCEP_HGT500_1950_2010_daily.nc")
+      nc1000<-nc_open("2_Travail/Data/Reanalysis/NCEP/NCEP_HGT1000_1950_2010_daily.nc")
+    }
+    
+    if(rean == "ERA5" & var == "hgt"){
+      nc500<-nc_open("2_Travail/Data/Reanalysis/ERA5/HGT500/ERA5_HGT500_1950-01-01_2020-04-30_daily.nc")
+      nc1000<-nc500
+    }
+    
+    if(rean == "ERA5" & var == "tcw"){
+      nc<-nc_open("2_Travail/Data/Reanalysis/ERA5/TCW/ERA5_TCW_1950_2019_daily.nc")
+      names(nc$dim) <- c("lon","lat","time","bnds")
+      names(nc$var)[2] <- "tcw"
+      nc$var$tcw$name <- "tcw"
+    }
+    
+    if(rean == "ERA5" & var == "uwind"){
+      nc <-nc_open("2_Travail/Data/Reanalysis/ERA5/WIND/ERA5_UWIND_1950_2019_daily.nc")
+      names(nc$dim) <- c("lon","lat","time","bnds")
+      names(nc$var)[2] <- "uwind"
+      nc$var$uwind$name <- "uwind"
+    }
+    
+    if(rean == "ERA5" & var == "vwind"){
+      nc <-nc_open("2_Travail/Data/Reanalysis/ERA5/WIND/ERA5_VWIND_1950_2019_daily.nc")
+      names(nc$dim) <- c("lon","lat","time","bnds")
+      names(nc$var)[2] <- "vwind"
+      nc$var$vwind$name <- "vwind"
+    }
+    
+    if(rean == "ERA40"){
+      nc500<-nc_open("2_Travail/Data/Reanalysis/ERA40/ERA40_HGT500_1957-09-01_2002-08-31_daily.nc")
+      nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA40/ERA40_HGT1000_1957-09-01_2002-08-31_daily.nc")
+    }
+    
+    if(rean == "JRA55"){
+      nc500<-nc_open("2_Travail/Data/Reanalysis/JRA55/JRA55_HGT500_1958_2019_daily.nc")
+      nc1000<-nc500
+    }
+    
+    if(rean == "JRA55C"){
+      nc500<-nc_open("2_Travail/Data/Reanalysis/JRA55C/JRA55C_HGT500_1972-11-01_2012-12-31_daily.nc")
+      nc1000<-nc500
+    }
+    
+    # Reanalyses interpolees sur les grilles des modeles de climat, pour la Z500
+    if(rean == "20CR-cnrm"){
+      nc500 <-nc_open("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Reanalysis/20CR/20Crv2c_Membre_1_HGT500_1851-2011_daily_remap_CNRM-CM6.nc")
+      nc1000 <- nc500
+    }
+    
+    if(rean == "20CR-ipsl"){
+      nc500 <-nc_open("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Reanalysis/20CR/20Crv2c_Membre_1_HGT500_1851-2011_daily_remap_IPSL-CM6A.nc")
+      nc1000 <- nc500
+    }
+    
+    if(rean == "ERA20C-cnrm"){
+      nc500 <-nc_open("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_daily_remap_CNRM-CM6.nc")
+      nc1000 <- nc500
+    }
+    
+    if(rean == "ERA20C-ipsl"){
+      nc500 <-nc_open("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_daily_remap_IPSL-CM6A.nc")
+      nc1000 <- nc500
+    }
+    
+    if(rean == "ERA5-cnrm"){
+      nc500 <-nc_open("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Reanalysis/ERA5/ERA5_HGT500_1950-01-01_2020-04-30_daily_remap_CNRM-CM6.nc")
+      nc1000 <- nc500
+    }
+    
+    if(rean == "ERA5-ipsl"){
+      nc500 <-nc_open("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Reanalysis/ERA5/ERA5_HGT500_1950-01-01_2020-04-30_daily_remap_IPSL-CM6A.nc")
+      nc1000 <- nc500
+    }
+    
+    # Import du modele de climat souhaite
+  }else{
+    
+    if(climat == "cnrm" & is.null(ssp)){
+      nc500<-nc_open(paste0("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Climate_models/CNRM-CM6-1/Historical/zg500_AERday_CNRM-CM6-1_historical_r",as.character(run),"i1p1f2_gr_18500101-20141231_Europe.nc"))
+      names(nc500$var)[3] <- "hgt"
+      nc500$var$hgt$name <- "hgt"
+      nc1000<-nc500
+    }
+    
+    if(climat == "cnrm" & !is.null(ssp)){
+      nc500<-nc_open(paste0("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Climate_models/CNRM-CM6-1/ScenarioMIP/zg500_AERday_CNRM-CM6-1_ssp",as.character(ssp),"_r",as.character(run),"i1p1f2_gr_20150101-21001231_Europe.nc"))
+      names(nc500$var)[3] <- "hgt"
+      nc500$var$hgt$name <- "hgt"
+      nc1000<-nc500
+    }
+    
+    if(climat == "ipsl" & is.null(ssp)){
+      nc500<-nc_open(paste0("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Climate_models/IPSL-CM6A-LR/Historical/zg500_AERday_IPSL-CM6A-LR_historical_r",as.character(run),"i1p1f1_gr_18500101-20141231_Europe.nc"))
+      names(nc500$var)[3] <- "hgt"
+      nc500$var$hgt$name <- "hgt"
+      nc1000<-nc500
+    }
+    
+    if(climat == "ipsl" & !is.null(ssp)){
+      nc500<-nc_open(paste0("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Climate_models/IPSL-CM6A-LR/ScenarioMIP/zg500_AERday_IPSL-CM6A-LR_ssp",as.character(ssp),"_r",as.character(run),"i1p1f1_gr_20150101-21001231_Europe.nc"))
+      names(nc500$var)[3] <- "hgt"
+      nc500$var$hgt$name <- "hgt"
+      nc1000<-nc500
+    }
   }
   
   if(var=="hgt") nc<-list(nc500=nc500,nc1000=nc1000)
@@ -3511,23 +3593,23 @@ manip.spazm <- function(){
 }
 
 # Carte de geopotentiel d'un jour donne
-map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F,wind=F,condens=F){
+map.geo <- function(date,rean="20CR",climat=NULL,run=1,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F,wind=F,condens=F,ssp=NULL){
   
   # Dates concernees
   start <- date
   end <- as.character(as.Date(date)+nbdays-1)
   
   # Import des donnees
-  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean,large_win = F,small_win = F,all = T,var = "hgt")
+  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean,climat = climat,run = run,large_win = F,small_win = F,all = T,var = "hgt",ssp = ssp)
   
   # Import lon/lat et fenetre
-  nc <- load.nc(rean,var="hgt")
+  nc <- load.nc(rean,climat,run,var="hgt",ssp)
   nc <- nc[[k]]
   lon <- nc$dim$lon$vals
   lat <- nc$dim$lat$vals
   nc_close(nc)
   
-  fen <- getinfo_window(k = k,rean=rean,var = "hgt")
+  fen <- getinfo_window(k = k,rean=rean,climat=climat,run=run,var = "hgt")
   gc()
   
   if(wind){
@@ -3552,15 +3634,15 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F,wind=F,c
       uwind <- uwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N)]
       vwind <- vwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N)]
     }else{
-    uwind <- uwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N),]
-    vwind <- vwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N),]
+      uwind <- uwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N),]
+      vwind <- vwind[seq(1,length(lon.wind),N),seq(1,length(lat.wind),N),]
     }
     lon.wind <- lon.wind[seq(1,length(lon.wind),N)]
     lat.wind <- lat.wind[seq(1,length(lat.wind),N)]
     
     # Max de vent pour reglage de la taille des fleches
     if(rean=="20CR"){ # si 20CR, on va chercher le max de vent sur toute la periode
-    maxi.all <- get.min.max.wind(k,start="1950-01-01",end="2011-12-31",rean)[2]
+      maxi.all <- get.min.max.wind(k,start="1950-01-01",end="2011-12-31",rean)[2]
     }
     if(rean=="ERA5"){ # si ERA5, pas possible car fichier trop gros, on definit le max a 100m/s
       maxi.all <- 100
@@ -3585,19 +3667,19 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F,wind=F,c
     N <- 7
     lab <- seq(-300,400,100)
     lev <- lab
-    }
+  }
   
   # Carte
   if(save) {
     png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.geo/",date,"_k",k,"_",nbdays,"day.png"),
-        width = ifelse(nbdays==3,800,600),height = 250,units = "px")
+        width = ifelse(nbdays==3,1100,400),height = 400,units = "px")
     layout(matrix(1:nbdays,1,nbdays))
   }
   
   par(pty="s")
   if(nbdays==3){
-    #par(mar=c(6,4,6,4))
-    par(mar=c(0,0,0,7))
+    par(mar=c(8,6,8,6))
+    #par(mar=c(0,0,0,7))
   } 
   cex <- ifelse(nbdays==3,1.8,1.5)
   
@@ -3610,11 +3692,11 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F,wind=F,c
     # Carte geopotentiel
     if(leg){
       if(!condens){
-      image.plot(lon,lat,z,xlim=c(-15,25),ylim=c(25,65),
-                 col=rev(brewer.pal(n = N, name = "RdBu")),
-                 xlab="Longitude (°)",ylab="Latitude (°)",main=as.Date(date)+i-1,
-                 legend.line=-2.3, cex.axis=cex, cex.lab=cex, cex.main=cex,
-                 breaks = breaks,axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
+        image.plot(lon,lat,z,xlim=c(-15,25),ylim=c(25,65),
+                   col=rev(brewer.pal(n = N, name = "RdBu")),
+                   xlab="Longitude (°)",ylab="Latitude (°)",main=as.Date(date)+i-1,
+                   legend.line=-2.3, cex.axis=cex, cex.lab=cex, cex.main=cex,
+                   breaks = breaks,axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
       }else{
         image.plot(lon,lat,z,xlim=c(-15,25),ylim=c(25,65),
                    col=rev(brewer.pal(n = N, name = "RdBu")),
@@ -3623,11 +3705,11 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F,wind=F,c
       }
     }else{
       if(!condens){
-      image(lon,lat,z,xlim=c(-15,25),ylim=c(25,65),
-            col=rev(brewer.pal(n = N, name = "RdBu")),
-            xlab="Longitude (°)",ylab="Latitude (°)",main=as.Date(date)+i-1,
-            cex.axis=cex, cex.lab=cex, cex.main=cex,
-            breaks = breaks)
+        image(lon,lat,z,xlim=c(-15,25),ylim=c(25,65),
+              col=rev(brewer.pal(n = N, name = "RdBu")),
+              xlab="Longitude (°)",ylab="Latitude (°)",main=as.Date(date)+i-1,
+              cex.axis=cex, cex.lab=cex, cex.main=cex,
+              breaks = breaks)
       }else{
         image(lon,lat,z,xlim=c(-15,25),ylim=c(25,65),
               col=rev(brewer.pal(n = N, name = "RdBu")),
@@ -3655,12 +3737,12 @@ map.geo <- function(date,rean,k,nbdays=1,save=F,win=F,let=F,leg=T,iso=F,wind=F,c
     
     # Vent 500hPa
     if(wind){
-    coord <- as.matrix(expand.grid(lon.wind,lat.wind))
-    if(nbdays==1){
-    wi <- as.matrix(cbind(as.vector(uwind),as.vector(vwind)))
-    }else{wi <- as.matrix(cbind(as.vector(uwind[,,i]),as.vector(vwind[,,i])))}
-    
-    arrow.plot(a1 = coord,a2 = wi,length=0.08,xpd=F,arrow.ex = 0.4*maxi.fen[i]/maxi.all,lwd=2,true.angle = T)
+      coord <- as.matrix(expand.grid(lon.wind,lat.wind))
+      if(nbdays==1){
+        wi <- as.matrix(cbind(as.vector(uwind),as.vector(vwind)))
+      }else{wi <- as.matrix(cbind(as.vector(uwind[,,i]),as.vector(vwind[,,i])))}
+      
+      arrow.plot(a1 = coord,a2 = wi,length=0.08,xpd=F,arrow.ex = 0.4*maxi.fen[i]/maxi.all,lwd=2,true.angle = T)
     }
     
     # Date dans la carte
@@ -3838,7 +3920,7 @@ map.extr.clean <- function(bv="Isere-seul",k,nbdays,start="1950-01-01",end="2011
 }
 
 # Noms propres des couples d'indicateurs et des bvs
-nam2str<-function(nams,cloud=FALSE,whole=F){
+nam2str<-function(nams,cloud=FALSE,whole=F,unit=F){
 
   for(i in 1:length(nams)){
     if(nams[i] == "snei") nams[i] <- "pers"
@@ -3854,9 +3936,11 @@ nam2str<-function(nams,cloud=FALSE,whole=F){
     if(nams[i] == "drac-seul") nams[i] <- "Drac"
     if(nams[i] == "Isere-seul") nams[i] <- "Isère"
     if(nams[i] == "Drac-seul") nams[i] <- "Drac"
-    if(nams[i] == "dP") nams[i] <- "MPD"
+    if(nams[i] == "dP" & !unit) nams[i] <- "MPD"
+    if(nams[i] == "dP" & unit) nams[i] <- "MPD (m)"
     if(nams[i] == "sing05") nams[i] <- "sing"
     if(nams[i] == "rsing05") nams[i] <- "rsing"
+    if(substr(nams[i],1,3) == "NAO") nams[i] <- "NAO"
     if(nams[i] == "celnei" & whole) nams[i] <- "Celerity"
     if(nams[i] == "singnei" & whole) nams[i] <- "Singularity"
     if(nams[i] == "sing" & whole) nams[i] <- "Singularity"

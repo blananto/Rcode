@@ -182,8 +182,7 @@ compute_wp_past <- function(k,dist,start="1851-01-01",end="1947-12-31",start.ana
     # Type de temps
     tt[[i]] <- cbind(idi05,wp[idi05-ind.ana[1]+1]) # on va chercher le wp de la bonne journee
   }
-  
-  #stopCluster(cl) # shut down the cluster
+
   gc()
   
   save(tt,file=paste0("2_Travail/1_Past/",rean,"/compute_wp_past/wp_",start,"_",end,"_start.ana_",start.ana,"_end.ana_",end.ana,".Rdata"))

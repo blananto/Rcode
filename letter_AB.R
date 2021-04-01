@@ -176,7 +176,6 @@ compute.cor.descr.precip <- function(k,dist,bv="Isere-seul",sais="all",start="19
 compute.cor.descr.precip.clean <- function(k,dist,bv="Isere-seul",sais="winter",spazm=T,start="1950-01-01",end="2017-12-31",rean){
   
   dates <- getdates(start,end)
-  nyear <- length(unique(substr(dates,1,4)))
   descr <- c("celnei","singnei","rsingnei","dP","cel","sing05","rsing05")
   
   # Import indicateur
@@ -206,22 +205,15 @@ compute.cor.descr.precip.clean <- function(k,dist,bv="Isere-seul",sais="winter",
   precip <- get.precip(nbdays = 1,start = start,end = end,bv = bv,spazm = spazm)
   
   # Dates de la saison d'interet
-  if(sais=="winter") {sta <- "12-01"; N <- 90}
-  if(sais=="spring") {sta <- "03-01"; N <- 92}
-  if(sais=="summer") {sta <- "06-01"; N <- 92}
-  if(sais=="autumn") {sta <- "09-01"; N <- 91}
-  
-  pos.sta <- which(substr(dates,6,10)== sta)
-  if(sais=="winter"){pos.sta <- pos.sta[-length(pos.sta)]; nyear <- nyear-1} # on retire le dernier hiver incomplet
-
-  pos.all <- pos.sta
-  for(i in 1:(N-1)){ # saisons de longueur 90 jours
-    pos.all <- sort(c(pos.all,pos.sta+i))
-  }
+  tmp <- get.ind.season(sais = sais,start = start,end = end)
+  pos.season <- tmp$pos.season
+  n.season <- tmp$n.season
+  l.season <- tmp$l.season
+  rm(tmp)
   
   # Tableaux propres pour calcul correlation
-  precip.sais <- precip[pos.all]
-  dim(precip.sais) <- c(N,nyear)
+  precip.sais <- precip[pos.season]
+  dim(precip.sais) <- c(l.season,n.season)
   
   corr.daily <- matrix(data = NA,nrow = N,ncol = ncol(des))
   colnames(corr.daily) <- colnames(des)
@@ -232,8 +224,8 @@ compute.cor.descr.precip.clean <- function(k,dist,bv="Isere-seul",sais="winter",
   for(i in 1:ncol(des)){
     print(i)
     # Indicateur
-    des.sais <- des[pos.all,i]
-    dim(des.sais) <- c(N,nyear)
+    des.sais <- des[pos.season,i]
+    dim(des.sais) <- c(l.season,n.season)
     
     # Calcul correlation journaliere
     for(j in 1:N){
@@ -338,11 +330,84 @@ compute.descr.interannual <- function(k,dist,bv="Isere",spazm=T,start="1950-01-0
   
 }
 
+# Calcul de la longueur moyenne (persistence) des types de temps
+compute.length.wp <- function(agreg=T,start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  
+  # Import des wp
+  wp <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+  
+  # Calcul des longueurs moyennes
+  wp.unique <- sort(unique(wp))
+  len.wp <- list(length=length(wp.unique))
+  
+  for(i in 1:length(wp.unique)){
+    
+    # Longueur des sequences du type de temps
+    len <- rle(wp==wp.unique[i])
+    len <- len$lengths[len$values]
+    
+    # Dates associees au debut de la sequence
+    dates.wp <- as.numeric(as.Date(dates[wp==wp.unique[i]]))
+    tmp <- dates.wp[2:length(dates.wp)] - dates.wp[1:(length(dates.wp)-1)] # difference des dates: si 1, journees consecutives
+    tmp <- c(2,tmp) # on selectionne forcement la premiere date de dates.wp, donc on lui attribue un chiffre different de 1
+    dates.wp.unique <- as.character(as.Date(dates.wp[tmp!=1]))
+    
+    # Annee accociee au debut de la sequence
+    ann.wp.unique <- substr(dates.wp.unique,1,4)
+    
+    # Saison associee au debut de la sequence
+    season.wp.unique <- substr(dates.wp.unique,6,7)
+    season.wp.unique[season.wp.unique %in% c("03","04","05")] <- "spring"
+    season.wp.unique[season.wp.unique %in% c("06","07","08")] <- "summer"
+    season.wp.unique[season.wp.unique %in% c("09","10","11")] <- "autumn"
+    season.wp.unique[season.wp.unique %in% c("12","01","02")] <- "winter"
+    
+    # Stockage
+    len.wp[[i]] <- list(len=len,
+                        dates=dates.wp.unique,
+                        year=ann.wp.unique,
+                        season= season.wp.unique)
+    print(mean(len))
+  }
+  
+  # plot des tendances
+  for(i in 1:length(wp.unique)){
+    tmp <- aggregate(len.wp[[i]]$len,by=list(len.wp[[i]]$year,len.wp[[i]]$season),mean)
+    plot(as.numeric(tmp[tmp[,2]=="autumn",1]),tmp[tmp[,2]=="autumn",3],pch=19,main=paste0("WP = ",wp.unique[i]," autumn"))
+    grid()
+    abline(lm(tmp[tmp[,2]=="autumn",3]~as.numeric(tmp[tmp[,2]=="autumn",1])))
+    
+    plot(as.numeric(tmp[tmp[,2]=="winter",1]),tmp[tmp[,2]=="winter",3],pch=19,main=paste0("WP = ",wp.unique[i]," winter"))
+    grid()
+    abline(lm(tmp[tmp[,2]=="winter",3]~as.numeric(tmp[tmp[,2]=="winter",1])))
+    
+    plot(as.numeric(tmp[tmp[,2]=="spring",1]),tmp[tmp[,2]=="spring",3],pch=19,main=paste0("WP = ",wp.unique[i]," spring"))
+    grid()
+    abline(lm(tmp[tmp[,2]=="spring",3]~as.numeric(tmp[tmp[,2]=="spring",1])))
+    
+    plot(as.numeric(tmp[tmp[,2]=="summer",1]),tmp[tmp[,2]=="summer",3],pch=19,main=paste0("WP = ",wp.unique[i]," summer"))
+    grid()
+    abline(lm(tmp[tmp[,2]=="summer",3]~as.numeric(tmp[tmp[,2]=="summer",1])))
+    }
+  
+  # Interprétation des graphes de tendance
+  # Pas de tendance sur la longueur des sequences oceaniques, 
+  # si ce n'est une légère reduction de la duree des sequences oceaniques en automne.
+  # Reduction de la duree du Med en hiver! (saison ou il se fait bouffer par l'oceanique, donc ca va dans le bon sens).
+  # Surtout à partir des années 2000! Et aussi legerement au printems.
+  # Rien sur le Nord Est.
+  # Sequences anticycloniques legerement plus longues au printemps et plus long en été!
+  
+  # le plus interessant: Med qui raccourci en hiver (marqué recemment), et anticyclonique qui rallonge en ete.
+}
+
 # Corrplot entre les differents indicateurs pour une saison ou l'année entière
 corrplot.descr <- function(k,dist,sais="year",start="1950-01-01",end="2017-12-31",rean,save=T){
   
   # Import des indicateurs interannuels
-  ind <- c("sing05","dP","NAO","Atlantic","Mediterranean","Northeast","Anticyclonic")
+  ind <- c("sing05","dP","NAO_norm","Atlantic","Mediterranean","Northeast","Anticyclonic")
   season <- c("winter","spring","summer","autumn","year")
   pos <- which(season==sais)
   load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.descr.interannual/descr_interannual_k",k,"_",dist,"_",start,"_",end,".Rdata"))
@@ -408,6 +473,29 @@ corrplot.descr.season <- function(k,dist,start="1950-01-01",end="2017-12-31",rea
   
 }
   
+# Renvoie les indices associes a une saison, et le nombre de saison dans la periode
+get.ind.season <- function(sais,start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  nyear <- length(unique(substr(dates,1,4)))
+  
+  if(sais=="winter") {sta <- "12-01"; N <- 90}
+  if(sais=="spring") {sta <- "03-01"; N <- 92}
+  if(sais=="summer") {sta <- "06-01"; N <- 92}
+  if(sais=="autumn") {sta <- "09-01"; N <- 91}
+  
+  pos.sta <- which(substr(dates,6,10)== sta)
+  if(sais=="winter"){pos.sta <- pos.sta[-length(pos.sta)]; nyear <- nyear-1} # on retire le dernier hiver incomplet
+  
+  pos.season <- pos.sta
+  for(i in 1:(N-1)){ # saisons de longueur 90 jours
+    pos.season <- sort(c(pos.season,pos.sta+i))
+  }
+  
+  res <- list(pos.season = pos.season,n.season = nyear,l.season = N)
+  # renvoie les positions de la saison, le nombre de saison et la longueur de la saison
+}
+
 # Import de la serie mensuelle de NAO
 get.nao <- function(start="1950",end="2019",sais="all",daily=F,normalized=F){
   if(!daily){
@@ -623,7 +711,9 @@ plot.cor.one <- function(bv="Isere",spazm=T,rean){
   
   # Graphiques
   sais <- c("winter","spring","summer","autumn")
-
+  ind <- c("NAO_norm","Atlantic","Mediterranean","Northeast","Anticyclonic","dP","sing05")
+  colo <- c("black","blue","red","darkgreen","dimgrey","purple","darkorange")
+  
   for(i in c(1,3)){
     # Nom saison x 2
     par(mar=c(0,0,0,0))
@@ -633,8 +723,8 @@ plot.cor.one <- function(bv="Isere",spazm=T,rean){
     plot.new()
     text(0.5,0.5,nam2str(sais[i+1]),cex=2,font=2)
     
-    plot.cor.descr.precip.clean(k = 1,bv = bv,sais = sais[i],spazm = spazm,rean = rean,save = F)
-    plot.cor.descr.precip.clean(k = 1,bv = bv,sais = sais[i+1],spazm = spazm,rean = rean,save = F)
+    plot.cor.descr.precip.clean(ind = ind,colo = colo,k = 1,bv = bv,sais = sais[i],spazm = spazm,rean = rean,save = F)
+    plot.cor.descr.precip.clean(ind = ind,colo = colo,k = 1,bv = bv,sais = sais[i+1],spazm = spazm,rean = rean,save = F)
   }
   
   # xlab
@@ -649,26 +739,13 @@ plot.cor.one <- function(bv="Isere",spazm=T,rean){
   }
   
   # Legende
-  colo <- c("darkorange",
-            "purple",
-            "black",
-            "blue",
-            "red",
-            "darkgreen",
-            "grey"
-  )
-  
-  ind.name <- c("Singularity",
-                "MPD",
-                "NAO",
-                "Atlantic",
-                "Mediterranean",
-                "Northeast",
-                "Anticyclonic")
+  colo <- c("purple","darkorange","black","blue","red","darkgreen","dimgrey")
+  ind.name <- c("MPD","Singularity","NAO","Atlantic","Mediterranean","Northeast","Anticyclonic")
+  lwidth <- c(4,4,2,2,2,2,2)
   
   par(mar=c(0,3,0,0))
   plot.new()
-  legend(0.2,1,legend = ind.name,col = colo,bty="n",lty=1,lwd=2,ncol=5,bg=2,cex=1.2)
+  legend(0.2,1,legend = ind.name,col = colo,bty="n",lty=1,lwd=lwidth,ncol=5,bg=2,cex=1.2)
   
   graphics.off()
 }
@@ -757,8 +834,8 @@ plot.cor.interannual <- function(bv1="Isere-seul",bv2="Drac-seul",rean){
 plot.cor.interannual.one <- function(bv="Isere",spazm=T,rean){
   
   # Indicateurs qu'on garde
-  ind <- c("sing05","dP","NAO","Atlantic","Mediterranean","Northeast","Anticyclonic")
-  sign <- c(-1,1,-1,1,-1,-1,-1) # pour etre coherent avec figure lissage
+  ind <- c("NAO_norm","Atlantic","Mediterranean","Northeast","Anticyclonic","dP","sing05")
+  sign <- c(-1,1,-1,-1,-1,1,-1) # pour etre coherent avec figure lissage
   
   # Import des correlations
   sais <- c("winter","spring","summer","autumn")
@@ -775,22 +852,14 @@ plot.cor.interannual.one <- function(bv="Isere",spazm=T,rean){
   lty.bv <- sign; lty.bv[lty.bv==-1] <- 2
   
   # Graphique
-  colo <- c("darkorange",
-            "purple",
-            "black",
-            "blue",
-            "red",
-            "darkgreen",
-            "grey"
-  )
+  colo <- c("black","blue","red","darkgreen","dimgrey","purple","darkorange")
+  colo.leg <- c("purple","darkorange","black","blue","red","darkgreen","dimgrey")
   
-  ind.name <- c("Singularity",
-                "MPD",
-                "NAO",
-                "Atlantic",
-                "Mediterranean",
-                "Northeast",
-                "Anticyclonic")
+  ind.name <- c("NAO","Atlantic","Mediterranean","Northeast","Anticyclonic","MPD","Singularity") # MPD et sing à la fin pour être au dessus des autres lignes
+  ind.name.leg <- c("MPD","Singularity","NAO","Atlantic","Mediterranean","Northeast","Anticyclonic") # Au debut dans la legende
+  
+  lwidth <- c(2,2,2,2,2,4,4)
+  lwidth.leg <- c(4,4,2,2,2,2,2)
   
   png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k1/plot.cor.interannual/plot_",bv,ifelse(spazm,"_spazm",""),".png"),width = 6,height = 4,units = "in",res=600)
   layout(matrix(1:2,1,2),widths = c(0.7,0.3))
@@ -801,12 +870,12 @@ plot.cor.interannual.one <- function(bv="Isere",spazm=T,rean){
   abline(v=1:4,lty=3,col="grey")
   axis(side = 1,at = 1:4,labels = sais)
   for(i in 1:ncol(corr.bv)){
-    lines(1:4,corr.bv[,i],lty=lty.bv[i],col=colo[i],lwd=2)
+    lines(1:4,corr.bv[,i],lty=lty.bv[i],lwd=lwidth[i],col=colo[i])
   }
   
   par(mar=c(0,1,0,0))
   plot.new()
-  legend("center",legend = ind.name,col = colo,bty="n",lwd=2,bg=2)
+  legend("center",legend = ind.name.leg,col = colo.leg,bty="n",lwd=lwidth.leg,bg=2)
   graphics.off()
 }
 
@@ -957,10 +1026,7 @@ plot.cor.descr.precip <- function(k,dist,bv="Isere-seul",sais="all",start="1950-
 }
 
 # Trace les correlations propres à la fois en journalier et en annuel
-plot.cor.descr.precip.clean <- function(k,bv="Isere-seul",sais="winter",spazm=T,rean,save=F){
-  
-  # Indicateurs qu'on garde
-  ind <- c("sing05","dP","NAO","Atlantic","Mediterranean","Northeast","Anticyclonic")
+plot.cor.descr.precip.clean <- function(ind,colo,k,bv="Isere-seul",sais="winter",spazm=T,rean,save=F){
   
   # Import des correlations
   load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.cor.descr.precip.clean/",bv,"_",sais,ifelse(spazm,"_spazm",""),".Rdata"))
@@ -973,16 +1039,6 @@ plot.cor.descr.precip.clean <- function(k,bv="Isere-seul",sais="winter",spazm=T,
   #sign <- sign(corr.yearly[1,]) # on garde le signe de la correlation interannuelle
   sign <- unname(apply(corr.yearly,2,function(v) quantile(v,probs=0.5,na.rm=T)/abs(quantile(v,probs=0.5,na.rm=T)))) # on passe en positif les correlations negatives pour mieux comparer
   ltyp <- sign; ltyp[ltyp==-1] <- 2
-  
-  # Couleurs
-  colo <- c("darkorange",
-            "purple",
-            "black",
-            "blue",
-            "red",
-            "darkgreen",
-            "grey"
-  )
   
   # Graphique
   if(save){
@@ -1000,7 +1056,7 @@ plot.cor.descr.precip.clean <- function(k,bv="Isere-seul",sais="winter",spazm=T,
   axis(side = 1,at = c(1,10,100),labels = c(1,10,100))
   abline(v=c(1,10,100),lty=3,col="grey")
   for(i in 1:ncol(corr.daily)){
-    lines(1:nrow(corr.daily),corr.daily[,i]*sign[i],lty=ltyp[i],col=colo[i],lwd=2)
+    lines(1:nrow(corr.daily),corr.daily[,i]*sign[i],lty=ltyp[i],col=colo[i],lwd=ifelse(ind[i] %in% c("dP","sing05"),4,2))
   }
   
   par(mar=c(ifelse(save,4,2),1,0,0))
@@ -1010,11 +1066,55 @@ plot.cor.descr.precip.clean <- function(k,bv="Isere-seul",sais="winter",spazm=T,
   axis(side = 1,at = seq(1,10,1),labels = seq(1,10,1))
   abline(v=seq(1,10,1),lty=3,col="grey")
   for(i in 1:ncol(corr.yearly)){
-    lines(1:nrow(corr.yearly),corr.yearly[,i]*sign[i],lty=ltyp[i],col=colo[i],lwd=2)
+    lines(1:nrow(corr.yearly),corr.yearly[,i]*sign[i],lty=ltyp[i],col=colo[i],lwd=ifelse(ind[i] %in% c("dP","sing05"),4,2))
   }
   #rect(xleft = 0.8,ybottom = -0.2,xright = 1.2,ytop = 1,lty = 2)
   
   if(save) graphics.off()
+}
+
+# Plot correlation cumul saisonnier VS fort plusieurs quantiles pour une saison
+plot.cor.precip <- function(bv,sais,nbdays=1,start="1950-01-01",end="2017-12-31",spazm){
+  
+  dates <- getdates(start,end)
+  
+  # Import
+  precip <- get.precip(nbdays = 1,start = start,end = end,bv = bv,spazm = spazm)
+  
+  # Mise en forme
+  tmp <- get.ind.season(sais = sais,start = start,end = end)
+  pos.season <- tmp$pos.season
+  n.season <- tmp$n.season
+  l.season <- tmp$l.season
+  rm(tmp)
+  
+  precip <- precip[pos.season]
+  dim(precip) <- c(l.season,n.season)
+  
+  # Si plusieurs jours
+  if(nbdays!=1){
+    precip <- apply(precip,2,function(v){rollapply(v,nbdays,mean)})
+    l.season <- nrow(precip)
+  }
+  
+  # Traitement
+  cumul.precip <- apply(precip,2,sum)
+  
+  quant <- seq(0.05,0.95,0.05)
+  quant.precip <- matrix(nrow=length(quant),ncol=n.season)
+  cor.precip <- vector(length=length(quant))
+  for(i in 1:length(quant)){
+    tmp <- apply(precip,2,function(v){quantile(v,probs=quant[i])})
+    quant.precip[i,] <- tmp
+    cor.precip[i] <- cor(tmp,cumul.precip)
+  }
+  
+  # Graphique
+  png(filename = paste0("2_Travail/0_Present/Rresults/plot.cor.precip/plot_cor_precip_",bv,"_",sais,"_",nbdays,"days_",start,"_",end,ifelse(spazm,"_spazm",""),".png"),width = 8,height = 6,units = "in",res=600)
+  plot(quant,cor.precip,type="l",ylim=c(0,1),lwd=2,xlab=paste0("Percentile of ",nbdays,"-day precipitation"),
+       ylab=paste0("Correlation with ",nam2str(sais)," Precipitation Accumulation"),main=nam2str(sais))
+  grid()
+  graphics.off()
 }
 
 # Code temporaire pour tracer des densites d'indicateurs sur une periode en journalier
@@ -1128,13 +1228,13 @@ scatterplot.descr <- function(k,dist,start="1950-01-01",end="2017-12-31",rean){
     c("sing05","dP"),
     c("sing05","Atlantic"),
     c("dP","Atlantic"),
-    c("dP","NAO")
+    c("dP","NAO_norm")
   )
   
   year <- seq(as.numeric(substr(start,1,4)),as.numeric(substr(end,1,4)))
   colo <- rep("black",length(year))
   pos.1 <- which(year==1989);pos.2 <- which(year==1995)
-  colo[pos.1] <- "red";colo[pos.2] <- "blue"
+  colo[pos.1] <- "red";colo[pos.2] <- "deepskyblue3"
   
   letter <- c("a)","b)","c)","d)")
   
@@ -1354,8 +1454,8 @@ scatterplot.descr.precip.interannual <- function(descr=c("dP","sing05"),bv="Iser
     if(i==1){
       year <- seq(as.numeric(substr(start,1,4)),as.numeric(substr(end,1,4)))
       colo <- rep("black",length(year))
-      pos.1 <- which(year==1989);pos.2 <- which(year==1995)
-      colo[pos.1] <- "red";colo[pos.2] <- "blue"
+      pos.1 <- which(year==1955) #pos.1 <- which(year==1989);pos.2 <- which(year==1995)
+      colo[pos.1] <- "deepskyblue3" #colo[pos.1] <- "red";colo[pos.2] <- "blue"
     }else{colo <- "black"}
     
     plot(des1.inter[,i],precip.inter[,i],pch=19,main=paste0(nam2str(sais[i])," (R = ",round(cor(na.omit(des1.inter[,i]),na.omit(precip.inter[,i])),2),")"),
@@ -1555,6 +1655,36 @@ scatterplot.nao.precip <- function(bv,start="1950-01-01",end="2010-12-31",liss=1
   graphics.off()
 }
 
+# Scatterplot de 2 indicateurs au pas de temps interannuel, pour l'annee et pour l'hiver (retour reviewers article 1)
+scatterplot.two.descr <- function(descr=c("dP","NAO_norm"),k,dist,spazm=T,start="1950-01-01",end="2017-12-31",rean){
+  
+  # Import
+  load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.descr.interannual/descr_interannual_k",k,"_",dist,"_",start,"_",end,".Rdata"))
+  nam <- names(ind.inter)
+  
+  # Traitement et graphique
+  des1.ann <- ind.inter[[descr[1]]][,5]
+  des1.win <- ind.inter[[descr[1]]][,1]
+  cor.ann <- round(cor(des1.ann,des2.ann,use = "pairwise.complete.obs"),2)
+  
+  des2.ann <- ind.inter[[descr[2]]][,5]
+  des2.win <- ind.inter[[descr[2]]][,1]
+  cor.win <- round(cor(des1.win,des2.win,use = "pairwise.complete.obs"),2)
+  
+  
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/scatterplot.two.descr/scatterplot_",descr[1],"_",descr[2],"_k",k,"_",dist,"_",start,"_",end,".png"),width=6,height=3,unit="in",res=600)
+  par(mfrow=c(1,2),pty="s",mar=c(4,4,2,1))
+  plot(des1.ann,des2.ann,pch=19,xlab=nam2str(descr[1],unit=T),ylab=nam2str(descr[2],unit=T),main=paste0("Year (R=",cor.ann,")"))
+  grid();par(new=T)
+  plot(des1.ann,des2.ann,pch=19,xlab=nam2str(descr[1],unit=T),ylab=nam2str(descr[2],unit=T),main=paste0("Year (R=",cor.ann,")"))
+  
+  plot(des1.win,des2.win,pch=19,xlab=nam2str(descr[1],unit=T),ylab=nam2str(descr[2],unit=T),main=paste0("Winter (R=",cor.win,")"))
+  grid();par(new=T)
+  plot(des1.win,des2.win,pch=19,xlab=nam2str(descr[1],unit=T),ylab=nam2str(descr[2],unit=T),main=paste0("Winter (R=",cor.win,")"))
+  
+  graphics.off()
+}
+
 # Scatterplot de l'occurrence des WP et des precipitations par saison avec lissage possible
 scatterplot.wp.precip <- function(wp=1,bv,start="1950-01-01",end="2010-12-31",liss=1){
   
@@ -1614,4 +1744,267 @@ scatterplot.wp.precip <- function(wp=1,bv,start="1950-01-01",end="2010-12-31",li
   }
   
   graphics.off()
+}
+
+# Comprehension du fort cumul de precip sur l'hiver 1954/1955
+understant.winter.1955 <- function(bv="Isere",start="1950-01-01",end="2017-12-31",spazm=T){
+  
+  dates <- getdates(start,end)
+  yr <- unique(substr(dates,1,4))
+  nyear <- length(yr)
+  
+  # Import precip
+  precip <- get.precip(nbdays = 1,start = start,end = end,bv = bv,spazm = spazm)
+  
+  # Import indicateurs: singularite et MPD
+  dP <- get.descriptor(descriptor = "dP",k = 1,dist = "TWS",nbdays = 1,start = start,end = end,standardize = F,rean = "ERA5")
+  sing05 <- get.descriptor(descriptor = "sing05",k = 1,dist = "TWS",nbdays = 1,start = start,end = end,standardize = F,rean = "ERA5")
+  cel <- get.descriptor(descriptor = "cel",k = 1,dist = "TWS",nbdays = 1,start = start,end = end,standardize = F,rean = "ERA5")
+  
+  # Import types de temps
+  wp <- get.wp(nbdays = 1,start = start,end = end,agreg=T,spazm=spazm)
+  
+  # Mise en forme hiver
+  sta <- "12-01"
+  N <- 90
+  
+  pos.sta <- which(substr(dates,6,10)== sta)
+  pos.sta <- pos.sta[-length(pos.sta)]
+  yr <- yr[-1]
+  nyear <- nyear-1
+  
+  pos.all <- pos.sta
+  for(i in 1:(N-1)){ # saisons de longueur 90 jours
+    pos.all <- sort(c(pos.all,pos.sta+i))
+  }
+  
+  precip.winter <- precip[pos.all]
+  dim(precip.winter) <- c(N,nyear)
+  colnames(precip.winter) <- yr
+  
+  dP.winter <- dP[pos.all]
+  dim(dP.winter) <- c(N,nyear)
+  colnames(dP.winter) <- yr
+  
+  sing.winter <- sing05[pos.all]
+  dim(sing.winter) <- c(N,nyear)
+  colnames(sing.winter) <- yr
+  
+  wp.winter <-wp[pos.all]
+  dim(wp.winter) <- c(N,nyear)
+  colnames(wp.winter) <- yr
+  
+  # Distributions
+  boxplot(precip.winter,col="royalblue")
+  boxplot(dP.winter,col="red")
+  boxplot(sing.winter,col="darkorange")
+  
+  table(wp.winter[,5])/nrow(wp.winter)
+  plot(yr,apply(wp.winter,2,function(v){sum(v==1)}),col="blue",pch=19);grid()
+  plot(yr,apply(wp.winter,2,function(v){sum(v==2)}),col="red",pch=19);grid()
+  plot(yr,apply(wp.winter,2,function(v){sum(v==5)}),col="grey",pch=19);grid()
+  plot(yr,apply(wp.winter,2,function(v){sum(v==8)}),col="black",pch=19);grid()
+  
+  # Nombres de jours superieurs a 20mm
+  nb.20 <- apply(precip.winter,2,function(v){sum(v>20)})
+  plot(yr,nb.20,pch=19,xlab="year",ylab="Number of days > 20mm");grid()
+  
+  nb.40 <- apply(precip.winter,2,function(v){sum(v>40)})
+  plot(nb.40)
+  
+  nb.60 <- apply(precip.winter,2,function(v){sum(v>60)})
+  plot(nb.60)
+  
+  # Cumul de precip en dessous d'un seuil de MPD
+  med <- median(dP.winter)
+  pos <- apply(dP.winter,2,function(v){which(v<med)})
+  res <- NULL
+  for(i in 1:ncol(dP.winter)){
+    res[i] <- sum(precip.winter[pos[[i]],i])
+  }
+  plot(yr,res,pch=19)
+  
+  # Precip par mois
+  precip.month <- aggregate(precip,by=list(substr(dates,6,7),substr(dates,1,4)),sum)
+  dP.month <- aggregate(dP,by=list(substr(dates,6,7),substr(dates,1,4)),mean)
+  sing.month <- aggregate(sing05,by=list(substr(dates,6,7),substr(dates,1,4)),mean)
+  cel.month <- aggregate(cel,by=list(substr(dates,6,7),substr(dates,1,4)),mean)
+  
+  par(pty="s")
+  png(filename = "2_Travail/0_Present/ERA5/Rresults/overall/k1/understand.winter.1955/dP_precip_december.png",width = 4,height = 4,units = "in",res=300)
+  plot(dP.month[dP.month[,1]=="12",3],precip.month[precip.month[,1]=="12",3],pch=19,xlab="MPD (m)",ylab="Precipitation (mm)",main="December")
+  points(dP.month[dP.month[,1]=="12",3][6],precip.month[precip.month[,1]=="12",3][6],pch=19,col="red")
+  graphics.off()
+  
+  png(filename = "2_Travail/0_Present/ERA5/Rresults/overall/k1/understand.winter.1955/dP_precip_january.png",width = 4,height = 4,units = "in",res=300)
+  plot(dP.month[dP.month[,1]=="01",3],precip.month[precip.month[,1]=="01",3],pch=19,xlab="MPD (m)",ylab="Precipitation (mm)",main="January")
+  points(dP.month[dP.month[,1]=="01",3][6],precip.month[precip.month[,1]=="01",3][6],pch=19,col="red")
+  #points(dP.month[dP.month[,1]=="01",3][46],precip.month[precip.month[,1]=="01",3][46],pch=19,col="blue")
+  graphics.off()
+  
+  png(filename = "2_Travail/0_Present/ERA5/Rresults/overall/k1/understand.winter.1955/dP_precip_february.png",width = 4,height = 4,units = "in",res=300)
+  plot(dP.month[dP.month[,1]=="02",3],precip.month[precip.month[,1]=="02",3],pch=19,xlab="MPD (m)",ylab="Precipitation (mm)",main="February")
+  points(dP.month[dP.month[,1]=="02",3][6],precip.month[precip.month[,1]=="02",3][6],pch=19,col="red")
+  graphics.off()
+  
+  png(filename = "2_Travail/0_Present/ERA5/Rresults/overall/k1/understand.winter.1955/sing_precip_december.png",width = 4,height = 4,units = "in",res=300)
+  plot(sing.month[sing.month[,1]=="12",3],precip.month[precip.month[,1]=="12",3],pch=19,xlab="Singularity",ylab="Precipitation (mm)",main="December")
+  points(sing.month[sing.month[,1]=="12",3][6],precip.month[precip.month[,1]=="12",3][6],pch=19,col="red")
+  graphics.off()
+  
+  png(filename = "2_Travail/0_Present/ERA5/Rresults/overall/k1/understand.winter.1955/sing_precip_january.png",width = 4,height = 4,units = "in",res=300)
+  plot(sing.month[sing.month[,1]=="01",3],precip.month[precip.month[,1]=="01",3],pch=19,xlab="Singularity",ylab="Precipitation (mm)",main="January")
+  points(sing.month[sing.month[,1]=="01",3][6],precip.month[precip.month[,1]=="01",3][6],pch=19,col="red")
+  graphics.off()
+  
+  png(filename = "2_Travail/0_Present/ERA5/Rresults/overall/k1/understand.winter.1955/sing_precip_february.png",width = 4,height = 4,units = "in",res=300)
+  plot(sing.month[sing.month[,1]=="02",3],precip.month[precip.month[,1]=="02",3],pch=19,xlab="Singularity",ylab="Precipitation (mm)",main="February")
+  points(sing.month[sing.month[,1]=="02",3][6],precip.month[precip.month[,1]=="02",3][6],pch=19,col="red")
+  graphics.off()
+  
+  plot(cel.month[cel.month[,1]=="01",3],precip.month[precip.month[,1]=="01",3],pch=19,xlab="Celerity",ylab="Precipitation (mm)",main="January")
+  points(cel.month[cel.month[,1]=="01",3][6],precip.month[precip.month[,1]=="01",3][6],pch=19,col="red")
+
+  
+  # Boxplot du mois de janvier
+  # Marais barométrique: faible MPD et singulier!
+  # Fortes précipitations concentrées du 10 au 18 avec fort MPD. Le reste est un marais!
+  
+  # Mise en forme janvier
+  dP.jan <- dP[substr(dates,6,7)=="01"]
+  dim(dP.jan) <- c(31,nyear+1)
+  colnames(dP.jan) <- c("1950",yr)
+  
+  sing.jan <- sing05[substr(dates,6,7)=="01"]
+  dim(sing.jan) <- c(31,nyear+1)
+  colnames(sing.jan) <- c("1950",yr)
+  
+  cel.jan <- cel[substr(dates,6,7)=="01"]
+  dim(cel.jan) <- c(31,nyear+1)
+  colnames(cel.jan) <- c("1950",yr)
+  
+  precip.jan <- precip[substr(dates,6,7)=="01"]
+  dim(precip.jan) <- c(31,nyear+1)
+  colnames(precip.jan) <- c("1950",yr)
+  
+  plot(seq(as.Date("1955-01-01"),as.Date("1955-01-31"),"days"),precip.jan[,6],type="l",xlab="Date",ylab="Precipitation (mm)")
+  grid()
+  
+  boxplot(dP.jan,col="red")
+  
+  max=apply(dP.jan,2,function(v){max(v)-min(v)})
+  plot(max)
+  
+  min=apply(dP.jan,2,min)
+  plot(min)
+  
+  plot(density(dP.jan[,6]),ylim=c(0,0.007))
+  for(i in 1:ncol(dP.jan)) lines(density(dP.jan[,i]))
+  lines(density(dP.jan[,6]),col="red",lwd=3)
+  
+  q90 <- apply(dP.jan,2,function(v){quantile(v,probs=0.99)})
+  plot(q90)
+  
+  q10 <- apply(dP.jan,1,quantile,probs=0.1)
+  med <- apply(dP.jan,1,quantile,probs=0.5)
+  q90 <- apply(dP.jan,1,quantile,probs=0.9)
+  
+  q10 <- apply(sing.jan,1,quantile,probs=0.1)
+  med <- apply(sing.jan,1,quantile,probs=0.5)
+  q90 <- apply(sing.jan,1,quantile,probs=0.9)
+  
+  plot(seq(as.Date("1955-01-01"),as.Date("1955-01-31"),"days"),sing.jan[,6],type="l",xlab="Date",ylab="Singularity")
+  lines(seq(as.Date("1955-01-01"),as.Date("1955-01-31"),"days"),q10,lty=3)
+  lines(seq(as.Date("1955-01-01"),as.Date("1955-01-31"),"days"),q90,lty=3)
+  lines(seq(as.Date("1955-01-01"),as.Date("1955-01-31"),"days"),med,lty=3)
+  lines(seq(as.Date("1955-01-01"),as.Date("1955-01-31"),"days"),sing.jan[,8],col="blue")
+  
+  plot(apply(dP.jan,2,function(v){sum(v>400 & v<500)}),pch=19)
+  
+  dP.jan.liss <- apply(dP.jan,2,rollapply,width=10,mean)
+  precip.jan.liss <- apply(precip.jan,2,rollapply,width=10,sum)
+  plot(dP.jan.liss[,6],precip.jan.liss[,6])
+  
+  # Autocorrelation
+  autocorr <- apply(dP.jan,2,function(v){min(acf(v,plot=F)$acf)})
+  autocorr.pos <- apply(dP.jan,2,function(v){which.min(acf(v,plot=F)$acf)}) 
+  
+  # Le fait que les jours de forts MPD soient à la suite
+  
+  png("2_Travail/0_Present/ERA5/Rresults/overall/k1/understand.winter.1955/dP_january55.png",width = 6,height = 5,units = "in",res=300)
+  par(mar=c(5,5,5,5))
+  plot(1:31,dP.jan[,6],type="l",xlab="Days",ylab="MPD (m)",ylim=c(100,1000),main="MPD")
+  points(11:14,dP.jan[11:14,6],pch=19,col="red")
+  par(new=T)
+  plot(1:31,precip.jan[,6],ylim=rev(c(0,100)),type="h",col="blue",lwd=5,yaxt="n",xlab="",ylab="")
+  axis(side = 4,at=seq(0,60,20),labels =seq(0,60,20))
+  mtext(text = "Precipitation (mm)",side = 4,line = 3,at = 30)
+  graphics.off()
+  
+  png("2_Travail/0_Present/ERA5/Rresults/overall/k1/understand.winter.1955/sing05_january55.png",width = 6,height = 5,units = "in",res=300)
+  par(mar=c(5,5,5,5))
+  plot(1:31,sing.jan[,6],type="l",xlab="Days",ylab="Singularity",ylim=c(0.1,0.4),main="Singularity")
+  points(11:14,sing.jan[11:14,6],pch=19,col="red")
+  par(new=T)
+  plot(1:31,precip.jan[,6],ylim=rev(c(0,100)),type="h",col="blue",lwd=5,yaxt="n",xlab="",ylab="")
+  axis(side = 4,at=seq(0,60,20),labels =seq(0,60,20))
+  mtext(text = "Precipitation (mm)",side = 4,line = 3,at = 30)
+  graphics.off()
+  
+  png("2_Travail/0_Present/ERA5/Rresults/overall/k1/understand.winter.1955/cel_january55.png",width = 6,height = 5,units = "in",res=300)
+  par(mar=c(5,5,5,5))
+  plot(1:31,cel.jan[,6],type="l",xlab="Days",ylab="Celerity",ylim=c(0.1,0.6),main="Celerity")
+  points(11:14,cel.jan[11:14,6],pch=19,col="red")
+  par(new=T)
+  plot(1:31,precip.jan[,6],ylim=rev(c(0,100)),type="h",col="blue",lwd=5,yaxt="n",xlab="",ylab="")
+  axis(side = 4,at=seq(0,60,20),labels =seq(0,60,20))
+  mtext(text = "Precipitation (mm)",side = 4,line = 3,at = 30)
+  graphics.off()
+  
+  logic <- dP.jan[,6]>400
+  max(rle(logic)$lengths[which(rle(logic)$values)])
+  
+  tmp=apply(dP.jan,2,function(v){max(rle(v>450)$length[which(rle(v>450)$values)])})
+  plot(1:68,tmp)
+  
+  tmp=apply(sing.jan,2,function(v){max(rle(v<0.2)$length[which(rle(v<0.2)$values)])})
+  plot(1:68,tmp)
+  
+  tmp=apply(dP.jan,2,function(v){v>500})
+  tmp1=apply(sing.jan,2,function(v){v<0.21})
+  tmp2=apply(cel.jan,2,function(v){v<0.15})
+  
+  tmp3=tmp
+  for(i in 1:ncol(tmp3)){
+    tmp3[,i]=tmp[,i] & tmp1[,i] & tmp2[,i]
+  }
+  
+  tmp4=apply(tmp3,2,function(v){max(rle(v)$length[which(rle(v)$values)])})
+  plot(1:68,tmp4)
+  
+  # Celerite
+  png("2_Travail/0_Present/ERA5/Rresults/overall/k1/understand.winter.1955/cel_min_january.png",width = 6,height = 5,units = "in",res=300)
+  cele <- apply(cel.jan,2,min,na.rm=T)
+  plot(1950:2017,cele,pch=19,xlab="Years",ylab="Min january celerity",main="Celerity")
+  grid()
+  points(1950:2017,cele,pch=19)
+  graphics.off()
+  
+  png("2_Travail/0_Present/ERA5/Rresults/overall/k1/understand.winter.1955/cel_q10_january.png",width = 6,height = 5,units = "in",res=300)
+  cele <- apply(cel.jan,2,function(v){quantile(v,probs=0.1,na.rm=T)})
+  plot(1950:2017,cele,pch=19,xlab="Years",ylab="Q10 january celerity",main="Celerity")
+  grid()
+  points(1950:2017,cele,pch=19)
+  graphics.off()
+  
+  # Lissage sur 4 jours
+  cele.liss <- apply(cel.jan,2,function(v){rollapply(v,4,mean)})
+  cele <- apply(cele.liss,2,min,na.rm=T)
+  plot(1950:2017,cele,pch=19,xlab="Years",ylab="Min january celerity")
+  
+  
+  # Importance d'une faible celerite et position du flux exacte.
+  
+  
+  
 }
