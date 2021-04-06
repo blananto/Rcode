@@ -115,6 +115,43 @@ compute_criteria_past<-function(k,dist,start="1950-01-01",end="2011-12-31",start
   save(criteria,file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".Rdata"))
 }
 
+# Calcul densite de points dans un plan
+compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",period="past",start.ana="1851-01-01",end.ana="2010-12-31",quant=F,wp=F,agreg=F,spazm=F){
+  
+  # Import des descripteurs
+  N <- length(getdates(start,end))-nbdays+1
+  descr <- matrix(NA,N,length(descriptors))
+  
+  for(i in 1:length(descriptors)){
+    descr[,i] <- get.descriptor(descriptor = descriptors[i],k = k,dist = dist[i],
+                                nbdays = nbdays,start = start,end = end,standardize=T,
+                                rean = rean,period = period,start.ana = start.ana,end.ana = end.ana)
+  }
+  
+  if(quant){
+    descr <- apply(descr,2,function(v) ecdf(v)(v)*100)
+  }
+  
+  rad <- 0.5*sd(descr[,1]) # on prend un demi ecart type de rayon. Si WP, on calcule la densite selon le meme rayon, pour rester dans le referenciel de densite de tout le nuage
+  
+  if(wp!=F) {tt <- get.wp(nbdays,start,end,risk=F,bv="Isere",agreg=agreg,spazm = spazm); descr <- descr[tt==wp,]}
+  
+  # Calcul du voisinage
+  nb <- NULL
+  for(i in 1:nrow(descr)){
+    if (i %%50==0) print(i)
+    count <- nn2(data = descr,query = t(descr[i,]),searchtype = "radius",radius = rad,k = nrow(descr)) # nombre de voisins dans le rayon
+    nb[i] <- rowSums(count$nn.idx>0)-1
+  }
+  print(paste0("min density: ",min(nb)))
+  print(paste0("max density: ",max(nb)))
+  save(nb,file = paste0("2_Travail/1_Past/",rean,"/compute.density/nbnei_",
+                        ifelse(quant,"quant_",""),ifelse(wp!=F,paste0("wp",wp,"_"),""),
+                        descriptors[1],"_",descriptors[2],ifelse(length(descriptors)==3,paste0("_",descriptors[3]),""),
+                        ifelse(agreg,"_agreg",""),ifelse(spazm,"_spazm",""),"_mean",nbdays,"day_",start,"_",end,
+                        "_ana_",start.ana,"_",end.ana,".Rdata"))
+}
+
 # Calcul de la latitude journaliere du jet
 compute.lat.jet <- function(gamme=c(5450,5550),k,start="1851-01-01",end="2010-12-31",rean){
   
@@ -429,15 +466,8 @@ plot.trend.descr <- function(descr,k,dist,sais="all",liss=5,ana.comm=F,align=F,n
     "ERA5")
   
   # Dates sur lesquelles les indicateurs sont calcules
-  dates <- list(
-    c("1851-01-01","2010-12-31"),
-    c("1900-01-01","2010-12-31"),
-    c("1950-01-01","2010-12-29"),
-    c("1958-01-01","2010-12-31"),
-    c("1957-09-01","2002-08-31"),
-    c("1972-11-01","2012-12-30"),
-    c("1979-01-01","2010-12-31")
-  )
+  dates <- list(length=length(rean))
+  for(i in 1:length(rean)){dates[[i]] <- get.start.end.rean(rean[i],period="past")}
   
   # Dates sur lesquelles les analogues sont pioches
   dates.ana <- dates
@@ -855,6 +885,7 @@ run.past <- function(type=1){
     }
   }
   
+  # scatterplot.descr.wp
   if(type==5){
     descr <- c("cel","celnei","dP","mean","sing05","singnei","rsing05","rsingnei")
     wp <- c(1,2,5,8)
@@ -869,6 +900,34 @@ run.past <- function(type=1){
       }
     }
   }
+  
+  # compute.density
+  if(type==6){
+    descr <- list(
+      c("cel","dP"),
+      c("sing05","dP"),
+      c("rsing05","dP")
+    )
+    
+    sub.period <- list(
+      c("1861-01-01","1890-12-31"),
+      c("1891-01-01","1920-12-31"),
+      c("1921-01-01","1950-12-31"),
+      c("1951-01-01","1980-12-31"),
+      c("1981-01-01","2010-12-31")
+    )
+    
+    for(i in 1:length(descr)){
+      print(descr[[i]])
+      for(j in 1:length(sub.period)){
+        print(sub.period[[j]])
+        compute.density(rean = "20CR",k = 1,descriptors = descr[[i]],dist = c("TWS","TWS"),nbdays = 3,
+                        start = sub.period[[j]][1],end = sub.period[[j]][2],period = "past",
+                        start.ana = "1851-01-01",end.ana = "2010-12-31")
+      }
+    }
+  }
+  
 }
 
 # Scatterplot d'un descripteur et de NAO par saison et par reanalyse avec lissage possible

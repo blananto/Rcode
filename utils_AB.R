@@ -2772,11 +2772,14 @@ get.delta <- function(ref = "1949-12-31", start = "1950-01-01"){
 # Import et mise en forme des indicateurs: calculs supplementaires, moyenne glissante sur trois jours
 get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,rean,threeday=FALSE,period="present",start.ana="1950-01-01",end.ana="2011-12-31"){
   
+  # Import de la serie complete de l'indicateur
+  lim.all <- get.start.end.rean(rean,period)
+  
   if(period=="past"){
-    load(file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".Rdata"))
+    load(file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",lim.all[1],"_",lim.all[2],"_ana_",start.ana,"_",end.ana,".Rdata"))
   }
   if(period=="present"){
-    load(file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+    load(file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",lim.all[1],"_",lim.all[2],".Rdata"))
   }
   
   # Cas speciaux
@@ -2786,11 +2789,10 @@ get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011
   # Cas classique
   else{descr<-criteria[,descriptor]} 
   
-  # Si periode differente
-  #if(rean == "20CR" && end != "2011-12-31"){
-  #  end_diff <- length(seq(as.Date(end),as.Date("2011-12-31"),"days"))
-  #  descr <- descr[1:(length(descr) - end_diff + 1)]
-  #}
+  # Reduction a la periode demandee
+  dates.all <- getdates(lim.all[1],lim.all[2])
+  dates.ask <- getdates(start,end)
+  descr <- descr[match(dates.ask,dates.all)]
     
   # Moyenne glissante 3 jours
   if (nbdays>1 && !threeday && descriptor!="accnew") descr<-rollapply(descr,width=nbdays,FUN=mean) # moyenne glissante de l'indicateur sur nbdays jours
@@ -3009,6 +3011,33 @@ get.pluvio.sous.bv <- function(){
   l$ymat <- l$ymat/10
   data <- list(info_stations=l$infostat,precip=l$ymat)
   save(data,file="8_Enseignement/1_Variabilite_climatique/2020/Projet/data_precip.Rdata")
+}
+
+# Renvoie les dates de debut et fin de reanalyse / periode pour laquelle les indicateurs sont calcules
+get.start.end.rean <- function(rean,period="present"){
+  
+  # Reanalyses utilisees pour etude Present et Passe
+  if(rean=="20CR"){
+    if(period=="present") {start <- "1950-01-01";end <- "2011-12-31"}
+    if(period=="past") {start <- "1851-01-01";end <- "2010-12-31"}
+  }
+  
+  if(rean=="ERA20C"){
+    if(period=="present") {start <- "1950-01-01";end <- "2010-12-31"}
+    if(period=="past") {start <- "1900-01-01";end <- "2010-12-31"}
+  }
+  
+  if(rean=="ERA5"){start <- "1950-01-01";end <- "2017-12-31"}
+  
+  # Reanalyses utilisees pour etude Passe uniquement
+  if(rean=="ERA40"){start <- "1957-09-01";end <- "2002-08-31"}
+  if(rean=="JRA55"){start <- "1958-01-01";end <- "2010-12-31"}
+  if(rean=="JRA55C"){start <- "1972-11-01";end <- "2012-12-30"}
+  if(rean=="JRA55C"){start <- "1972-11-01";end <- "2012-12-30"}
+  if(rean=="NCEP"){start <- "1950-01-01";end <- "2010-12-29"}
+  
+  # Sortie
+  c(start,end)
 }
 
 # Retourne une chaine de caractere "_std" pour le chemin des dossiers
