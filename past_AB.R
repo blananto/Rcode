@@ -116,7 +116,7 @@ compute_criteria_past<-function(k,dist,start="1950-01-01",end="2011-12-31",start
 }
 
 # Calcul densite de points dans un plan
-compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end="2011-12-31",period="past",start.ana="1851-01-01",end.ana="2010-12-31",quant=F,wp=F,agreg=F,spazm=F){
+compute.density <- function(rean,k,descriptors,dist,sais="all",nbdays=3,start="1851-01-01",end="2010-12-31",period="past",start.ana="1851-01-01",end.ana="2010-12-31",quant=F,wp=F,agreg=F,spazm=F){
   
   # Import des descripteurs
   N <- length(getdates(start,end))-nbdays+1
@@ -128,13 +128,23 @@ compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",
                                 rean = rean,period = period,start.ana = start.ana,end.ana = end.ana)
   }
   
+  # Traitement si cas paticulier (saison,quant,wp)
+  if(sais!="all"){
+    pos <- get.ind.season.past(sais = sais,start = start,end = end)
+    pos <- pos[1:(length(pos)-nbdays+1)]
+    descr <- descr[pos,]
+  }
+  
   if(quant){
     descr <- apply(descr,2,function(v) ecdf(v)(v)*100)
   }
   
   rad <- 0.5*sd(descr[,1]) # on prend un demi ecart type de rayon. Si WP, on calcule la densite selon le meme rayon, pour rester dans le referenciel de densite de tout le nuage
   
-  if(wp!=F) {tt <- get.wp(nbdays,start,end,risk=F,bv="Isere",agreg=agreg,spazm = spazm); descr <- descr[tt==wp,]}
+  if(wp!=F){
+    tt <- get.wp(nbdays,start,end,risk=F,bv="Isere",agreg=agreg,spazm = spazm)
+    descr <- descr[tt==wp,]
+  }
   
   # Calcul du voisinage
   nb <- NULL
@@ -145,11 +155,12 @@ compute.density <- function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",
   }
   print(paste0("min density: ",min(nb)))
   print(paste0("max density: ",max(nb)))
-  save(nb,file = paste0("2_Travail/1_Past/",rean,"/compute.density/nbnei_",
-                        ifelse(quant,"quant_",""),ifelse(wp!=F,paste0("wp",wp,"_"),""),
+  res <- list(nb = nb,descr1 = descr[,1],descr2 = descr[,2])
+  save(res,file = paste0("2_Travail/1_Past/",rean,"/compute.density/nbnei_",
                         descriptors[1],"_",descriptors[2],ifelse(length(descriptors)==3,paste0("_",descriptors[3]),""),
+                        ifelse(quant,"_quant",""),ifelse(wp!=F,paste0("_wp",wp),""),
                         ifelse(agreg,"_agreg",""),ifelse(spazm,"_spazm",""),"_mean",nbdays,"day_",start,"_",end,
-                        "_ana_",start.ana,"_",end.ana,".Rdata"))
+                        ifelse(sais!="all",paste0("_",sais),""),"_ana_",start.ana,"_",end.ana,".Rdata"))
 }
 
 # Calcul de la latitude journaliere du jet
@@ -233,6 +244,18 @@ get.event <- function(){
   as.character(data$RTM.T)
 }
 
+# Renvoie les indicaes appartenant a une saison
+get.ind.season.past <- function(sais,start="1851-01-01",end="2010-12-31"){
+  
+  dates <- getdates(start,end)
+  if(sais=="winter") ind <- which(substr(dates,6,7) %in% c("12","01","02"))
+  if(sais=="spring") ind <- which(substr(dates,6,7) %in% c("03","04","05"))
+  if(sais=="summer") ind <- which(substr(dates,6,7) %in% c("06","07","08"))
+  if(sais=="autumn") ind <- which(substr(dates,6,7) %in% c("09","10","11"))
+  
+  ind
+}
+
 # Import de la serie mensuelle de NAO
 get.nao <- function(start="1950",end="2019",sais="all",daily=F){
   if(!daily){
@@ -276,6 +299,20 @@ get.mean <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
   geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
   des <- apply(geo,3,function(x) mean(x))
   des <- rollapply(des,nbdays,mean)
+}
+
+# Sous-periodes de 30 ans
+get.subperiod <- function(){
+  
+  sub.period <- list(
+    c("1861-01-01","1890-12-31"),
+    c("1891-01-01","1920-12-31"),
+    c("1921-01-01","1950-12-31"),
+    c("1951-01-01","1980-12-31"),
+    c("1981-01-01","2010-12-31")
+  )
+  
+  sub.period
 }
 
 # Difference altitude geopotentiel 1900-1930 et 1970-2000
@@ -487,22 +524,9 @@ plot.trend.descr <- function(descr,k,dist,sais="all",liss=5,ana.comm=F,align=F,n
     
     if(descr=="cel"){dat[[i]] <- dat[[i]][-1];des[[i]] <- des[[i]][-1]}
     
-    if(sais=="winter"){
-      pos <- substr(dat[[i]],6,7) %in% c("12","01","02")
-      des[[i]][!pos] <- NA
-    }
-    if(sais=="spring"){
-      pos <- substr(dat[[i]],6,7) %in% c("03","04","05")
-      des[[i]][!pos] <- NA
-    }
-    if(sais=="summer"){
-      pos <- substr(dat[[i]],6,7) %in% c("06","07","08")
-      des[[i]][!pos] <- NA
-    }
-    if(sais=="autumn"){
-      pos <- substr(dat[[i]],6,7) %in% c("09","10","11")
-      des[[i]][!pos] <- NA
-    }
+    
+    pos <- get.ind.season.past(sais = sais,start = dates[[i]][1],end = dates[[i]][2])
+    des[[i]][!pos] <- NA
     
     dat[[i]] <- substr(dat[[i]],1,4)
     agg <- aggregate(des[[i]],by=list(dat[[i]]),mean,na.rm=T)
@@ -909,25 +933,42 @@ run.past <- function(type=1){
       c("rsing05","dP")
     )
     
-    sub.period <- list(
-      c("1861-01-01","1890-12-31"),
-      c("1891-01-01","1920-12-31"),
-      c("1921-01-01","1950-12-31"),
-      c("1951-01-01","1980-12-31"),
-      c("1981-01-01","2010-12-31")
-    )
+    sub.period <- get.subperiod()
+    sais <- c("all","winter","autumn","spring","summer")
     
     for(i in 1:length(descr)){
       print(descr[[i]])
       for(j in 1:length(sub.period)){
         print(sub.period[[j]])
-        compute.density(rean = "20CR",k = 1,descriptors = descr[[i]],dist = c("TWS","TWS"),nbdays = 3,
-                        start = sub.period[[j]][1],end = sub.period[[j]][2],period = "past",
-                        start.ana = "1851-01-01",end.ana = "2010-12-31")
+        for(k in 1:length(sais)){
+        compute.density(rean = "20CR",k = 1,descriptors = descr[[i]],dist = c("TWS","TWS"),sais = sais[k],
+                        nbdays = 3,start = sub.period[[j]][1],end = sub.period[[j]][2],
+                        period = "past",start.ana = "1851-01-01",end.ana = "2010-12-31")
+        }
       }
     }
   }
   
+  # scatterplot.descr.wp
+  if(type==7){
+    descr <- list(
+      c("cel","dP"),
+      c("sing05","dP"),
+      c("rsing05","dP")
+    )
+
+    sais <- c("winter","autumn","spring","summer")
+    
+    for(i in 1:length(descr)){
+      print(descr[[i]])
+      for(j in 1:length(sais)){
+        print(sais[j])
+        scatterplot.descr.subperiod(rean = "20CR",k = 1,descriptors = descr[[i]],dist = c("TWS","TWS"),
+                                    sais = sais[j],nbdays = 3,start = "1851-01-01",end = "2010-12-31",
+                                    period = "past",start.ana = "1851-01-01",end.ana = "2010-12-31")
+      }
+    }
+  }
 }
 
 # Scatterplot d'un descripteur et de NAO par saison et par reanalyse avec lissage possible
@@ -1003,6 +1044,60 @@ scatterplot.descr.nao <- function(descr,k,dist,start="1865-01-01",end="2010-12-3
   }
   
   graphics.off()
+}
+
+# Scatterplot de deux descripteurs pour une sous période de 30 ans, colorie par densite de points
+scatterplot.descr.subperiod <- function(rean,k,descriptors,dist,sais="all",nbdays=3,start="1851-01-01",end="2010-12-31",period="past",start.ana="1851-01-01",end.ana="2010-12-31"){
+  
+  dates <- getdates(start,end)
+  
+  # Import des densites et indicateurs
+  sub.period <- get.subperiod()
+  res.sub.period <- vector("list",length = length(sub.period))
+  
+  for(i in 1:length(sub.period)){
+    load(paste0("2_Travail/1_Past/",rean,"/compute.density/nbnei_",
+           descriptors[1],"_",descriptors[2],ifelse(length(descriptors)==3,paste0("_",descriptors[3]),""),
+           "_mean",nbdays,"day_",sub.period[[i]][1],"_",sub.period[[i]][2],ifelse(sais!="all",paste0("_",sais),""),"_ana_",start.ana,"_",end.ana,".Rdata"))
+    res.sub.period[[i]] <- res
+  }
+  
+  # Scatterplots
+  descr1.range <- range(lapply(res.sub.period,function(v){range(v$descr1)}))
+  descr2.range <- range(lapply(res.sub.period,function(v){range(v$descr2)}))
+  nb.range <- range(lapply(res.sub.period,function(v){range(v$nb)}))
+  par(pty="s")
+  
+  for(i in 1:length(sub.period)){
+    png(filename = paste0("2_Travail/1_Past/20CR/scatterplot.descr.subperiod/scatterplot_",descriptors[1],"_",descriptors[2],ifelse(sais!="all",paste0("_",sais),""),"_",sub.period[[i]][1],"_",sub.period[[i]][2],"_ana_",start.ana,"_",end.ana,".png"),
+        width = 6,height = 6,units = "in",res = 600)
+    plot(res.sub.period[[i]]$descr1,
+         res.sub.period[[i]]$descr2,
+         col=getcol(res.sub.period[[i]]$nb,range = nb.range),
+         xlab="",
+         ylab="",
+         xlim=c((mean(descr1.range)-(descr1.range[2]-descr1.range[1])/2),(mean(descr1.range)+(descr1.range[2]-descr1.range[1])*1.4/2)),
+         ylim=c((mean(descr2.range)-(descr2.range[2]-descr2.range[1])/2),(mean(descr2.range)+(descr2.range[2]-descr2.range[1])*1.4/2)),
+         main=paste0(substr(sub.period[[i]][1],1,4)," - ",substr(sub.period[[i]][2],1,4)),cex.axis=1.2,cex.main=1.5,xaxt="n",yaxt="n")
+    grid();par(new=T)
+    plot(res.sub.period[[i]]$descr1,
+         res.sub.period[[i]]$descr2,
+         col=getcol(res.sub.period[[i]]$nb,range = nb.range),
+         xlab="",
+         ylab="",
+         xlim=c((mean(descr1.range)-(descr1.range[2]-descr1.range[1])/2),(mean(descr1.range)+(descr1.range[2]-descr1.range[1])*1.4/2)),
+         ylim=c((mean(descr2.range)-(descr2.range[2]-descr2.range[1])/2),(mean(descr2.range)+(descr2.range[2]-descr2.range[1])*1.4/2)),
+         main=paste0(substr(sub.period[[i]][1],1,4)," - ",substr(sub.period[[i]][2],1,4)),cex.axis=1.2,cex.main=1.5,xaxt="n",yaxt="n")
+    
+    title(xlab=nam2str(descriptors[1],unit=T), line=2.5, cex.lab=1.2)
+    title(ylab=nam2str(descriptors[2],unit=T), line=2.5, cex.lab=1.2)
+    axis(1);axis(2)
+    addscale(vec = c(res.sub.period[[i]]$nb,nb.range),r=0)
+    text(x=mean(descr1.range)+(descr1.range[2]-descr1.range[1])*1.1/2,
+         y=mean(descr2.range)+(descr2.range[2]-descr2.range[1])*1.3/2,
+         paste0(round(min(res.sub.period[[i]]$nb,na.rm=T),2),"-",round(max(res.sub.period[[i]]$nb,na.rm=T),2)))
+  graphics.off()
+    }
 }
 
 # Scatterplot d'un descripteur et de l'occurrence des WP par saison et par reanalyse avec lissage possible
