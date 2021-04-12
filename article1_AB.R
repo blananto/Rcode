@@ -88,11 +88,11 @@ combine.boxplot.wp <- function(){
   supseuil <- T
   
   # Graphiques
-  c <- compare.descr.flow(flow = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,spazm = spazm,save=F,legend=F,supseuil=supseuil,all = T)
-  d <- compare.density.wp.all(wp = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,quant = F,save = F,legend = T,spazm=spazm,supseuil=supseuil,all = T)
+  c <- compare.descr.flow(flow = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,spazm = spazm,save=F,legend=F,supseuil=supseuil)
+  d <- compare.density.wp.all(wp = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,quant = F,save = F,legend = T,spazm=spazm,supseuil=supseuil)
   
-  e <- compare.descr.flow(flow = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,spazm = spazm,save=F,legend=F,supseuil=supseuil)
-  f <- compare.density.wp.all(wp = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,quant = F,save = F,legend = T,spazm=spazm,supseuil=supseuil)
+  e <- compare.descr.flow(flow = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,spazm = spazm,save=F,legend=F,supseuil=supseuil,all = T)
+  f <- compare.density.wp.all(wp = c(wp1,wp2),agreg = agreg,k = k,dist = dist,nbdays = nbdays,start = start,end = end,rean = rean,quant = F,save = F,legend = T,spazm=spazm,supseuil=supseuil,all = T)
   
   ggarrange(c,d,e,f,labels = c("a)","b)","c)","d)"),ncol = 2,nrow = 2,widths=c(1.1,0.9),common.legend = T,legend="right")
   ggsave(filename = paste0(get.dirstr(k,rean),"combine.boxplot.wp/plot_all_wp",wp1,"_wp",wp2,"_",nbdays,"day_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(supseuil,"_supseuil",""),".tiff"),width = 12,height = 9,units="in",dpi = 400)
@@ -369,7 +369,7 @@ compare.density.wp.all <- function(wp=c(1,2),agreg=T,k,dist,nbdays,start,end,rea
           axis.title.y = element_text(vjust=1,size = 12,face = "bold"),axis.text.x = element_text(size=12),
           axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
           legend.position = ifelse(legend,"right","none"),legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
-          legend.title = element_text(hjust=0.5,vjust=2,size = 12,face = "bold"))+
+          legend.title = element_blank())+#element_text(hjust=0.5,vjust=2,size = 12,face = "bold"))+
     stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
     geom_boxplot(outlier.shape = NA,col="darkblue")+
     scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
@@ -497,7 +497,7 @@ compare.descr.flow <- function(flow=c(1,2),agreg=T,descr=c("celnei","singnei","r
           axis.title.y = element_text(vjust=1,size = 12,face = "bold"),axis.text.x = element_text(size=12),
           axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
           legend.position = ifelse(legend,"right","none"),legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
-          legend.title = element_text(hjust=0.4,vjust=2,size = 12,face = "bold"))+
+          legend.title = element_blank())+#element_text(hjust=0.4,vjust=2,size = 12,face = "bold"))+
     stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
     geom_boxplot(outlier.shape = NA,col="darkblue")+
     scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
@@ -1495,7 +1495,7 @@ map.wp.flow <- function(flow=c(1,2),agreg=T,k,rean,start="1950-01-01",end="2011-
   graphics.off()
 }
 
-# Scatterplot des densites et des max pour tous les points, Atlantic et Mediterranean
+# Scatterplot des densites et des max pour tous les points Isere, Drac, Atlantic et Mediterranean
 plot.density.max.clean <- function(descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start="1950-01-01",end="2017-12-31",quant=T,spazm=T,rean){
   
   dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
@@ -1631,8 +1631,8 @@ plot.density.max.clean <- function(descr=c("celnei","singnei","rsingnei","dP"),k
   graphics.off()
 }
 
-# Scatterplot des densites pour tous les points, Atlantic et Mediterranean
-plot.density.clean <- function(descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start="1950-01-01",end="2017-12-31",quant=T,spazm=T,rean){
+# Scatterplot des densites pour tous les points, Atlantic et Mediterranean. Possibilite de mettre les max direct dessus.
+plot.density.clean <- function(descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start="1950-01-01",end="2017-12-31",quant=T,spazm=T,rean,max=F){
   
   dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
   
@@ -1650,13 +1650,21 @@ plot.density.clean <- function(descr=c("celnei","singnei","rsingnei","dP"),k,dis
   # Indice des WP
   tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = spazm)
   
+  # Indice des max
+  ind.max <- list()
+  if(max){
+    ind.max[[2]] <- get.ind.max.flow(flow = 1,agreg = T,nbdays = nbdays,start = start,end = end,spazm = spazm,supseuil = T)
+    ind.max[[3]] <- get.ind.max.flow(flow = 2,agreg = T,nbdays = nbdays,start = start,end = end,spazm = spazm,supseuil = T)
+    ind.max[[1]] <- c(ind.max[[2]],ind.max[[3]])
+    }
+  
   # Graphique
   #gamme <- list(c(33,3756),c(14,3119),c(6,1653))
   gamme <- c(6,3756)
   let <- list(c("a)","b)","c)"),c("d)","e)","f)"),c("g)","h)","i)"))
   
-  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.density.clean/plot_density",ifelse(quant,"_quant",""),ifelse(spazm,"_spazm",""),".png"),width = 7,height = 9,units = "in",res=400)
-  tiff(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.density.clean/plot_density",ifelse(quant,"_quant",""),ifelse(spazm,"_spazm",""),".tiff"),width = 7,height = 9,units = "in",res=600)
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.density.clean/plot_density",ifelse(quant,"_quant",""),ifelse(spazm,"_spazm",""),ifelse(max,"_max",""),".png"),width = 7,height = 9,units = "in",res=400)
+  #tiff(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/plot.density.clean/plot_density",ifelse(quant,"_quant",""),ifelse(spazm,"_spazm",""),".tiff"),width = 7,height = 9,units = "in",res=600)
   layout(matrix(c(rep(1,3),2:4,rep(5,3),6:8,rep(9,3),10:12),nrow=6,ncol=3,byrow=T),widths=c(1,1,1),heights=c(0.2,1,0.2,1,0.2,1))
   for(i in 1:3){
     print(i)
@@ -1685,6 +1693,7 @@ plot.density.clean <- function(descr=c("celnei","singnei","rsingnei","dP"),k,dis
          y=min(des[,4],na.rm=T)+(max(des[,4],na.rm=T)-min(des[,4],na.rm=T))*1.2,
          paste0(round(min(nb,na.rm=T),2),"-",round(max(nb,na.rm=T),2)))
     mtext(let[[i]][1],side=3,adj=-0.2,line=-0.5,font=1,cex=1.2)
+    if(max) points(des[ind.max[[1]],i],des[ind.max[[1]],4],pch=22,bg="white",cex=1.2)
     
     # Sequences WP1
     load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.density/nbnei_",ifelse(quant,"quant",""),"_wp1_",descr[i],"_",descr[4],"_agreg_",dist,ifelse(spazm,"_spazm",""),"_member1_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
@@ -1707,6 +1716,7 @@ plot.density.clean <- function(descr=c("celnei","singnei","rsingnei","dP"),k,dis
          y=min(des[,4],na.rm=T)+(max(des[,4],na.rm=T)-min(des[,4],na.rm=T))*1.2,
          paste0(round(min(nb,na.rm=T),2),"-",round(max(nb,na.rm=T),2)))
     mtext(let[[i]][2],side=3,adj=-0.2,line=-0.5,font=1,cex=1.2)
+    if(max) points(des[ind.max[[2]],i],des[ind.max[[2]],4],pch=22,bg="white",cex=1.2)
     
     # Sequences WP2
     load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/compute.density/nbnei_",ifelse(quant,"quant",""),"_wp2_",descr[i],"_",descr[4],"_agreg_",dist,ifelse(spazm,"_spazm",""),"_member1_k",k,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
@@ -1729,7 +1739,8 @@ plot.density.clean <- function(descr=c("celnei","singnei","rsingnei","dP"),k,dis
          y=min(des[,4],na.rm=T)+(max(des[,4],na.rm=T)-min(des[,4],na.rm=T))*1.2,
          paste0(round(min(nb,na.rm=T),2),"-",round(max(nb,na.rm=T),2)))
     mtext(let[[i]][3],side=3,adj=-0.2,line=-0.5,font=1,cex=1.2)
-  } 
+    if(max) points(des[ind.max[[3]],i],des[ind.max[[3]],4],pch=22,bg="white",cex=1.2)
+  }
   graphics.off()
 }
 

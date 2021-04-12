@@ -106,6 +106,20 @@ getcol<-function(vec=NULL,range=NULL,transparent=FALSE,centered=FALSE,rev=FALSE)
   col
 }
 
+# Calcul et ajout de MPD et rsing05 aux fichiers des indicateurs
+add.criteria <- function(k,rean,period,start,end,start.ana,end.ana){
+  
+  # Calcul de MPD
+  
+  # Import de criteria
+  
+  # Calcul de rsing05
+  
+  # Ajout de MPD et rsing05 puis export
+  
+  
+}
+
 # Compare notre BV au BV Isere@StEgreve EDF
 compare.bv.edf<-function(){
   
@@ -2589,13 +2603,28 @@ getdays<-function(nc,rean,climat=NULL){
 
 # Importe la liste contenant la distance souhaitee
 getdist<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,threeday=FALSE,period="present"){
-  if(period=="present"){
-    deb.path <- paste0("2_Travail/0_Present/",rean,"/Rresults/")
-  }else{ deb.path <- get.dirstr(k,rean,period) }
   
-  load(file=paste0(deb.path,"compute_dist/",ifelse(threeday,"3day_",""),dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+  # Dates
+  start.end.dist <- get.start.end.rean(rean,period,"dist")
+  
+  # Chemin et Import
+  if(period=="present"){
+    path <- paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",ifelse(threeday,"3day_",""),dist,"_member",member,"_k",k,"_",start.end.dist[1],"_",start.end.dist[2],".Rdata")
+  }
+  if(period=="past"){
+    path <- paste0(get.dirstr(k,rean,period),"compute_dist/",dist,"_",rean,"_k",k,"_",start.end.dist[1],"_",start.end.dist[2],".Rdata")
+  }
+ 
+  load(file=path)
   gc()
-  return(dist.list)
+  
+  # Reduction a la periode souhaitee
+  if((start != start.end.dist[1]) | (end != start.end.dist[2])){
+  dist.list <- select.subperiod.dist(dist.list = dist.list,
+                        start = start.end.dist[1],end = start.end.dist[2],
+                        start.ask = start,end.ask = end)
+  }
+  dist.list
 }
 
 # Recupere le vecteur distance correspondant au jour voulu
@@ -2773,10 +2802,10 @@ get.delta <- function(ref = "1949-12-31", start = "1950-01-01"){
 get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,rean,threeday=FALSE,period="present",start.ana="1950-01-01",end.ana="2011-12-31"){
   
   # Import de la serie complete de l'indicateur
-  lim.all <- get.start.end.rean(rean,period)
+  lim.all <- get.start.end.rean(rean,period,"criteria")
   
   if(period=="past"){
-    load(file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",lim.all[1],"_",lim.all[2],"_ana_",start.ana,"_",end.ana,".Rdata"))
+    load(file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_",rean,"_k",k,"_",lim.all[1],"_",lim.all[2],"_ana_",start.ana,"_",end.ana,".Rdata"))
   }
   if(period=="present"){
     load(file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",lim.all[1],"_",lim.all[2],".Rdata"))
@@ -3013,29 +3042,45 @@ get.pluvio.sous.bv <- function(){
   save(data,file="8_Enseignement/1_Variabilite_climatique/2020/Projet/data_precip.Rdata")
 }
 
-# Renvoie les dates de debut et fin de reanalyse / periode pour laquelle les indicateurs sont calcules
-get.start.end.rean <- function(rean,period="present"){
+# Renvoie les dates de debut et fin de periode de calcul de dist ou criteria par reanalyse
+get.start.end.rean <- function(rean,period="present",type="dist"){
   
-  # Reanalyses utilisees pour etude Present et Passe
-  if(rean=="20CR"){
-    if(period=="present") {start <- "1950-01-01";end <- "2011-12-31"}
-    if(period=="past") {start <- "1851-01-01";end <- "2010-12-31"}
+  # Reanalyses utilisees pour etude Present
+  if(period=="present"){
+    if(type=="dist" | type=="criteria"){
+      if(rean=="20CR"){start <- "1950-01-01";end <- "2011-12-31"}
+      if(rean=="ERA20C"){start <- "1950-01-01";end <- "2010-12-31"}
+      if(rean=="ERA5"){start <- "1950-01-01";end <- "2017-12-31"}
+    }
   }
-  
-  if(rean=="ERA20C"){
-    if(period=="present") {start <- "1950-01-01";end <- "2010-12-31"}
-    if(period=="past") {start <- "1900-01-01";end <- "2010-12-31"}
+    
+  # Reanalyses utilisees pour etude Passe
+    if(period=="past"){
+      if(type=="dist"){
+        if(rean=="20CR") {start <- end <- NULL}
+        if(rean=="20CR-m0"){start <- "1851-01-01";end <- "2011-12-31"}
+        if(rean=="20CR-m1"){start <- "1851-01-01";end <- "2014-12-31"}
+        if(rean=="20CR-m2"){start <- "1851-01-01";end <- "2011-12-31"}
+        if(rean=="ERA20C"){start <- "1900-01-01";end <- "2010-12-31"}
+        if(rean=="ERA5"){start <- "1950-01-01";end <- "2017-12-31"}
+        if(rean=="ERA40"){start <- "1957-09-01";end <- "2002-08-31"}
+        if(rean=="JRA55"){start <- "1958-01-01";end <- "2010-12-31"}
+        if(rean=="JRA55C"){start <- "1972-11-01";end <- "2012-12-31"}
+        if(rean=="NCEP"){start <- "1950-01-01";end <- "2010-12-31"}
+      }
+      if(type=="criteria"){
+        if(rean=="20CR-m0"){start <- "1851-01-01";end <- "2010-12-31"}
+        if(rean=="20CR-m1"){start <- "1851-01-01";end <- "2010-12-31"}
+        if(rean=="20CR-m2"){start <- "1851-01-01";end <- "2010-12-31"}
+        if(rean=="ERA20C"){start <- "1900-01-01";end <- "2010-12-31"}
+        if(rean=="ERA5"){start <- "1950-01-01";end <- "2010-12-31"}
+        if(rean=="ERA40"){start <- "1957-09-01";end <- "2002-08-31"}
+        if(rean=="JRA55"){start <- "1958-01-01";end <- "2010-12-31"}
+        if(rean=="JRA55C"){start <- "1972-11-01";end <- "2010-12-30"}
+        if(rean=="NCEP"){start <- "1950-01-01";end <- "2010-12-31"}
+      }
   }
-  
-  if(rean=="ERA5"){start <- "1950-01-01";end <- "2017-12-31"}
-  
-  # Reanalyses utilisees pour etude Passe uniquement
-  if(rean=="ERA40"){start <- "1957-09-01";end <- "2002-08-31"}
-  if(rean=="JRA55"){start <- "1958-01-01";end <- "2010-12-31"}
-  if(rean=="JRA55C"){start <- "1972-11-01";end <- "2012-12-30"}
-  if(rean=="JRA55C"){start <- "1972-11-01";end <- "2012-12-30"}
-  if(rean=="NCEP"){start <- "1950-01-01";end <- "2010-12-29"}
-  
+
   # Sortie
   c(start,end)
 }
@@ -6100,6 +6145,23 @@ season.at.risk <- function(start="1950-01-01",end="2011-12-31"){
   title("Annual maxima")
   graphics.off()
   
+}
+
+# Selectionne une sous periode dans la liste de distances
+select.subperiod.dist <- function(dist.list,start,end,start.ask,end.ask){
+  
+  dates <- getdates(start,end)
+  dates.ask <- getdates(start.ask,end.ask)
+  
+  # Reduction du nombre de sous-liste
+  pos <- match(dates.ask,dates)
+  dist.list <- dist.list[pos]
+  dist.list <- dist.list[-length(dist.list)] # on retire la derniere date car analogie deja calculee
+  
+  # Reduction du nombre d'element dans chaque sous-liste
+  len <- length(getdates(end.ask,end)) - 1
+  dist.list <- lapply(dist.list,function(v){v[1:(length(v)-len)]})
+  dist.list
 }
 
 # Renvoie les indices des dates dans les + ou - len jours de chaque annee

@@ -27,61 +27,71 @@ compute_dist_gen_past<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,
 }
 
 # Calcul des indicateurs
-compute_criteria_past<-function(k,dist,start="1950-01-01",end="2011-12-31",start.ana="1950-01-01",end.ana="2011-12-31",update=FALSE,rean,threeday=FALSE,rev=FALSE,period="past"){
-  gc()
+compute_criteria_past_par <-function(k,dist,rean,start="1851-01-01",end="2010-12-31",start.ana="1950-01-01",end.ana="2010-12-31",period="past",update=FALSE,ncores){
   
-  print(paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".Rdata"))
+  # Dates utiles
+  dates <- getdates(start,end) # toutes les dates
+  dates.ana <- getdates(start.ana,end.ana) # dates dans lesquelles on va cherches les analogues
+  start.end.dist <- get.start.end.rean(rean,"past","dist") # debut et fin du fichier distance (dist.list)
+  N<-length(dates)
   
-  if (update) {
-    load(file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".Rdata"))
-    coln<-colnames(criteria)
-  }
-  
-  dist.vec<-getdist(k,ifelse(rev,"TWS",dist),start,end,rean,threeday,period) # si rev, on prend les nei en TWS
+  # Import des distances sur la periode souhaitee
+  print(paste0("Import des distances ",dist))
+  dist.vec<-getdist(k,dist,start,end,rean,threeday=F,period) # si rev, on prend les nei en TWS
   gc()
   dist.vec<-unlist(dist.vec)
-  gc()
-  dates<-getdates(start,ifelse(threeday,as.character(as.Date(end)-3+1),end))
-  N<-length(dates)
   gc()
   
   U<-c(0,(N-1):1); # U = 0, 22644, 22643, 22642, ...
   sU<-sapply(1:(N-1),function(x) sum(U[1:x])) # somme cumulee de U: on fait la somme de U[1], U[1:2], etc pour obtenir la position de la derniere distance qui separe chaque date
   gc()
   
-  seq.all <- getdates(start,end) # fenetre entiere
-  seq.ana <- getdates(start.ana,end.ana) # fenetre de recherche des analogues
-  ind <- match(seq.ana,seq.all)
-  
+  # Import du fichier existant si update, et definition des indicateurs a calculer
+  if (update) {
+    load(file=paste0(get.dirstr(k,rean,period),"compute_criteria/criteria_",dist,"_",rean,"_k",k,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".Rdata"))
+    coln.new<-c("celnei","singnei","rsingnei")
+  }
   if (!update) {
     coln.new<-c("cel","sing05","q05")
   }
-  if (update) {
-    coln.new<-c("celnei","singnei","rsingnei")
-  }
   
-  criteria.new<-matrix(NA,ncol=length(coln.new),nrow=N)
-  colnames(criteria.new)<-coln.new
+  # Fenetre de recherche des analogues
+  ind <- match(dates.ana,dates)
+  n<-length(ind)
   
-  for (i in 1:N){
+  # Parallelisation & Calcul des indicateurs
+  print("Calcul des indicateurs")
+  print(paste0("Parallelisation sur ",ncores, " coeurs"))
+  
+  outfile <- paste0(get.dirstr(k,rean,period),"compute_criteria/calcul.txt")
+  print(paste0("Logfile for // loop : ",outfile))
+  cl <- makeCluster(ncores, outfile=outfile) 
+  registerDoParallel(cl)
+  
+  # Pour aller voir calcul.txt
+  # cmd
+  # cd dossier (tapper uniquement I: pour aller sur le DD externe)
+  # powershell Get-Content nom.txt -Wait
+  # CTRL+C deux fois pour fermer le .txt
+  
+  criteria.new <- foreach (i=1:N,.combine = rbind) %dopar%{
     
-    ddi<-getdist4i(i,dist.vec,N,sU)
-    di<-ddi
-    n<-length(ind) # longueur de la fenetre de recherche des analogues
-    
+    source("2_Travail/1_Past/getdist4i.R", encoding = 'UTF-8')
+    if (i %% 500==0) {print(i)}
+    di<-getdist4i(i,dist.vec,N,sU)
     gc()
     
     soso<-sort(di,index.return=TRUE) # classement par plus petit score, et donne les positions
     soso$ix <- soso$ix[soso$ix %in% ind] # on ne garde que les plus proches faisant partie de la fenetre de recherche des analogues
-    qi05<-di[soso$ix[(0.005*n)]]     # quantile 0.5%
+    soso$ix <- soso$ix[soso$ix!=i] # on retire la journee concernee de ses propores analogues
+    qi05<-di[soso$ix[(0.005*n)]] # quantile 0.5%
     idi05<-soso$ix[1:(0.005*n)] # recupere la position des 0.5% les plus proches
-    idi05 <- idi05[idi05!=i] # le jour cible ne peut etre un analogue de lui-meme
     
     tmp<-NULL
     
     for (cc in coln.new){
       # Celerite
-      if (cc=="cel") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,ddi[i-1])}
+      if (cc=="cel") {if (i==1) tmp<-c(tmp,NA) else tmp<-c(tmp,di[i-1])}
       if (cc=="celnei") tmp<-c(tmp,mean(criteria[idi05,"cel"],na.rm=TRUE))
       
       ## Singularite
@@ -96,23 +106,22 @@ compute_criteria_past<-function(k,dist,start="1950-01-01",end="2011-12-31",start
       #if (cc=="dPnei") tmp <- c(tmp,mean(criteria[idi05,"dP"],na.rm=TRUE))
     }
     
-    idi05m1<-idi05
-    criteria.new[i,]<-tmp
-    
-    if (i %% 50==0) {print(i)}
     gc()
+    tmp
   }
+  
+  stopCluster(cl)
+  print(paste0("Fin calcul indicateurs a : ",Sys.time()))
+  
+  # Mise en forme criteria.new
+  colnames(criteria.new) <- coln.new
+  criteria.new <- criteria.new * (10^-9)
   
   if (update) {
     criteria<-cbind(criteria,criteria.new)
-    colnames(criteria)<-c(coln,coln.new)
-  }
-  else {
-    criteria<-criteria.new
-    colnames(criteria)<-coln.new
-  }
+  } else { criteria<-criteria.new}
   
-  save(criteria,file=paste0(get.dirstr(k,rean,period),"compute_criteria/",ifelse(threeday,"3day_",""),"criteria_",dist,"_member",member,"_k",k,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".Rdata"))
+  save(criteria,file=paste0(get.dirstr(k,rean,period),"compute_criteria/criteria_",dist,"_",rean,"_k",k,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".Rdata"))
 }
 
 # Calcul densite de points dans un plan
@@ -234,6 +243,28 @@ compute_wp_past <- function(k,dist,start="1851-01-01",end="1947-12-31",start.ana
   gc()
   
   save(tt,file=paste0("2_Travail/1_Past/",rean,"/compute_wp_past/wp_",start,"_",end,"_start.ana_",start.ana,"_end.ana_",end.ana,".Rdata"))
+}
+
+# Convertit les TWS en integer 10^9 pour reduire la memoire utilisee
+convert_dist_past <- function(rean,dist){
+  
+  # Import
+  print("Import")
+  dates.dist <- get.start.end.rean(rean,"past","dist")
+  load(paste0("2_Travail/1_Past/",rean,"/compute_dist/",dist,"_",rean,"_k",k,"_",dates.dist[1],"_",dates.dist[2],"_old.Rdata"))
+  
+  # Conversion
+  if (!is.integer(dist.list[[1]])) {
+    print("Conversion")
+    dist.list <- lapply(dist.list,function(v){as.integer(v*(10^9))})
+  }
+  gc()
+  
+  # Sauvegarde
+  print("Sauvegarde")
+  save(dist.list,file=paste0("2_Travail/1_Past/",rean,"/compute_dist/",dist,"_",rean,"_k",k,"_",dates.dist[1],"_",dates.dist[2],".Rdata"))
+  rm(dist.list)
+  gc()
 }
 
 # Import et mise en forme de la BD RTM de JD

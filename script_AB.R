@@ -3,38 +3,40 @@ setwd("../../")
 
 # Parametres ----
 rean     <- "ERA5"
-member   <- 1
-seasonal <- FALSE
 k        <- 1
 dist     <- "TWS"
 nbdays   <- 3
-N        <- "02" # %age de voisins selectionnes pour l'analogie classique
-Q        <- "05" # %age de voisins selectionnes pour construire les indicateurs 
-M        <- "nrn05" # %age de voisins selectionnes pour l'analogie indicateurs
 start    <- "1950-01-01"
-end      <- "2017-12-31" # end <- "2010-12-31" pour ERA2C
+end      <- "2017-12-31"
 
-# Import des sorties de la reanalyse et calcul des distances ----
+# Script pour lancer de vieilles fonctions ----
+# member   <- 1
+# seasonal <- FALSE
+# N        <- "02" # %age de voisins selectionnes pour l'analogie classique
+# Q        <- "05" # %age de voisins selectionnes pour construire les indicateurs 
+# M        <- "nrn05" # %age de voisins selectionnes pour l'analogie indicateurs
+
+# Import des sorties de la reanalyse et calcul des distances
 load.nc(rean = rean)
 compute_dist.gen(k = k, dist = dist, start = start, end = end, rean = rean)
 
-# Calcul du score climatologique ----
+# Calcul du score climatologique
 compute_score_climato(nbdays = nbdays, start = start, end = end, rean = rean)
 
-# Analogie classique ----
+# Analogie classique
 save.nei.A(k = k, dist = dist, nbdays = nbdays, start = start, end = end, rean = rean)
 fit.empir.A(rad = N, k = k, dist = dist, nbdays = nbdays, start = start, end = end, rean = rean)
 fit.loglik.p0.A(rad = N, k = k, dist = dist, nbdays = nbdays, start = start, end = end, rean = rean)
 compute_crps.A(rad = N, k = k, dist = dist, nbdays = nbdays, start = start, end = end, rean = rean)
 compare.crps.A(k = k, dist = dist, nbdays = nbdays, start = start, end = end, rean = rean)
 
-# Analogie indicateurs ----
+# Analogie indicateurs
 compute_criteria(k = k, dist = dist, start = start, end = end, rean = rean, update = TRUE)
 run(k = k, dist = dist, nbdays = nbdays, str = Q, radtype = M, start = start, end = end, rean = rean) # possibilite d'ajuster plusieurs lois, de modifier les couples d'indicateurs
 compare.crps(which = "", k = k, dist = dist, nbdays = nbdays,radtype = M, start = start, end = end, rean = rean)
 compare.crps.sais(k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
 
-# Visualisation dans le plan des indicateurs ----
+# Visualisation dans le plan des indicateurs
 descr <- c("sing05","rsing05")
 plot.empir(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean, empir=TRUE, obs=FALSE)
 plot.empir.mean(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end,
@@ -49,7 +51,7 @@ compute_crps(descriptors = c("rsingnei","dPnei"), k = c(1,1), dist = c("TWS","TW
              start = start, end = end, radtype = M, rean = c("20CR","20CR"),threeday = c(F,F))
 compare.crps(which = "", k = k, dist = dist, nbdays = nbdays, start = start, end = end, radtype = M, rean = rean)
 
-# Analogie en deux etapes: selection analogie classique puis sous selection indicateurs ----
+# Analogie en deux etapes: selection analogie classique puis sous selection indicateurs
 descr <- c("sing05","rsing05")
 
 fit.empir.TL(descriptors = descr, k = k, dist = dist, nbdays = nbdays, start = start, end = end,
@@ -63,7 +65,7 @@ compare.crps.TL(k = k, dist = dist, nbdays = nbdays, start = start, end = end,
 run.TL(k = k, dist = dist, nbdays = nbdays, str = Q, radAna = "05", radInd = "02", start = start, end = end, rean = rean)
 
 
-# Analogie double combinee ----
+# Analogie double combinee
 save.score.A(k = k, dist = dist, nbdays = nbdays, start = start, end = end, rean = rean)
 fit.empir.comb(descriptors = c("cel","sing05"), k = k, dist = dist, nbdays = nbdays, start = start,
                end = end, p = 1, rean = rean)
