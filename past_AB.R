@@ -1,5 +1,97 @@
 source('2_Travail/Rcode/utils_AB.R', encoding = 'UTF-8')
 
+# Comparaison des indicateurs calcules sur differentes periodes d'analogie
+compare.descr.ana <- function(descr,k,dist,rean){
+  
+  start.end.rean <- get.start.end.rean(rean,"past","criteria")
+  dates.rean <- getdates(start.end.rean[1],start.end.rean[2])
+  start.end.ana <- c("1950-01-01","2010-12-31")
+  
+  # Import des 2 versions de l'indicateur
+  ind.long <- get.descriptor(descriptor = descr,k = k,dist = dist,
+                 nbdays = 1,start = start.end.rean[1],end = start.end.rean[2],standardize=F,
+                 rean = rean,period = "past",start.ana = start.end.rean[1],end.ana = start.end.rean[2])
+  
+  ind.short <- get.descriptor(descriptor = descr,k = k,dist = dist,
+                             nbdays = 1,start = start.end.rean[1],end = start.end.rean[2],standardize=F,
+                             rean = rean,period = "past",start.ana = start.end.ana[1],end.ana = start.end.ana[2])
+  
+  # Rappel du nombre d'analogues selectionnes pour chaque periode
+  n.ana.long <- round(0.005*length(getdates(start.end.rean[1],start.end.rean[2])),0)
+  n.ana.short <- round(0.005*length(getdates(start.end.ana[1],start.end.ana[2])),0)
+  print(paste0("Periode ",start.end.rean[1],"-",start.end.rean[2],": ",n.ana.long," analogues selectionnes"))
+  print(paste0("Periode ",start.end.ana[1],"-",start.end.ana[2],": ",n.ana.short," analogues selectionnes"))
+  
+  # Scatterplot et correlation
+  nam.long <- paste0(descr," - Analogs in ",substr(start.end.rean[1],1,4),"-",substr(start.end.rean[2],1,4))
+  nam.short <- paste0(descr," - Analogs in ",substr(start.end.ana[1],1,4),"-",substr(start.end.ana[2],1,4))
+  corr <- round(cor(ind.long,ind.short,use = "pairwise.complete.obs"),3)
+  
+  png(filename = paste0(get.dirstr(k,rean,"past"),"compare.descr.ana/scatterplot_",descr,"_ana_",
+                        start.end.rean[1],"_",start.end.rean[2],"_ana_",start.end.ana[1],"_",start.end.ana[2],".png"),
+      width = 6,height = 6,units = "in",res=600)
+  par(pty="s")
+  lim <- range(na.omit(ind.long),na.omit(ind.short))
+  plot(ind.long,ind.short,xlim=lim,ylim=lim,main=paste0(nam2str(descr,whole=T)," (R=",corr,")"),xlab=nam.long,ylab=nam.short)
+  grid();par(new=T)
+  plot(ind.long,ind.short,xlim=lim,ylim=lim,main=paste0(nam2str(descr,whole=T)," (R=",corr,")"),xlab=nam.long,ylab=nam.short)
+  abline(0,1,col="red")
+  graphics.off()
+  
+  # Evolution (en annuel)
+  ind.long.ann <- aggregate(ind.long,by=list(substr(dates.rean,1,4)),mean,na.rm=T)
+  ind.short.ann <- aggregate(ind.short,by=list(substr(dates.rean,1,4)),mean,na.rm=T)
+  lim <- range(ind.long.ann[,2],ind.short.ann[,2])
+  pos.leg <- ifelse(rean=="ERA20C","topright","bottomright")
+  
+  png(filename = paste0(get.dirstr(k,rean,"past"),"compare.descr.ana/trend_",descr,"_ana",
+                        start.end.rean[1],"_",start.end.rean[2],"_ana_",start.end.ana[1],"_",start.end.ana[2],".png"),
+      width = 7,height = 4,units = "in",res=600)
+  par(mar=c(4,4,3,0))
+  plot(ind.long.ann,type="l",ylim=lim,main=nam2str(descr,whole=T),xlab="Year",ylab=descr)
+  grid();par(new=T)
+  plot(ind.long.ann,type="l",ylim=lim,main=nam2str(descr,whole=T),xlab="Year",ylab=descr)
+  lines(ind.short.ann,col="red")
+  legend(pos.leg,lty=1,col=c("black","red"),legend = c(nam.long,nam.short),bty="n",cex=0.8)
+  graphics.off()
+}
+
+# Comparaison des tendances des indicateurs avec et sans nei (cel, sing, rsing)
+compare.descr.nei <- function(descr=c("cel","celnei"),k,dist,rean){
+  
+  start.end.rean <- get.start.end.rean(rean,"past","criteria")
+  dates.rean <- getdates(start.end.rean[1],start.end.rean[2])
+  #start.end.ana <- c("1950-01-01","2010-12-31")
+  start.end.ana <- start.end.rean
+  
+  # Import des indicateurs
+  ind1 <- get.descriptor(descriptor = descr[1],k = k,dist = dist,
+                              nbdays = 1,start = start.end.rean[1],end = start.end.rean[2],standardize=F,
+                              rean = rean,period = "past",start.ana = start.end.ana[1],end.ana = start.end.ana[2])
+  
+  ind2 <- get.descriptor(descriptor = descr[2],k = k,dist = dist,
+                         nbdays = 1,start = start.end.rean[1],end = start.end.rean[2],standardize=F,
+                         rean = rean,period = "past",start.ana = start.end.ana[1],end.ana = start.end.ana[2])
+  
+  # Evolution (en annuel)
+  ind1.ann <- aggregate(ind1,by=list(substr(dates.rean,1,4)),mean,na.rm=T)
+  ind2.ann <- aggregate(ind2,by=list(substr(dates.rean,1,4)),mean,na.rm=T)
+  lim <- range(ind1.ann[,2],ind2.ann[,2])
+  pos.leg <- ifelse(rean=="ERA20C","topright","bottomright")
+  
+  png(filename = paste0(get.dirstr(k,rean,"past"),"compare.descr.nei/trend_",descr[1],"_",descr[2],"_ana_",
+                        start.end.ana[1],"_",start.end.ana[2],".png"),width = 7,height = 4,units = "in",res=600)
+  par(mar=c(4,4,3,0))
+  plot(ind1.ann,type="l",ylim=lim,main=nam2str(descr[1],whole=T),xlab="Year",ylab=nam2str(descr[1],whole=T))
+  grid();par(new=T)
+  plot(ind1.ann,type="l",ylim=lim,main=nam2str(descr[1],whole=T),xlab="Year",ylab=nam2str(descr[1],whole=T))
+  abline(lm(ind1.ann[,2]~as.numeric(ind1.ann[,1])))
+  lines(ind2.ann,col="red")
+  abline(lm(ind2.ann[,2]~as.numeric(ind2.ann[,1])),col="red")
+  legend(pos.leg,lty=1,col=c("black","red"),legend = c(descr[1],descr[2]),bty="n",cex=0.8)
+  graphics.off()
+}
+
 # Calcul des distances de maniere generique
 compute_dist_gen_past<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,period="past"){
   if (k %in% 1:2) {
@@ -115,7 +207,7 @@ compute_criteria_past_par <-function(k,dist,rean,start="1851-01-01",end="2010-12
   
   # Mise en forme criteria.new
   colnames(criteria.new) <- coln.new
-  criteria.new <- criteria.new * (10^-9)
+  if(!update) {criteria.new <- criteria.new * (10^-9)}
   
   if (update) {
     criteria<-cbind(criteria,criteria.new)
@@ -275,7 +367,30 @@ get.event <- function(){
   as.character(data$RTM.T)
 }
 
-# Renvoie les indicaes appartenant a une saison
+# Renvoie les indices associes a une saison, et le nombre de saison dans la periode (hiver propre)
+get.ind.season <- function(sais,start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  nyear <- length(unique(substr(dates,1,4)))
+  
+  if(sais=="winter") {sta <- "12-01"; N <- 90}
+  if(sais=="spring") {sta <- "03-01"; N <- 92}
+  if(sais=="summer") {sta <- "06-01"; N <- 92}
+  if(sais=="autumn") {sta <- "09-01"; N <- 91}
+  
+  pos.sta <- which(substr(dates,6,10)== sta)
+  if(sais=="winter"){pos.sta <- pos.sta[-length(pos.sta)]; nyear <- nyear-1} # on retire le dernier hiver incomplet
+  
+  pos.season <- pos.sta
+  for(i in 1:(N-1)){ # saisons de longueur 90 jours
+    pos.season <- sort(c(pos.season,pos.sta+i))
+  }
+  
+  res <- list(pos.season = pos.season,n.season = nyear,l.season = N)
+  # renvoie les positions de la saison, le nombre de saison et la longueur de la saison
+}
+
+# Renvoie les indices appartenant a une saison (hiver non propre)
 get.ind.season.past <- function(sais,start="1851-01-01",end="2010-12-31"){
   
   dates <- getdates(start,end)
@@ -520,7 +635,7 @@ plot.descr <- function(descr,k,dist,liss=5,ana.comm=F,align=F,nao=F){
   graphics.off()
 }
 
-# Trace l'evolution dans le temps d'un indicateur, pour plusieurs reanalyses et par saison, avec NAO
+# Trace l'evolution d'un indicateur, pour plusieurs reanalyses et par saison, avec NAO
 plot.trend.descr <- function(descr,k,dist,sais="all",liss=5,ana.comm=F,align=F,nao=F){
   
   # Reanalyses
@@ -606,6 +721,147 @@ plot.trend.descr <- function(descr,k,dist,sais="all",liss=5,ana.comm=F,align=F,n
   legend("topleft",inset=.02,rean,col=1:length(rean),lty=1,lwd=2,bty="n",cex=0.7)
   graphics.off()
   
+}
+
+# Trace l'evolution d'un indicateur conditionnellement au type de temps et a la saison
+plot.trend.descr.cond <- function(descr,k,dist,rean,sais="all",type="mean",start="1950-01-01",end="2010-12-31",start.ana="1950-01-01",end.ana="2010-12-31",pvalue=T){
+  
+  dates <- getdates(start,end)
+  
+  # Import de l'indicateur
+  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = start,end = end,
+                        standardize = F,rean = rean,threeday = F,period = "past",start.ana = start.ana,
+                        end.ana = end.ana)
+  
+  # Import des types de temps
+  wp <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+  
+  # Mise en forme
+  pos <- get.ind.season(sais = sais,start = start,end = end)$pos.season
+  non.pos <- which(!((1:length(dates)) %in% pos))
+  
+  tab <- data.frame(sais = dates,wp = wp,descr = des)
+  tab$sais <- as.character(tab$sais)
+  tab$sais[non.pos] <- "0"
+  
+  if(sais=="winter"){
+    tmp <- which(substr(tab$sais,6,7)=="12")
+    tab$sais[tmp] <- paste0(as.character(as.numeric(substr(tab$sais[tmp],1,4))+1),substr(tab$sais[tmp],5,10))
+    rm(tmp)
+  }
+  
+  tab$sais[pos] <- substr(tab$sais[pos],1,4)
+  tab$sais <- as.integer(tab$sais)
+  
+  # Traitement
+  if(type=="mean"){
+  res <- aggregate(tab$descr,by=list(tab$sais,tab$wp),mean,na.rm=T)
+  }
+  
+  if(type=="q10"){
+  res <- aggregate(tab$descr,by=list(tab$sais,tab$wp),quantile,probs=0.1,na.rm=T)
+  }
+  
+  if(type=="q90"){
+  res <- aggregate(tab$descr,by=list(tab$sais,tab$wp),quantile,probs=0.9,na.rm=T)
+  }
+  
+  res <- res[-which(res[,1]==0),]
+  
+  # Graphique
+  wp.unique <- sort(unique(tab$wp))
+  namflow <- c("Atlantic","Mediterranean","North-East","Anticyclonic")
+  png(filename = paste0(get.dirstr(k,rean,"past"),"plot.trend.descr.cond/plot_",descr,"_",sais,"_",type,ifelse(!pvalue,"_nopvalue",""),".png"),width = 8,height = 6,units = "in",res = 600)
+  par(mfrow=c(2,2),mar=c(4,4,3,0.5))
+  
+  for(i in 1:length(wp.unique)){
+    
+    pos <- which(res[,2]==wp.unique[i])
+    reg <- lm(res[pos,3]~res[pos,1])
+    pval <- round(unname(summary(reg)$coefficients[,4][2]),3)
+    main <- ifelse(pvalue,paste0(namflow[i]," (p.value = ",pval,")"),namflow[i])
+    
+    plot(res[pos,1],res[pos,3],type="l",xlab="Year",ylab=nam2str(descr,whole=T,unit=T),main=main)
+    grid();par(new=T)
+    plot(res[pos,1],res[pos,3],type="l",xlab="Year",ylab=nam2str(descr,whole=T,unit=T),main=main)
+    abline(reg$coefficients[1],reg$coefficients[2],col="red")
+  }
+  
+  graphics.off()
+}
+
+# Trace l'evolution d'un indicateur conditionnellement au type de temps et a la saison
+plot.trend.descr.cond.regquant <- function(descr,k,dist,rean,sais="all",start="1950-01-01",end="2010-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
+  
+  dates <- getdates(start,end)
+  
+  # Import de l'indicateur
+  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = start,end = end,
+                        standardize = F,rean = rean,threeday = F,period = "past",start.ana = start.ana,
+                        end.ana = end.ana)
+  
+  # Import des types de temps
+  wp <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+  wp.unique <- sort(unique(wp))
+  namflow <- c("Atlantic","Mediterranean","North-East","Anticyclonic")
+  
+  # Mise en forme
+  tab <- data.frame(sais = dates,wp = wp,descr = des)
+  pos <- get.ind.season(sais = sais,start = start,end = end)$pos.season
+  tab <- tab[pos,]
+  tab$sais <- as.character(tab$sais)
+  
+  if(sais=="winter"){
+    tmp <- which(substr(tab$sais,6,7)=="12")
+    tab$sais[tmp] <- paste0(as.character(as.numeric(substr(tab$sais[tmp],1,4))+1),substr(tab$sais[tmp],5,10))
+    rm(tmp)
+  }
+  
+  tab$sais <- substr(tab$sais,1,4)
+  tab$sais <- as.integer(tab$sais)
+  tab <- as.data.frame(tab)
+  
+  # Traitement
+  res <- vector("list",length=length(wp.unique))
+  
+  for(i in 1:length(wp.unique)){
+    res[[i]] <- rq(formula = descr~sais,tau = c(0.1,0.5,0.9),data = tab,subset = which(wp==wp.unique[i]))
+  }
+  
+  # Graphique
+  ylim <- range(tab$descr)
+  
+  png(filename = paste0(get.dirstr(k,rean,"past"),"plot.trend.descr.cond.regquant/plot_",descr,"_",sais,".png"),width = 8,height = 6,units = "in",res = 600)
+  par(mfrow=c(2,2),mar=c(4,4,3,0.5))
+  
+  for(i in 1:length(wp.unique)){
+    
+    # Utiles
+    pos <- tab$wp == wp.unique[i]
+    coef <- res[[i]]$coefficients
+    fitted <- res[[i]]$fitted.values
+    all.year <- unique(res[[i]]$x[,2])
+    summa <- summary(res[[i]])
+    
+    # Les points
+    plot(tab$sais[pos],tab$descr[pos],ylim = ylim,pch=19,cex=0.3,xlab="Year",ylab=nam2str(descr,whole=T,unit=T),main=namflow[i])
+    grid();par(new=T)
+    plot(tab$sais[pos],tab$descr[pos],ylim = ylim,pch=19,cex=0.3,xlab="Year",ylab=nam2str(descr,whole=T,unit=T),main=namflow[i])
+    
+    # Les regressions
+    abline(coef[,1],col="red",lwd=2)
+    abline(coef[,2],col="blue",lwd=2)
+    abline(coef[,3],col="red",lwd=2)
+    
+    # Les pvalue
+    if(ncol(summa[[1]]$coefficients) == 4){
+      shadowtext(x = round(quantile(all.year,0.9),0),y = tail(fitted[,1],1)-0.05*diff(ylim),labels = paste0("pval = ",round(summa[[1]]$coefficients[2,4],4)),font = 2,cex = 0.8,col = "red",bg = "white",r = 0.2)
+      shadowtext(x = round(quantile(all.year,0.9),0),y = tail(fitted[,2],1)-0.05*diff(ylim),labels = paste0("pval = ",round(summa[[2]]$coefficients[2,4],4)),font = 2,cex = 0.8,col = "blue",bg = "white",r = 0.2)
+      shadowtext(x = round(quantile(all.year,0.9),0),y = tail(fitted[,3],1)-0.05*diff(ylim),labels = paste0("pval = ",round(summa[[3]]$coefficients[2,4],4)),font = 2,cex = 0.8,col = "red",bg = "white",r = 0.2)
+    }
+  }
+  
+  graphics.off()
 }
 
 # Trace l'evolution dans le temps de la latitude du jet saison et type de temps
@@ -1000,6 +1256,240 @@ run.past <- function(type=1){
       }
     }
   }
+  
+  # plot.trend.descr.cond
+  if(type==8){
+    descr <- c("cel","dP","sing05","rsing05")
+    sais <- c("winter","autumn","spring","summer")
+    type <- c("mean","q10","q90")
+    
+    for(i in 1:length(descr)){
+      print(descr[i])
+      for(j in 1:length(sais)){
+        print(sais[j])
+        for(k in 1:length(type)){
+          print(type[k])
+          plot.trend.descr.cond(descr = descr[i],k = 1,dist = "TWS",rean = "ERA5",sais = sais[j],type = type[k])
+        }
+      }
+    }
+  }
+  
+  # plot.trend.descr.cond.regquant
+  if(type==9){
+    descr <- c("cel","dP","sing05","rsing05")
+    sais <- c("winter","autumn","spring","summer")
+    
+    for(i in 1:length(descr)){
+      print(descr[i])
+      for(j in 1:length(sais)){
+        print(sais[j])
+         plot.trend.descr.cond.regquant(descr = descr[i],k = 1,dist = "TWS",rean = "ERA5",sais = sais[j])
+      }
+    }
+  }
+  
+  # compare.descr.ana
+  if(type==10){
+    descr <- c("cel")
+    rean <- c("20CR-m0","20CR-m1","20CR-m2","ERA20C")
+    
+    for(i in 1:length(descr)){
+      print(descr[i])
+      for(j in 1:length(rean)){
+        print(rean[j])
+        compare.descr.ana(descr = descr[i],k = 1,dist = "TWS",rean = rean[j])
+      }
+    }
+  }
+  
+  # compare.descr.nei
+  if(type==11){
+    descr <- list(c("cel","celnei"),c("sing05","singnei"),c("rsing05","rsingnei"))
+    rean <- c("20CR-m0","20CR-m1","20CR-m2","ERA20C","ERA5")
+    
+    for(i in 1:length(descr)){
+      print(descr[[i]])
+      for(j in 1:length(rean)){
+        print(rean[j])
+        compare.descr.nei(descr = descr[[i]],k = 1,dist = "TWS",rean = rean[j])
+      }
+    }
+  }
+  
+  # save.ana
+  if(type==12){
+    rean <- c("20CR-m0","20CR-m2","ERA20C","ERA5")
+    nbdays <- c(3)
+    
+    for(i in 1:length(rean)){
+      print(rean[i])
+      for(j in 1:length(nbdays)){
+        print(nbdays[j])
+        save.ana.par(k = 1,dist = "TWS",nbdays = nbdays[j],rean = rean[i],period = "past",ncores = 6)
+      }
+    }
+  }
+}
+
+# Renvoie les indices des 5% des journees/sequences les plus analogues (pour les sequences, somme des scores de chaque ieme journee des deux sequences)
+save.ana <- function(k,dist,nbdays,rean,period="past"){
+  
+  # Dates utiles
+  start.end.rean <- get.start.end.rean(rean,period,"dist")
+  dates.rean <- getdates(start.end.rean[1],start.end.rean[2])
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2010-12-31")
+  dates.ana <- getdates(start.end.ana[1],start.end.ana[2])
+  n<-length(dates.ana)
+  
+  ind <- match(dates.ana,dates.rean) # indice de l'archive de recherche des analogues
+  
+  # Import des distances 
+  print("Import des distances")
+  gc()
+  dist.vec<-getdist(k = k,dist = dist,start = start.end.rean[1],end = start.end.rean[2],rean = rean,threeday = F,period = "past")
+  gc()
+  dist.vec<-unlist(dist.vec)
+  gc()
+  
+  U<-c(0,(N-1):1)
+  sU<-sapply(1:(N-1),function(x) sum(U[1:x]))
+  gc()
+  
+  # Dates analogues de chaque journee/sequence
+  print("Selection des dates analogues")
+  nei.long <- vector("list",length=N) # Analogues sur toute periode
+  nei.short <- vector("list",length=N) # Analogues sur periode reduite
+  di.mat <- NULL
+  
+  for(i in 1:(N-nbdays+1)){
+    gc()
+    if (i %% 5==0) {print(paste0(i,"/",N-nbdays+1))}
+    
+    if(nbdays==1){ # si nbdays = 1
+      di <- getdist4i(i,dist.vec,N,sU)
+      out <- i # on ne retirera des analogues que le jour j (on accepte veille et lendemain)
+    }
+    
+    if(nbdays>1){# si nbdays > 1
+      out <- (i-nbdays+1):(i+nbdays-1) # on retirera les sequences analogues qui chevauchent la sequence i (qui ont au moins 1 jour dans la sequence cible)
+      
+      if (i==1){
+        for (j in 1:nbdays) di.mat<-rbind(di.mat,getdist4i(j,dist.vec,N,sU)) # distances journalieres pour chaque journee de la sequence
+      }else {
+        di.mat<-di.mat[-1,]
+        di.mat<-rbind(di.mat,getdist4i(i+nbdays-1,dist.vec,N,sU)) # distances journalieres pour chaque journee de la sequence
+      }
+      tmp.mat<-matrix(NA,ncol=N-nbdays+1,nrow=nbdays)
+      for (j in (1:nbdays)) tmp.mat[j,]<-di.mat[j,j:(N-nbdays+j)] # decalage des distances pour calcul analogie sur nbdays jours
+      di <- apply(tmp.mat,2,sum)
+    }
+    
+    # Indices analogues
+    gc()
+    soso<-sort(di,index.return=TRUE)
+    soso$ix <- soso$ix[!(soso$ix %in% out)] # on retire les journees/sequences trop proches de la cible
+    soso$ix[1:(0.2*N)] # on garde les 20% dans un permier temps
+    nei.long[[i]] <- soso$ix[1:(0.05*N)] # on garde les 5% analogues pour etre large
+    soso$ix <- soso$ix[soso$ix %in% ind]
+    nei.short[[i]] <- soso$ix[1:(0.05*n)] # on garde les 5% analogues pour etre large
+    nei.short[[i]] <- nei.short[[i]] - ind[1] + 1 # on remet les indices dans le referentiel de l'archive ou l'on cherche les analogues
+  }
+  
+  # Enregistrement
+  print("Enregistrement")
+  nei <- nei.long
+  save(nei,file=paste0(get.dirstr(k,rean,period),"save.ana/ana_",dist,"_",rean,"_k",k,"_mean",nbdays,"day_",start.end.rean[1],"_",start.end.rean[2],"_ana_",start.end.rean[1],"_",start.end.rean[2],".Rdata"))
+  
+  nei <- nei.short
+  save(nei,file=paste0(get.dirstr(k,rean,period),"save.ana/ana_",dist,"_",rean,"_k",k,"_mean",nbdays,"day_",start.end.rean[1],"_",start.end.rean[2],"_ana_",start.end.ana[1],"_",start.end.ana[2],".Rdata"))
+}
+
+# Renvoie les indices des 5% des journees/sequences les plus analogues (pour les sequences, somme des scores de chaque ieme journee des deux sequences)
+save.ana.par <- function(k,dist,nbdays,rean,period="past",ncores=6){
+  
+  # Dates utiles
+  start.end.rean <- get.start.end.rean(rean,period,"dist")
+  dates.rean <- getdates(start.end.rean[1],start.end.rean[2])
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2010-12-31")
+  dates.ana <- getdates(start.end.ana[1],start.end.ana[2])
+  n<-length(dates.ana)
+  
+  ind <- match(dates.ana,dates.rean) # indice de l'archive de recherche des analogues
+  
+  # Import des distances 
+  print("Import des distances")
+  gc()
+  dist.vec<-getdist(k = k,dist = dist,start = start.end.rean[1],end = start.end.rean[2],rean = rean,threeday = F,period = "past")
+  gc()
+  dist.vec<-unlist(dist.vec)
+  gc()
+  
+  U<-c(0,(N-1):1)
+  sU<-sapply(1:(N-1),function(x) sum(U[1:x]))
+  gc()
+  
+  # Dates analogues de chaque journee/sequence
+  print("Selection des dates analogues")
+  #nei.long <- vector("list",length=N) # Analogues sur toute periode
+  #nei.short <- vector("list",length=N) # Analogues sur periode reduite
+  di.mat <- NULL
+  
+  print(paste0("Parallelisation sur ",ncores, " coeurs"))
+  outfile <- paste0(get.dirstr(k,rean,period),"save.ana/calcul.txt")
+  print(paste0("Logfile for // loop : ",outfile))
+  cl <- makeCluster(ncores, outfile=outfile) 
+  registerDoParallel(cl)
+  
+  # Pour aller voir calcul.txt
+  # cmd
+  # cd dossier (tapper uniquement I: pour aller sur le DD externe)
+  # powershell Get-Content calcul.txt -Wait
+  # CTRL+C deux fois pour fermer le .txt
+  
+  nei <- foreach (i=1:(N-nbdays+1)) %dopar%{
+    
+    source("2_Travail/1_Past/getdist4i.R", encoding = 'UTF-8')
+    
+    gc()
+    if (i %% 50==0) {print(paste0(i,"/",N-nbdays+1))}
+    
+    if(nbdays==1){ # si nbdays = 1
+      di <- getdist4i(i,dist.vec,N,sU)
+      out <- i # on ne retirera des analogues que le jour j (on accepte veille et lendemain)
+    }else{# si nbdays > 1
+      out <- (i-nbdays+1):(i+nbdays-1) # on retirera les sequences analogues qui chevauchent la sequence i (qui ont au moins 1 jour dans la sequence cible)
+      for (j in 1:nbdays) {di.mat<-rbind(di.mat,getdist4i(i+j-1,dist.vec,N,sU)[j:(N-nbdays+j)])} # en parallelisation: oblige d'etre independant de l'iteration i-1 donc getdist4i doit etre fait nbdays fois a chaque iteration
+      di <- apply(di.mat,2,sum)
+    }
+    
+    # Indices analogues
+    gc()
+    soso<-sort(di,index.return=TRUE)
+    soso$ix <- soso$ix[!(soso$ix %in% out)] # on retire les journees/sequences trop proches de la cible
+    soso$ix[1:(0.2*N)] # on garde les 20% dans un permier temps
+  }
+  
+  stopCluster(cl)
+  print(paste0("Fin calcul indicateurs a : ",Sys.time()))
+  
+  # Traitement final
+  print("Traitement final")
+  nei.short <- lapply(nei,function(v){x <- v[v %in% ind];x <- x[1:(0.05*n)];x <- x-ind[1]+1;x})
+  nei.long <- lapply(nei,function(v){v[1:(0.05*N)]})
+  gc()
+  
+  # Enregistrement
+  print("Enregistrement")
+  nei <- nei.long
+  save(nei,file=paste0(get.dirstr(k,rean,period),"save.ana/ana_",dist,"_",rean,"_k",k,"_mean",nbdays,"day_",start.end.rean[1],"_",start.end.rean[2],"_ana_",start.end.rean[1],"_",start.end.rean[2],".Rdata"))
+  
+  nei <- nei.short
+  save(nei,file=paste0(get.dirstr(k,rean,period),"save.ana/ana_",dist,"_",rean,"_k",k,"_mean",nbdays,"day_",start.end.rean[1],"_",start.end.rean[2],"_ana_",start.end.ana[1],"_",start.end.ana[2],".Rdata"))
 }
 
 # Scatterplot d'un descripteur et de NAO par saison et par reanalyse avec lissage possible

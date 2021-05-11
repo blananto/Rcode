@@ -425,7 +425,10 @@ corrplot.descr <- function(k,dist,sais="year",start="1950-01-01",end="2017-12-31
     colnames(tab.cor) <- rownames(tab.cor) <- nam2str(colnames(tab.cor),whole=T)
     
     # Corrplot
-    corrplot(corr = tab.cor,method="circle",type="upper",diag=F,addCoef.col="black",
+    col2 <- colorRampPalette(c("#67001F", "#B2182B", "#D6604D", "#F4A582",
+                               "#FDDBC7", "#FFFFFF", "#D1E5F0", "#92C5DE",
+                               "#4393C3", "#2166AC", "#053061")) # definition de la palette par defeut pour pouvoir l'inverser ensuite
+    corrplot(corr = tab.cor,method="circle",type="upper",diag=F,addCoef.col="black",col=rev(col2(200)),
              title=nam2str(sais),addgrid.col = "black",tl.col="black",tl.srt=45,mar=c(0,0,1,0),cex.main=2,oma=c(0,0,0,0))
 
   if(save) graphics.off()
@@ -631,6 +634,41 @@ map.composite.sais <- function(sais="winter",descr="sing05",years=c(NA,NA),k,sta
         }
     }
   }
+  graphics.off()
+}
+
+# Cartes composite tous wp
+map.wp <- function(rean="ERA5",anomalies=T){
+  
+  # Source fct map.composite.wp.light dans article1_AB.R
+  source('I:/ongoing_Documents/2_Travail/Rcode/article1_AB.R', encoding = 'UTF-8')
+  
+  # Figure
+  png(filename = paste0(get.dirstr(1,rean,"present"),"map.wp/map_comp_wp_",rean,ifelse(anomalies,"_anomalies",""),".png"),width = 9,height = 4,units = "in",res = 600)
+  layout(matrix(1:5,ncol=5,nrow=1),heights = 1,widths = c(rep(1,4),0.3))
+  
+  # Cartes composite wp
+  wp <- c(1,2,5,8)
+  par(mar=c(1,1,1,1))
+  for(i in 1:length(wp)){
+    map.composite.wp.light(wp = wp[i],k = 1,start = "1950-01-01",end = "2017-12-31",rean = rean,
+                           leg = F,win = T,let = F,iso = F,agreg = T,anomalies = anomalies,wind = T)
+  }
+  
+  # Legende
+  N <- 11
+  if(anomalies){
+    leg <- seq(-200,200,50)
+  }else{
+    leg <- seq(4900,6100,200)
+  }
+  
+  par(pty="m",mar=c(1,0,1,0))
+  plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",xlim=c(0,1),ylim=c(0,1))
+  colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
+              labels = paste0("        ",leg),at =  seq(0, 1,length.out = length(leg)),
+              vertical = T,xlim = c(0.1,0.4),ylim = c(0.25,0.75),cex=1.4)
+  
   graphics.off()
 }
 

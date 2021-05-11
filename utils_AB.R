@@ -31,6 +31,7 @@ library("foreach") # Parallel for loop (need every step to be independant)
 library("parallel") # check number of cores
 library("doParallel") # Parallelization of calculation
 library("viridis") # Viridis Color Palette
+library("quantreg") # rq
 
 # Fonctions graphiques
 addcircle<-function(radius){
@@ -107,17 +108,22 @@ getcol<-function(vec=NULL,range=NULL,transparent=FALSE,centered=FALSE,rev=FALSE)
 }
 
 # Calcul et ajout de MPD et rsing05 aux fichiers des indicateurs
-add.criteria <- function(k,rean,period,start,end,start.ana,end.ana){
+add.criteria <- function(k,rean,dist,period,start,end,start.ana,end.ana){
   
   # Calcul de MPD
+  dP <- get.dP(k = k,nbdays = 1,start = start,end = end,rean = rean)
   
   # Import de criteria
+  load(paste0(get.dirstr(k,rean,period),"compute_criteria/criteria_",dist,"_",rean,"_k",k,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".Rdata"))
   
   # Calcul de rsing05
+  rsing05 <- criteria[,"sing05"]/criteria[,"q05"]
   
   # Ajout de MPD et rsing05 puis export
+  criteria <- cbind(criteria,rsing05)
+  criteria <- cbind(criteria,dP)
   
-  
+  save(criteria,file=paste0(get.dirstr(k,rean,period),"compute_criteria/criteria_",dist,"_",rean,"_k",k,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".Rdata"))
 }
 
 # Compare notre BV au BV Isere@StEgreve EDF
@@ -2580,10 +2586,10 @@ getdays<-function(nc,rean,climat=NULL){
   if(is.null(climat)){
     
     # Origine
-    if(rean == "20CR") orig <- "1800"
-    if(rean == "NCEP") orig <- "1950"
+    if(substr(rean,1,4) == "20CR") orig <- "1800"
     if(substr(rean,1,3) == "JRA") orig <- "1800"
     if(substr(rean,1,3) == "ERA") orig <- "1900"
+    if(rean == "NCEP") orig <- "1950"
     
     # Vecteur temps
     ti <- nc$dim$time$vals*3600
@@ -2799,7 +2805,7 @@ get.delta <- function(ref = "1949-12-31", start = "1950-01-01"){
 }
 
 # Import et mise en forme des indicateurs: calculs supplementaires, moyenne glissante sur trois jours
-get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=TRUE,rean,threeday=FALSE,period="present",start.ana="1950-01-01",end.ana="2011-12-31"){
+get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",standardize=T,rean,threeday=F,desais=F,period="present",start.ana="1950-01-01",end.ana="2011-12-31"){
   
   # Import de la serie complete de l'indicateur
   lim.all <- get.start.end.rean(rean,period,"criteria")
@@ -2816,12 +2822,20 @@ get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011
   else if (descriptor=="accnew") descr <- get.acc(k,dist,start,end,rean)
   
   # Cas classique
-  else{descr<-criteria[,descriptor]} 
+  else{descr<-unname(criteria[,descriptor])} 
   
   # Reduction a la periode demandee
   dates.all <- getdates(lim.all[1],lim.all[2])
   dates.ask <- getdates(start,end)
   descr <- descr[match(dates.ask,dates.all)]
+  
+  # Desaisonnalisation si demande
+  if(desais){
+    cal.day <- substr(getdates(start,end),6,10)
+    descr.ann <- aggregate(descr,by=list(cal.day),mean,na.rm=T)
+    pos <- match(cal.day,descr.ann[,1])
+    descr <- descr - descr.ann[pos,2]
+  }
     
   # Moyenne glissante 3 jours
   if (nbdays>1 && !threeday && descriptor!="accnew") descr<-rollapply(descr,width=nbdays,FUN=mean) # moyenne glissante de l'indicateur sur nbdays jours
@@ -2852,6 +2866,15 @@ get.dP <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
   geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
   des <- apply(geo,3,function(x) max(x)-min(x))
   des <- rollapply(des,nbdays,mean)
+  des
+}
+
+# Calcul de sd
+get.sd <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
+  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
+  des <- apply(geo,3,function(x) sd(x))
+  des <- rollapply(des,nbdays,mean)
+  des
 }
 
 # Renvoie les indices des nbre events extremes de precip a partir d'une certaine reference
@@ -2977,44 +3000,6 @@ get.min.max.wind <- function(k,start="1950-01-01",end="2011-12-31",rean){
   c(mini,maxi)
 }
 
-# Importation des donnees de precipitation
-get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm=F){
-  
-  dates <- getdates(start,end)
-  
-  # Chemin
-  if(spazm){
-    dir <- "2_Travail/Data/Precip/SPAZM/"
-    start.date <- "1950-01-01"
-    end.date <- "2017-12-31"
-  }else{
-    dir <- "2_Travail/Data/Precip/TPS/72_stations/"
-    start.date <- "1950-01-01"
-    end.date <- "2019-12-31"}
-  
-  # Import
-  precip <- read.csv(file=paste0(dir,bv,"_cum1day_",start.date,"_",end.date,".csv"))
-  precip <- precip[,1]
-  
-  # Dates
-  if(start > start.date){
-      start_diff <- length(seq(as.Date(start.date),as.Date(start),"days"))
-      precip <- precip[start_diff:length(precip)]
-    }
-  
-  if(end < end.date){
-      end_diff <- length(seq(as.Date(end),as.Date(end.date),"days"))
-      precip <- precip[1:(length(precip) - end_diff + 1)]
-    }
-
- # nbdays 
-if(nbdays!=1){
-  precip <- rollapply(precip,nbdays,mean)
-}
-  
-  precip
-}
-
 # Attribue a chaque pluvio un numero correspondant à un sous-BV (projet VCE 2020)
 get.pluvio.sous.bv <- function(){
   
@@ -3040,6 +3025,39 @@ get.pluvio.sous.bv <- function(){
   l$ymat <- l$ymat/10
   data <- list(info_stations=l$infostat,precip=l$ymat)
   save(data,file="8_Enseignement/1_Variabilite_climatique/2020/Projet/data_precip.Rdata")
+}
+
+# Importation des donnees de precipitation
+get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm=F){
+  
+  # Chemin
+  if(spazm){
+    dir <- "2_Travail/Data/Precip/SPAZM/"
+    start.date <- "1950-01-01"
+    end.date <- "2017-12-31"
+  }else{
+    dir <- "2_Travail/Data/Precip/TPS/72_stations/"
+    start.date <- "1950-01-01"
+    end.date <- "2019-12-31"}
+  
+  # Import
+  precip <- read.csv(file=paste0(dir,bv,"_cum1day_",start.date,"_",end.date,".csv"))
+  precip <- precip[,1]
+  
+  # Dates
+  dates.ask <- getdates(start,end)
+  dates <- getdates(start.date,end.date)
+  
+  if(length(dates.ask) < length(dates)){
+    precip <- precip[match(dates.ask,dates)]
+  }
+  
+  # nbdays 
+  if(nbdays!=1){
+    precip <- rollapply(precip,nbdays,mean)
+  }
+  
+  precip
 }
 
 # Renvoie les dates de debut et fin de periode de calcul de dist ou criteria par reanalyse
@@ -3290,7 +3308,8 @@ image.cumul<-function(crue=FALSE){
 # Carte de l'Europe avec fenêtres d'analogie, et carte de la region
 image.europe<- function(rean="20CR"){
   
-  png(filename = paste0("2_Travail/0_Present/Rresults/image.europe/image_europe_region_",rean,".png"),width = 13,height = 6,units = "in",res = 600)
+  #png(filename = paste0("2_Travail/0_Present/Rresults/image.europe/image_europe_region_",rean,".png"),width = 13,height = 6,units = "in",res = 600)
+  pdf(file = paste0("2_Travail/0_Present/Rresults/image.europe/image_europe_region_",rean,".pdf"),width = 13,height = 6)
   par(mfrow=c(1,2),oma=c(0,1,0,1))
   
   # Carte Europe
@@ -3319,7 +3338,7 @@ image.europe<- function(rean="20CR"){
   
   # Carte région
   par(mar=c(4,4,4,4))
-  image.region(pluvios = F,save=F,names = F,crsm=F,bd_alti = F)
+  image.region(pluvios = F,save=F,names = F,crsm=T,bd_alti = F)
   graphics.off()
   
 }
@@ -3426,7 +3445,7 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F){
   )
   shadowtext(r[,1],r[,2],r[,3],pos=c(1,1,1,1,1,3),cex=1.2,col="white",bg="darkblue",adj=c(0,0),r=0.09,font=3)#font=2
   points(r[,1],r[,2],pch=22,col="darkblue",bg="white",cex=.8)
-  
+
   if(save) graphics.off()
 }
 
@@ -3436,10 +3455,13 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
   # Import de la reanalyse souhaitee
   if(!is.null(rean)){
     # Reanalyses brutes, pour differentes variables
-    if(rean == "20CR" & var == "hgt"){
-      member <- 1
-      nc500<-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/Membre_",member,"/20Crv2c_Membre_",member,"_HGT500_1851-2011_daily.nc"))
-      nc1000<-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/Membre_",member,"/20Crv2c_Membre_",member,"_HGT1000_1851-2011_daily.nc"))
+    if(substr(rean,1,4) == "20CR" & var == "hgt"){
+      if(substr(rean,5,7)=="" | substr(rean,5,7)=="-m1") {member <- 1; end <- "2011"} # si 20CR tout court, on a le membre 1
+      if(substr(rean,5,7)=="-m2") {member <- 2; end <- "2011"}
+      if(substr(rean,5,7)=="-m0") {member <- "moyen"; end <- "2014"}
+      
+      nc500<-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/Membre_",member,"/20Crv2c_Membre_",member,"_HGT500_1851-",end,"_daily.nc"))
+      nc1000<-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/Membre_",member,"/20Crv2c_Membre_",member,"_HGT1000_1851-",end,"_daily.nc"))
     }
     
     if(rean == "20CR" & var == "pwat"){
@@ -3986,7 +4008,7 @@ map.extr.clean <- function(bv="Isere-seul",k,nbdays,start="1950-01-01",end="2011
   for(i in 1:length(ind)){
     print(paste0(i,"/",length(ind)))
     # les 3 cartes
-    map.geo(dates[ind[i]],rean,k,win=T,iso=T); map.geo(dates[ind[i]+1],rean,k,win=T,iso=T); map.geo(dates[ind[i]+2],rean,k,win=T,iso=T)
+    map.geo(date = dates[ind[i]],rean = rean,k = k,win=T,iso=T); map.geo(date = dates[ind[i]+1],rean = rean,k = k,win=T,iso=T);map.geo(date = dates[ind[i]+1],rean = rean,k = k,win=T,iso=T)
     # le cumul de precip de la sequence
     plot(1,1,type="n",axes=F,xlab="",ylab="");text(1,1,paste0(round(precip[ind[i]],1)," mm/day"),font=2)
     }
@@ -4015,10 +4037,11 @@ nam2str<-function(nams,cloud=FALSE,whole=F,unit=F){
     if(nams[i] == "sing05") nams[i] <- "sing"
     if(nams[i] == "rsing05") nams[i] <- "rsing"
     if(substr(nams[i],1,3) == "NAO") nams[i] <- "NAO"
-    if(nams[i] == "celnei" & whole) nams[i] <- "Celerity"
+    if(substr(nams[i],1,3) == "cel" & whole) nams[i] <- "Celerity"
     if(nams[i] == "singnei" & whole) nams[i] <- "Singularity"
     if(nams[i] == "sing" & whole) nams[i] <- "Singularity"
     if(nams[i] == "rsingnei" & whole) nams[i] <- "Relative singularity"
+    if(nams[i] == "rsing" & whole) nams[i] <- "Relative Singularity"
     if(nams[i] == "winter") nams[i] <- "Winter"
     if(nams[i] == "spring") nams[i] <- "Spring"
     if(nams[i] == "summer") nams[i] <- "Summer"
