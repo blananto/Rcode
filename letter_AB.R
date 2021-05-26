@@ -215,7 +215,7 @@ compute.cor.descr.precip.clean <- function(k,dist,bv="Isere-seul",sais="winter",
   precip.sais <- precip[pos.season]
   dim(precip.sais) <- c(l.season,n.season)
   
-  corr.daily <- matrix(data = NA,nrow = N,ncol = ncol(des))
+  corr.daily <- matrix(data = NA,nrow = l.season,ncol = ncol(des))
   colnames(corr.daily) <- colnames(des)
   
   corr.yearly <- matrix(data = NA,nrow = 10,ncol = ncol(des))
@@ -228,7 +228,7 @@ compute.cor.descr.precip.clean <- function(k,dist,bv="Isere-seul",sais="winter",
     dim(des.sais) <- c(l.season,n.season)
     
     # Calcul correlation journaliere
-    for(j in 1:N){
+    for(j in 1:l.season){
       des.tmp <- des.sais
       precip.tmp <- precip.sais
       
@@ -698,7 +698,7 @@ plot.cor.all <- function(bv1="Isere-seul",bv2="Drac-seul",rean){
     text(0.5,0.5,sais[i],cex=2,bg=2)
     
     for(j in 1:length(bv)){
-      plot.cor.descr.precip.clean(k = 1,bv = bv[j],sais = sais[i],rean = rean,save = F)
+      plot.cor.descr.precip.clean(k = 1,bv = bv[j],sais = sais[i],rean = rean,save = F,spazm = T)
     }
   }
   
@@ -873,7 +873,7 @@ plot.cor.interannual.one <- function(bv="Isere",spazm=T,rean){
   
   # Indicateurs qu'on garde
   ind <- c("NAO_norm","Atlantic","Mediterranean","Northeast","Anticyclonic","dP","sing05")
-  sign <- c(-1,1,-1,-1,-1,1,-1) # pour etre coherent avec figure lissage
+  sign <- c(-1,1,-1,-1,-1,1,-1,-1) # pour etre coherent avec figure lissage
   
   # Import des correlations
   sais <- c("winter","spring","summer","autumn")
@@ -1177,12 +1177,12 @@ plot.density.descr <- function(descr="sing05",start="1994-12-01",end="1995-02-28
 run.letter <- function(type=1){
   
   if(type==1){# compute.cor.descr.precip.clean
-    bv <- "Drac-seul"# c("Isere","Isere-seul","Drac-seul")
+    bv <- "Isere"# c("Isere","Isere-seul","Drac-seul")
     sais <- c("winter","spring","summer","autumn")
     
     for(i in 1:length(bv)){
       for(j in 1:length(sais)){
-        compute.cor.descr.precip.clean(k = 1,dist = "TWS",bv = bv[i],sais = sais[j],spazm = T,start = start,end=end,rean = rean)
+        compute.cor.descr.precip.clean(k = 1,dist = "TWS",bv = bv[i],sais = sais[j],spazm = F,start = start,end=end,rean = rean)
       }
     }
   }

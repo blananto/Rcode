@@ -976,7 +976,7 @@ map.composite.wp.light <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,a
   }
   
   # Noms des circulations
-  if(agreg){namflow <- c("Atlantic","Mediterranean","NorthEast","Anticyclonic")
+  if(agreg){namflow <- c("Atlantic","Mediterranean","Northeast","Anticyclonic")
   }else{namflow <- c("Atlantic\nWave","Steady\nOceanic","Southwest\nCirculation","South\nCirculation",
                      "Northeast\nCirculation","East\nReturn","Central\nDepression","Anticyclonic")}
   namflow <- namflow[match(wp,c(1,2,5,8))]
