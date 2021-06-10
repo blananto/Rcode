@@ -429,7 +429,8 @@ corrplot.descr <- function(k,dist,sais="year",start="1950-01-01",end="2017-12-31
                                "#FDDBC7", "#FFFFFF", "#D1E5F0", "#92C5DE",
                                "#4393C3", "#2166AC", "#053061")) # definition de la palette par defeut pour pouvoir l'inverser ensuite
     corrplot(corr = tab.cor,method="circle",type="upper",diag=F,addCoef.col="black",col=rev(col2(200)),
-             title=nam2str(sais),addgrid.col = "black",tl.col="black",tl.srt=45,mar=c(0,0,1,0),cex.main=2,oma=c(0,0,0,0))
+             title=nam2str(sais),addgrid.col = "black",tl.col="black",tl.srt=45,mar=c(0,0,1,0),cex.main=2,oma=c(0,0,0,0),
+             cl.align.text="l")
 
   if(save) graphics.off()
 }

@@ -2249,17 +2249,20 @@ compute_TWS<-function(k,start="1950-01-01",end="2011-12-31",rean){
 }
 
 # Calcul des scores TWS comme au-dessus mais optimisé en parallèle
-compute_TWS_par<-function(k,start="1851-01-01",end="2011-12-31",rean,nb_cores=1){
+compute_TWS_par<-function(k,start="1851-01-01",end="2011-12-31",rean,nb_cores=1,period="present"){
   gradlist<-grad(k,start,end,rean) ##function coded below
   gradlon <- gradlist$gradlon
   gradlat <- gradlist$gradlat
   
   N<-dim(gradlon)[3] ## time
   
-  cl <- makeCluster(nb_cores) # create a cluster with n cores
+  outfile <- paste0(get.dirstr(k,rean,period),"compute_dist/calcul.txt")
+  print(paste0("Logfile for // loop : ",outfile))
+  cl <- makeCluster(nb_cores,outfile=outfile) # create a cluster with n cores
   registerDoParallel(cl) # register the cluster
   
   dist.list = foreach(i =1:(N-1)) %dopar% { ## no .combine by default result is a list (and no need for .packages)
+    if(i%%10==0) print(i)
     j<-(i+1):N
     gradlonj<-gradlon[,,j]
     gradlatj<-gradlat[,,j]
@@ -2582,14 +2585,16 @@ getdates<-function(start="1950-01-01",end="2011-12-31"){
 # Date associee a chaque pas de temps dans le fichier NetCDF
 getdays<-function(nc,rean,climat=NULL){
   
+  orig <- substr(strsplit(x = nc$dim$time$units,split = " ")[[1]][3],1,4)
+  
   # Les reanalyses: origines differentes et pas de temps horaire
   if(is.null(climat)){
     
     # Origine
-    if(substr(rean,1,4) == "20CR") orig <- "1800"
-    if(substr(rean,1,3) == "JRA") orig <- "1800"
-    if(substr(rean,1,3) == "ERA") orig <- "1900"
-    if(rean == "NCEP") orig <- "1950"
+    #if(substr(rean,1,4) == "20CR") orig <- "1800"
+    #if(substr(rean,1,3) == "JRA") orig <- "1800"
+    #if(substr(rean,1,3) == "ERA") orig <- "1900"
+    #if(rean == "NCEP") orig <- "1950"
     
     # Vecteur temps
     ti <- nc$dim$time$vals*3600
@@ -2599,7 +2604,8 @@ getdays<-function(nc,rean,climat=NULL){
   }else{
     
     # Origine
-    if(climat == "cnrm") orig <- "1850"
+    #if(climat == "cnrm") orig <- "1850"
+    #if(climat == "ipsl") orig <- "1850"
     
     # Vecteur temps
     ti <- nc$dim$time$vals
@@ -2611,7 +2617,7 @@ getdays<-function(nc,rean,climat=NULL){
 getdist<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,threeday=FALSE,period="present"){
   
   # Dates
-  start.end.dist <- get.start.end.rean(rean,period,"dist")
+  start.end.dist <- get.start.end.rean(rean,period,"dist",k)
   
   # Chemin et Import
   if(period=="present"){
@@ -3061,7 +3067,7 @@ get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm
 }
 
 # Renvoie les dates de debut et fin de periode de calcul de dist ou criteria par reanalyse
-get.start.end.rean <- function(rean,period="present",type="dist"){
+get.start.end.rean <- function(rean,period="present",type="dist",k=1){
   
   # Reanalyses utilisees pour etude Present
   if(period=="present"){
@@ -3077,7 +3083,7 @@ get.start.end.rean <- function(rean,period="present",type="dist"){
       if(type=="dist"){
         if(rean=="20CR") {start <- end <- NULL}
         if(rean=="20CR-m0"){start <- "1851-01-01";end <- "2011-12-31"}
-        if(rean=="20CR-m1"){start <- "1851-01-01";end <- "2014-12-31"}
+        if(rean=="20CR-m1"){start <- "1851-01-01";end <- ifelse(k==1,"2014-12-31","2011-12-31")}
         if(rean=="20CR-m2"){start <- "1851-01-01";end <- "2011-12-31"}
         if(rean=="ERA20C"){start <- "1900-01-01";end <- "2010-12-31"}
         if(rean=="ERA5"){start <- "1950-01-01";end <- "2017-12-31"}
@@ -3146,7 +3152,7 @@ get.wp <- function(nbdays,start="1950-01-01",end="2011-12-31",risk=F,bv="Isere",
 
 # Calcule les gradients pour 500 (k=1) ou 1000 (k=2) pour tous les jours
 grad<-function(k,day0,day1,rean,large_win=F){
-  x=getdata(k,day0,day1,rean,large_win)  #data500 ou data1000, 3 dims
+  x=getdata(k = k,day0 = day0,day1 = day1,rean = rean,climat=NULL,run=1,large_win=large_win,small_win=F,all=F,ssp=NULL,var="hgt")  #data500 ou data1000, 3 dims
   gradlon=(makegrad(x,1)) #selon lon
   gradlat=(makegrad(x,2)) #selon lat
   return(list(gradlon=gradlon,gradlat=gradlat))
@@ -3320,25 +3326,28 @@ image.europe<- function(rean="20CR"){
   # Rectangle analogie 500hPa
   nc <- load.nc(rean=rean,var = "hgt")
   nc <- nc[[1]]
-  fen <- getinfo_window(k=1,rean=rean)
+  fen1 <- getinfo_window(k=1,rean=rean)
+  fen2 <- getinfo_window(k=2,rean=rean)
   lon <- nc$dim$lon$vals
   lat <- nc$dim$lat$vals
   nc_close(nc)
   delta <- abs(lon[1]-lon[2])/2 # demi ditance entre deux points de grille pour tracer precisement la fenetre d'analogie
-  rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,
-         border=ifelse(k==1,"blue","deepskyblue"),lwd=2)
+  #rect(xleft = lon[fen1[1,1]]-delta,ybottom = lat[fen1[2,1]]-delta,xright = lon[fen1[1,1]+fen1[1,2]-1]+delta,ytop = lat[fen1[2,1]+fen1[2,2]-1]+delta,
+  #       border="blue",lwd=2)
+  rect(xleft = lon[fen2[1,1]]-delta,ybottom = lat[fen2[2,1]]-delta,xright = lon[fen2[1,1]+fen2[1,2]-1]+delta,ytop = lat[fen2[2,1]+fen2[2,2]-1]+delta,
+       border="deepskyblue",lwd=2)
   #points(expand.grid(lon[fen[1,1]:(fen[1,1]+fen[1,2]-1)],lat[fen[2,1]:(fen[2,1]+fen[2,2]-1)]),pch=19,cex=0.1)
   
   # Region d'etude
   # rect(5.5,44.5,7.2,46,border="red",lwd=2)
   
   # Rectangle TCW ERA5
-  rect(xleft = 5.5-delta,ybottom = 44.5-delta,xright = 7+delta,ytop = 46+delta,
-       border="red",lwd=2)
+  #rect(xleft = 5.5-delta,ybottom = 44.5-delta,xright = 7+delta,ytop = 46+delta,
+  #     border="red",lwd=2)
   
   # Carte région
   par(mar=c(4,4,4,4))
-  image.region(pluvios = F,save=F,names = F,crsm=T,bd_alti = F)
+  image.region(pluvios = F,save=F,names = T,crsm=T,bd_alti = F)
   graphics.off()
   
 }
@@ -3347,9 +3356,9 @@ image.europe<- function(rean="20CR"){
 image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F){
   
   # BVs a tracer
-  bv <- c("isere"
-          #"isere-seul",
-          #"drac-seul"
+  bv <- c(#"isere"
+          "isere-seul",
+          "drac-seul"
           #"tarentaise",
           #"maurienne",
           #"romanche",
@@ -3572,30 +3581,22 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
   }else{
     
     if(climat == "cnrm" & is.null(ssp)){
-      nc500<-nc_open(paste0("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Climate_models/CNRM-CM6-1/Historical/zg500_AERday_CNRM-CM6-1_historical_r",as.character(run),"i1p1f2_gr_18500101-20141231_Europe.nc"))
-      names(nc500$var)[3] <- "hgt"
-      nc500$var$hgt$name <- "hgt"
+      nc500<-nc_open(paste0("2_Travail/Data/Climate_models/CNRM-CM6-1/Historical/zg500_AERday_CNRM-CM6-1_historical_r",as.character(run),"i1p1f2_gr_18500101-20141231_Europe.nc"))
       nc1000<-nc500
     }
     
     if(climat == "cnrm" & !is.null(ssp)){
-      nc500<-nc_open(paste0("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Climate_models/CNRM-CM6-1/ScenarioMIP/zg500_AERday_CNRM-CM6-1_ssp",as.character(ssp),"_r",as.character(run),"i1p1f2_gr_20150101-21001231_Europe.nc"))
-      names(nc500$var)[3] <- "hgt"
-      nc500$var$hgt$name <- "hgt"
+      nc500<-nc_open(paste0("2_Travail/Data/Climate_models/CNRM-CM6-1/ScenarioMIP/zg500_AERday_CNRM-CM6-1_ssp",as.character(ssp),"_r",as.character(run),"i1p1f2_gr_20150101-21001231_Europe.nc"))
       nc1000<-nc500
     }
     
     if(climat == "ipsl" & is.null(ssp)){
-      nc500<-nc_open(paste0("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Climate_models/IPSL-CM6A-LR/Historical/zg500_AERday_IPSL-CM6A-LR_historical_r",as.character(run),"i1p1f1_gr_18500101-20141231_Europe.nc"))
-      names(nc500$var)[3] <- "hgt"
-      nc500$var$hgt$name <- "hgt"
+      nc500<-nc_open(paste0("2_Travail/Data/Climate_models/IPSL-CM6A-LR/Historical/zg500_AERday_IPSL-CM6A-LR_historical_r",as.character(run),"i1p1f1_gr_18500101-20141231_Europe.nc"))
       nc1000<-nc500
     }
     
     if(climat == "ipsl" & !is.null(ssp)){
-      nc500<-nc_open(paste0("9_Encadrement/Stage_Jules_Boulard_M2_2021/Travail/Data/Climate_models/IPSL-CM6A-LR/ScenarioMIP/zg500_AERday_IPSL-CM6A-LR_ssp",as.character(ssp),"_r",as.character(run),"i1p1f1_gr_20150101-21001231_Europe.nc"))
-      names(nc500$var)[3] <- "hgt"
-      nc500$var$hgt$name <- "hgt"
+      nc500<-nc_open(paste0("2_Travail/Data/Climate_models/IPSL-CM6A-LR/ScenarioMIP/zg500_AERday_IPSL-CM6A-LR_ssp",as.character(ssp),"_r",as.character(run),"i1p1f1_gr_20150101-21001231_Europe.nc"))
       nc1000<-nc500
     }
   }
@@ -4047,6 +4048,9 @@ nam2str<-function(nams,cloud=FALSE,whole=F,unit=F){
     if(nams[i] == "summer") nams[i] <- "Summer"
     if(nams[i] == "autumn") nams[i] <- "Autumn"
     if(nams[i] == "year") nams[i] <- "Year"
+    if(nams[i] == "20CR-m0") nams[i] <- "20CR - mean member"
+    if(nams[i] == "20CR-m1") nams[i] <- "20CR - mean 1"
+    if(nams[i] == "20CR-m2") nams[i] <- "20CR - mean 2"
     }
   
   if(!cloud && length(nams)==2 && nams != c("A","A")){ # si on ne l'utilise pas pour un nuage de points, alors nams de longueur 1
@@ -5747,6 +5751,48 @@ reshape.20CR.wind <- function(var="UWIND"){
   
 }
 
+# Changement de nom de variable (hgt) et suppression 4e dimension pour cnrm et ipsl, historical et future
+reshape.climate.model <- function(k=1,model="cnrm",period="historical",run=1,ssp="126"){
+  
+  if(model=="cnrm"){
+    if(period=="historical") namfile <- paste0("2_Travail/Data/Climate_models/CNRM-CM6-1/Historical/zg500_AERday_CNRM-CM6-1_historical_r",run,"i1p1f2_gr_18500101-20141231_Europe.nc")
+    if(period=="future"){
+      if(k==1) namfile <- paste0("2_Travail/Data/Climate_models/CNRM-CM6-1/ScenarioMIP/zg500_AERday_CNRM-CM6-1_ssp",ssp,"_r",run,"i1p1f2_gr_20150101-21001231_Europe.nc")
+      if(k==2) namfile <- paste0("2_Travail/Data/Climate_models/CNRM-CM6-1/ScenarioMIP/zg1000/zg1000_AERday_CNRM-CM6-1_ssp",ssp,"_r",run,"i1p1f2_gr_20150101-21001231_Europe.nc")
+    }
+  }
+  
+  if(model=="ipsl"){
+    if(period=="historical") namfile <- paste0("2_Travail/Data/Climate_models/IPSL-CM6A-LR/Historical/zg500_AERday_IPSL-CM6A-LR_historical_r",run,"i1p1f1_gr_18500101-20141231_Europe.nc")
+    if(period=="future") namfile <- paste0("2_Travail/Data/Climate_models/IPSL-CM6A-LR/ScenarioMIP/zg500_AERday_IPSL-CM6A-LR_ssp",ssp,"_r",run,"i1p1f1_gr_20150101-21001231_Europe.nc")
+  }
+  
+  # Import
+  print(paste0("Import ",namfile))
+  nc <- nc_open(filename = namfile)
+  
+  if (any(substr(names(nc$var),1,2)=="zg")){
+    vari.name <- names(nc$var)[which(substr(names(nc$var),1,2)=="zg")]
+    if(length(nc$dim)==5){
+      arr <- ncvar_get(nc = nc,varid = vari.name,start = c(1,1,1,1),count=c(length(nc$dim$lon$vals),length(nc$dim$lat$vals),1,length(nc$dim$time$vals)))
+    }
+    if(length(nc$dim)==4){
+      arr <- ncvar_get(nc = nc,varid = vari.name,start = c(1,1,1),count=c(length(nc$dim$lon$vals),length(nc$dim$lat$vals),length(nc$dim$time$vals)))
+    }
+    nc_close(nc)
+    
+    # Export
+    print("Export (on ecrase)")
+    res.form   <- ncvar_def(name = "hgt", units = "m", dim = list(nc$dim$lon,nc$dim$lat,nc$dim$time),prec = "float",longname = "Geopotential Height") # float: simple precision. double: double precision
+    res.create <- nc_create(filename = namfile, vars = res.form)
+    ncvar_put(nc = res.create, varid = res.form,vals = arr)
+    nc_close(res.create)
+  }else{
+    print("Already in good shape")
+    nc_close(nc)
+  }
+}
+
 # Concatenation et aggregation de ERA20C
 reshape.ERA20C <- function(z = "1000"){
   
@@ -5917,6 +5963,28 @@ run<-function(k,dist,nbdays,str,radtype,start,end,rean){
                  start = start, end = end, radtype = M, rean = unique(rean))
   }
   
+}
+
+# Run reshape.climat.model
+run.present <- function(type=1){
+  
+  # reshape.climate.model
+  if(type==1){
+    
+    k <- 2
+    model <- "cnrm"
+    run <- 1:6
+    period <- "future"
+    ssp <- c("126","245","370","585")
+    
+    for(i in 1:length(ssp)){
+      print(paste0("ssp ",ssp[i]))
+      for(j in 1:length(run)){
+        print(paste0("run ",run[j]))
+        reshape.climate.model(k = k,model = model,period = period,run = run[j],ssp = ssp[i])
+      }
+    }
+  }
 }
 
 # Lance les fonctions souhaitees
