@@ -476,29 +476,6 @@ corrplot.descr.season <- function(k,dist,start="1950-01-01",end="2017-12-31",rea
   
   
 }
-  
-# Renvoie les indices associes a une saison, et le nombre de saison dans la periode
-get.ind.season <- function(sais,start="1950-01-01",end="2017-12-31"){
-  
-  dates <- getdates(start,end)
-  nyear <- length(unique(substr(dates,1,4)))
-  
-  if(sais=="winter") {sta <- "12-01"; N <- 90}
-  if(sais=="spring") {sta <- "03-01"; N <- 92}
-  if(sais=="summer") {sta <- "06-01"; N <- 92}
-  if(sais=="autumn") {sta <- "09-01"; N <- 91}
-  
-  pos.sta <- which(substr(dates,6,10)== sta)
-  if(sais=="winter"){pos.sta <- pos.sta[-length(pos.sta)]; nyear <- nyear-1} # on retire le dernier hiver incomplet
-  
-  pos.season <- pos.sta
-  for(i in 1:(N-1)){ # saisons de longueur 90 jours
-    pos.season <- sort(c(pos.season,pos.sta+i))
-  }
-  
-  res <- list(pos.season = pos.season,n.season = nyear,l.season = N)
-  # renvoie les positions de la saison, le nombre de saison et la longueur de la saison
-}
 
 # Import de la serie mensuelle de NAO
 get.nao <- function(start="1950",end="2019",sais="all",daily=F,normalized=F){

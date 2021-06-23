@@ -2028,20 +2028,19 @@ compute.desais <- function(descr,dates){
 }
 
 # Calcul des distances de maniere generique
-compute_dist.gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean){
+compute_dist_gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,period="present"){
   if (k %in% 1:2) {
     if (dist %in% c("TWS","RMSE","RMSE_I","RMSE_II","Mahalanobis")){
-      #if (dist=="TWS") dist.list<-compute_TWS_par(k,start,end,rean,nb_cores = 6)
-      if (dist=="TWS") dist.list<-compute_TWS(k,start,end,rean)
+      if (dist=="TWS") dist.list<-compute_TWS_par(k,start,end,rean,period=period,nb_cores = 2)
       if (dist=="RMSE") dist.list<-compute_RMSE(k,start,end,rean)
       if (dist=="RMSE_I") dist.list<-compute_RMSE_I(k,start,end,rean)
       if (dist=="RMSE_II") dist.list<-compute_RMSE_II(k,start,end,rean)
       if (dist=="Mahalanobis") dist.list<-compute_mahalanobis(k,start,end,rean)
-      save(dist.list,file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+      save(dist.list,file=paste0(get.dirstr(k,rean,period),"compute_dist/",dist,"_",rean,"_k",k,"_",start,"_",end,".Rdata"))
     }
     else{ # si on demande un nTWS, sTWS, nRMSE ou sRMSE, les distances sont normalisees par la moyenne ou l'ecart type des distances
       dist0<-substr(dist,2,nchar(dist))
-      load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",dist0,"_member",member,"_Z",Z,"_",start,"_",end,".Rdata"))
+      load(file=paste0(get.dirstr(k,rean,period),"compute_dist/",dist0,"_member",member,"_Z",Z,"_",start,"_",end,".Rdata"))
       type<-substr(dist,1,1)
       print(type)
       if (type=="n") norm<-mean(unlist(dist.list))
@@ -2049,19 +2048,8 @@ compute_dist.gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean){
       print(norm)
       for (i in 1:length(dist.list)) dist.list[[i]]<-dist.list[[i]]/norm
       
-      save(dist.list,file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
+      save(dist.list,file=paste0(get.dirstr(k,rean,period),"compute_dist/",dist,"_",rean,"_k",k,"_",start,"_",end,".Rdata"))
     }
-  }
-  else { # si k=3, les scores sont deja censes etre calcules pour 500 et 1000, donc on fait juste la moyenne des deux
-    load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_Z500_",start,"_",end,".Rdata"))
-    print("1")
-    dist1.list<-dist.list
-    rm(dist.list);gc(TRUE)
-    load(file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_Z1000_",start,"_",end,".Rdata"))
-    print("2")
-    for (i in 1:length(dist.list)) dist.list[[i]]<-(dist.list[[i]]+dist1.list[[i]])/2
-    rm(dist1.list);gc(TRUE)
-    save(dist.list,file=paste0("2_Travail/0_Present/",rean,"/Rresults/compute_dist/",dist,"_member",member,"_k",k,"_",start,"_",end,".Rdata"))
   }
 }
 
@@ -2286,6 +2274,7 @@ compute_TWS_par<-function(k,start="1851-01-01",end="2011-12-31",rean,nb_cores=1,
   
   stopCluster(cl) # shut down the cluster
   gc()
+  dist.list <- lapply(dist.list,function(v){as.integer(v*(10^9))})
   dist.list
 }
 
@@ -2968,6 +2957,56 @@ get.ind.min.max.descr <- function(descr,k,dist,nbdays,start="1950-01-01",end="20
   res
 }
 
+# Renvoie les indices associes a une saison, et le nombre de saison dans la periode (hiver propre, bissextiles propres)
+get.ind.season <- function(sais,start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  nyear <- length(unique(substr(dates,1,4)))
+  
+  # Dates de debut et longueur saison
+  if(sais=="year") {sta <- "01-01"; N <- 366} # on inclut le 29 fevrier
+  if(sais=="winter") {sta <- "12-01"; N <- 91} # on inclut le 29 fevrier
+  if(sais=="spring") {sta <- "03-01"; N <- 92}
+  if(sais=="summer") {sta <- "06-01"; N <- 92}
+  if(sais=="autumn") {sta <- "09-01"; N <- 91}
+  
+  pos.sta <- which(substr(dates,6,10)== sta)
+  if(sais=="winter"){pos.sta <- pos.sta[-length(pos.sta)]; nyear <- nyear-1} # on retire le dernier hiver incomplet
+  
+  pos.season <- pos.sta
+  for(i in 1:(N-1)){ # saisons de longueur N jours
+    pos.season <- sort(c(pos.season,pos.sta+i))
+  }
+  
+  # Manip annees bissextiles
+  out <- NULL
+  if(sais=="winter"){
+    # on retire les 1er mars selectionnes dans les annees non bissextiles
+    out <- which(substr(dates[pos.season],6,10) == "03-01") 
+  }
+  if(sais=="year"){
+    # on retire les 1er janviers de l'annee d'apres selectionnes dans les annees non bissextiles
+    diff <- as.Date(dates[pos.season[-length(pos.season)]]) - as.Date(dates[pos.season[-1]])
+    out <- which(diff==0)
+  }
+  
+  # renvoie les positions de la saison, le nombre de saison, la longueur de la saison, les NA dans le referentiel de pos.season
+  res <- list(pos.season = pos.season,n.season = nyear,l.season = N,pos.NA = out)
+}
+
+# Renvoie les indices appartenant a une saison (hiver non propre)
+get.ind.season.past <- function(sais,start="1851-01-01",end="2010-12-31"){
+  
+  dates <- getdates(start,end)
+  if(sais=="year") ind <- 1:length(dates)
+  if(sais=="winter") ind <- which(substr(dates,6,7) %in% c("12","01","02"))
+  if(sais=="spring") ind <- which(substr(dates,6,7) %in% c("03","04","05"))
+  if(sais=="summer") ind <- which(substr(dates,6,7) %in% c("06","07","08"))
+  if(sais=="autumn") ind <- which(substr(dates,6,7) %in% c("09","10","11"))
+  
+  ind
+}
+
 # Calcul du min de geopotentiel dans la fenetre
 get.max <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
   geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
@@ -3314,8 +3353,8 @@ image.cumul<-function(crue=FALSE){
 # Carte de l'Europe avec fenêtres d'analogie, et carte de la region
 image.europe<- function(rean="20CR"){
   
-  #png(filename = paste0("2_Travail/0_Present/Rresults/image.europe/image_europe_region_",rean,".png"),width = 13,height = 6,units = "in",res = 600)
-  pdf(file = paste0("2_Travail/0_Present/Rresults/image.europe/image_europe_region_",rean,".pdf"),width = 13,height = 6)
+  png(filename = paste0("2_Travail/0_Present/Rresults/image.europe/image_europe_region_",rean,".png"),width = 13,height = 6,units = "in",res = 600)
+  #pdf(file = paste0("2_Travail/0_Present/Rresults/image.europe/image_europe_region_",rean,".pdf"),width = 13,height = 6)
   par(mfrow=c(1,2),oma=c(0,1,0,1))
   
   # Carte Europe
@@ -3332,18 +3371,18 @@ image.europe<- function(rean="20CR"){
   lat <- nc$dim$lat$vals
   nc_close(nc)
   delta <- abs(lon[1]-lon[2])/2 # demi ditance entre deux points de grille pour tracer precisement la fenetre d'analogie
-  #rect(xleft = lon[fen1[1,1]]-delta,ybottom = lat[fen1[2,1]]-delta,xright = lon[fen1[1,1]+fen1[1,2]-1]+delta,ytop = lat[fen1[2,1]+fen1[2,2]-1]+delta,
-  #       border="blue",lwd=2)
-  rect(xleft = lon[fen2[1,1]]-delta,ybottom = lat[fen2[2,1]]-delta,xright = lon[fen2[1,1]+fen2[1,2]-1]+delta,ytop = lat[fen2[2,1]+fen2[2,2]-1]+delta,
-       border="deepskyblue",lwd=2)
+  rect(xleft = lon[fen1[1,1]]-delta,ybottom = lat[fen1[2,1]]-delta,xright = lon[fen1[1,1]+fen1[1,2]-1]+delta,ytop = lat[fen1[2,1]+fen1[2,2]-1]+delta,
+         border="blue",lwd=2)
+  #rect(xleft = lon[fen2[1,1]]-delta,ybottom = lat[fen2[2,1]]-delta,xright = lon[fen2[1,1]+fen2[1,2]-1]+delta,ytop = lat[fen2[2,1]+fen2[2,2]-1]+delta,
+  #     border="deepskyblue",lwd=2)
   #points(expand.grid(lon[fen[1,1]:(fen[1,1]+fen[1,2]-1)],lat[fen[2,1]:(fen[2,1]+fen[2,2]-1)]),pch=19,cex=0.1)
   
   # Region d'etude
   # rect(5.5,44.5,7.2,46,border="red",lwd=2)
   
   # Rectangle TCW ERA5
-  #rect(xleft = 5.5-delta,ybottom = 44.5-delta,xright = 7+delta,ytop = 46+delta,
-  #     border="red",lwd=2)
+  rect(xleft = 5.5-delta,ybottom = 44.5-delta,xright = 7+delta,ytop = 46+delta,
+       border="red",lwd=2)
   
   # Carte région
   par(mar=c(4,4,4,4))
@@ -3356,7 +3395,7 @@ image.europe<- function(rean="20CR"){
 image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F){
   
   # BVs a tracer
-  bv <- c(#"isere"
+  bv <- c(#"isere",
           "isere-seul",
           "drac-seul"
           #"tarentaise",
@@ -5471,6 +5510,65 @@ plot.sais.dP.noise <- function(k,nbdays=3,start="1950-01-01",end="2011-12-31",re
   
 }
 
+# Saisonnalite des extremes avec type de temps associé
+plot.sais.extr.wp <- function(nbdays,start="1950-01-01",end="2017-12-31",bv1="Isere-seul",bv2="Drac-seul",spazm=F,supseuil=T){
+  
+  # Import des dates des extremes
+  dates <- getdates(start,end)
+  
+  if(!supseuil){
+    ind.bv1 <- get.ind.max(type = "year",nbdays,start,end,bv1,spazm)
+    ind.bv2 <- get.ind.max(type = "year",nbdays,start,end,bv2,spazm)
+  }else{
+    ind.bv1 <- get.ind.extr(bv1,nbdays,start,end,nei = T,spazm,seuil = "qua")
+    ind.bv2 <- get.ind.extr(bv2,nbdays,start,end,nei = T,spazm,seuil = "qua")
+  }
+  
+  # Import des types de temps
+  wp <- as.character(get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = spazm))
+  wp[wp=="1"] <- "Atlantic";wp[wp=="2"] <- "Mediterranean";wp[wp=="5" | wp=="8"] <- "Other"
+  
+  # Traitement
+  tmp <- data.frame(Month=as.numeric(substr(dates[ind.bv1],6,7)),Influence=wp[ind.bv1],Count=rep(1,length(ind.bv1)))
+  wp.bv1 <- aggregate(tmp$Count,by=list(tmp$Month,tmp$Influence),sum)
+  colnames(wp.bv1) <- colnames(tmp)
+  wp.bv1$Influence <- factor(wp.bv1$Influence,levels = c("Other","Mediterranean","Atlantic"))
+  wp.bv1$Month <- factor(wp.bv1$Month)
+  
+  tmp <- data.frame(Month=as.numeric(substr(dates[ind.bv2],6,7)),Influence=wp[ind.bv2],Count=rep(1,length(ind.bv2)))
+  wp.bv2 <- aggregate(tmp$Count,by=list(tmp$Month,tmp$Influence),sum)
+  colnames(wp.bv2) <- colnames(tmp)
+  wp.bv2$Influence <- factor(wp.bv2$Influence,levels = c("Other","Mediterranean","Atlantic"))
+  wp.bv2$Month <- factor(wp.bv2$Month)
+  
+  # Graphiques
+  colo <- c("grey","burlywood1","cornflowerblue")
+  bv <- c(bv1,bv2)
+  entree <- list(wp.bv1,wp.bv2)
+  sortie <- entree
+  
+  for(i in 1:length(entree)){
+    sortie[[i]] <- ggplot(entree[[i]], aes(fill=Influence, y=Count, x=Month)) + 
+      theme_bw()+
+      theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 15,face = "bold"),
+            axis.title.y = element_text(vjust=4,size = 15,face = "bold"),
+            axis.text.x = element_text(size=12),axis.text.y = element_text(size=12),
+            plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=18),
+            legend.key.si = unit(1,"cm"),legend.text = element_text(size=15),
+            legend.title = element_text(hjust=0.5,vjust=1,size = 18,face = "bold"),
+            panel.grid.major = element_blank(),panel.grid.minor = element_blank())+
+      geom_bar(position="stack",stat = "identity",width = 1,colour="black",size=1)+
+      scale_fill_manual(values=colo)+
+      scale_x_discrete(breaks=1:12, labels=month.abb)+
+      grids(axis = "xy",color = "grey",linetype = "dashed")+
+      ggtitle(label = nam2str(bv[i]))
+  }
+  
+  final <- ggarrange(plotlist = sortie,ncol = 2,nrow = 1,common.legend = T,legend = "right",align="hv")
+  ggsave(filename = paste0("2_Travail/0_Present/Rresults/plot.sais.extr.wp/plot_sais_extr_wp_",bv1,"_",bv2,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".png"),plot = final,width = 14,height = 5)
+  graphics.off()
+}
+
 # Trace la fonction de repartition des scores
 plot.score <- function(k,dist,nbdays=3,start="1950-01-01",end="2011-12-31",rean,rsing=FALSE,sing=FALSE){
   
@@ -5670,6 +5768,49 @@ plot.wp.extr<-function(bv1,bv2,nbdays,start="1950-01-01",end="2011-12-31",spazm=
   #        col="cornflowerblue",border = "royalblue",xlab="Weather Pattern",ylab="Percentage (%)")
   #graphics.off()
   
+}
+
+# Trace la repartition des precip extremes de 2 BVs selon influence Atl et Med
+plot.wp.extr.clean <- function(nbdays,start="1950-01-01",end="2017-12-31",bv1="Isere-seul",bv2="Drac-seul",spazm=F,supseuil=T){
+  
+  # Import des dates des extremes
+  dates <- getdates(start,end)
+  
+  if(!supseuil){
+    ind.bv1 <- get.ind.max(type = "year",nbdays,start,end,bv1,spazm)
+    ind.bv2 <- get.ind.max(type = "year",nbdays,start,end,bv2,spazm)
+  }else{
+    ind.bv1 <- get.ind.extr(bv1,nbdays,start,end,nei = T,spazm,seuil = "qua")
+    ind.bv2 <- get.ind.extr(bv2,nbdays,start,end,nei = T,spazm,seuil = "qua")
+  }
+  
+  # Import des types de temps
+  wp <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = spazm)
+  
+  # Mise en forme et Graphique
+  colo <- c("cornflowerblue","burlywood1")
+  namflow <- c("Atlantic","Mediterranean")
+  
+  png(filename = paste0("2_Travail/0_Present/Rresults/plot.wp.extr/plot_wp_extr_",bv1,"_",bv2,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".png"),width = 7,height = 4,units = "in",res = 600)
+  par(mfrow=c(1,2))
+  
+  tmp <- table(wp[ind.bv1])/length(ind.bv1)*100
+  tmp <- c(tmp["1"],tmp["2"])
+  main <- paste0(nam2str(bv1)," - ",length(ind.bv1)," events")
+  barplot(height = tmp,space=0,col=colo,ylim=c(0,100),xaxt="n",main=main,ylab="Percentage of events (%)")
+  grid(nx=NA,ny=NULL);par(new=T)
+  barplot(height = tmp,space=0,col=colo,ylim=c(0,100),xaxt="n",main=main,ylab="Percentage of events (%)")
+  axis(side = 1,at = 0.5:1.5,labels = namflow)
+  
+  tmp <- table(wp[ind.bv2])/length(ind.bv2)*100
+  tmp <- c(tmp["1"],tmp["2"])
+  main <- paste0(nam2str(bv2)," - ",length(ind.bv2)," events")
+  barplot(height = tmp,space=0,col=colo,ylim=c(0,100),xaxt="n",main=main,ylab="Percentage of events (%)")
+  grid(nx=NA,ny=NULL);par(new=T)
+  barplot(height = tmp,space=0,col=colo,ylim=c(0,100),xaxt="n",main=main,ylab="Percentage of events (%)")
+  axis(side = 1,at = 0.5:1.5,labels = namflow)
+  
+  graphics.off()
 }
 
 # plot la frequence d'occurence des WP par saison

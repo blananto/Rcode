@@ -2788,8 +2788,8 @@ plot.sais.descr.clean <- function(k,dist,nbdays=1,start="1950-01-01",end="2011-1
   graphics.off()
 }
 
-# Saisonnalite des extremes
-plot.sais.extr <- function(nbdays,start="1950-01-01",end="2011-12-31",bv1,bv2,comm=F,spazm=F,supseuil=T){
+# Saisonnalite des extremes avec cumuls mensuels possible
+plot.sais.extr <- function(nbdays,start="1950-01-01",end="2011-12-31",bv1,bv2,comm=F,spazm=F,supseuil=T,cum=T){
   
   # Extremes
   dates <- getdates(start,end)
@@ -2808,14 +2808,15 @@ plot.sais.extr <- function(nbdays,start="1950-01-01",end="2011-12-31",bv1,bv2,co
   }
   
   # Cumuls mensuels
+  if(cum){
   ny <- as.numeric(substr(dates[length(dates)],1,4)) - as.numeric(substr(dates[1],1,4)) + 1
   cum.bv1 <- aggregate(get.precip(nbdays=1,start,end,bv1,spazm),by=list(substr(dates,6,7)),function(v) sum(v)/ny)
   cum.bv2 <- aggregate(get.precip(nbdays=1,start,end,bv2,spazm),by=list(substr(dates,6,7)),function(v) sum(v)/ny)
-  
   # Graphique
   fac1 <- max(cum.bv1[,2])/(max(table(month.bv1))*0.8) # facteur de division des cumuls mensuels pour rentrer dans l'histogramme
   fac2 <- max(cum.bv2[,2])/(max(table(month.bv2))*0.8)
   fac <- round(mean(c(fac1,fac2)),0)
+  }
   
   #png(filename = paste0("2_Travail/0_Present/Rresults/plot.sais.extr/plot_ann_max_",bv1,"_",bv2,ifelse(spazm,"_spazm",""),ifelse(comm,"_comm",""),ifelse(supseuil,"_qua",""),".png"),width = 9,height = 3.5,units = "in",res=200)
   pdf(file = paste0("2_Travail/0_Present/Rresults/plot.sais.extr/plot_ann_max_",bv1,"_",bv2,ifelse(spazm,"_spazm",""),ifelse(comm,"_comm",""),ifelse(supseuil,"_qua",""),".pdf"),width = 9,height = 3.5)
@@ -2831,10 +2832,12 @@ plot.sais.extr <- function(nbdays,start="1950-01-01",end="2011-12-31",bv1,bv2,co
   axis(2)
   title(ylab="Number of events", line=2)
   text(0.5:11.5,par("usr")[3]-0.3, labels = month.abb, srt = -45, pos = 1, xpd = TRUE)
+  if(cum){
   points(0.5:11.5,cum.bv1[,2]/fac,pch=19)
   lines(0.5:11.5,cum.bv1[,2]/fac)
   axis(side = 4,at = axis(2),labels = axis(2)*fac)
   text(15,par("usr")[1]++mean(axis(2)),"Precipitation (mm)", srt=90,xpd=T)
+  }
   
   hist(month.bv2,axes=F,breaks=0:12,col="azure3",
       xlab="",ylab="",main=nam2str(bv2))
@@ -2846,11 +2849,12 @@ plot.sais.extr <- function(nbdays,start="1950-01-01",end="2011-12-31",bv1,bv2,co
   axis(2)
   title(ylab="Number of events", line=2)
   text(0.5:11.5,par("usr")[3]-0.3, labels = month.abb, srt = -45, pos = 1, xpd = TRUE)
+  if(cum){
   points(0.5:11.5,cum.bv2[,2]/fac,pch=19)
   lines(0.5:11.5,cum.bv2[,2]/fac)
   axis(side = 4,at = axis(2),labels = axis(2)*fac)
   text(15,par("usr")[1]+mean(axis(2)),"Precipitation (mm)", srt=90,xpd=T)
-  
+  }
   graphics.off()
 }
 
