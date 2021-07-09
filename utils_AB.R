@@ -32,6 +32,7 @@ library("parallel") # check number of cores
 library("doParallel") # Parallelization of calculation
 library("viridis") # Viridis Color Palette
 library("quantreg") # rq
+#library("sf") # sp_transform
 
 # Fonctions graphiques
 addcircle<-function(radius){
@@ -2856,12 +2857,136 @@ get.dirstr<-function(k=NULL,rean,period="present"){
   dirstr
 }
 
-# Calcul de dP
+# Calcul de MPD
 get.dP <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rean){
   geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
   des <- apply(geo,3,function(x) max(x)-min(x))
   des <- rollapply(des,nbdays,mean)
   des
+}
+
+# Calcul de MPD version gradient
+get.dP.grad <- function(k,nbdays,start="1950-01-01",end="2017-12-31",rean){
+  
+  # Import donnees
+  geo <- getdata(k = k,day0 = start,day1 = end,rean = rean) 
+  
+  # Import et mise en forme lon et lat
+  nc <- load.nc(rean = rean,var="hgt")
+  nc <- nc[[k]]
+  lon <- nc$dim$lon$vals
+  lat <- nc$dim$lat$vals
+  nc_close(nc)
+  ind <- getinfo_window(k = k,large_win = F,small_win = F,all = F,rean = rean,var = "hgt")
+  
+  lon <- lon[ind[1,1]:(ind[1,1]+ind[1,2]-1)]
+  lat <- lat[ind[2,1]:(ind[2,1]+ind[2,2]-1)]
+  
+  #tmp=Spatial(lon,proj4string = CRS("+proj=merc +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs "))
+  #lonlat <- as.matrix(expand.grid(lon,lat))
+  #lonlat <- st_multipoint(lonlat)
+  #st_set_crs(lonlat,value=CRS("+proj=merc +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs "))
+  #st_sf(lonlat)
+  #proj4string(lonlat) <- CRS("+proj=merc +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs ")
+  #lon <- st_transform(x = lonlat, CRS("+init=epsg:2154"))
+  
+  # Traitement
+  fun.mat <- function(mat){
+    mini <- min(mat)
+    maxi <- max(mat)
+    pos.mini <- which(mat == mini, arr.ind=TRUE);if(dim(pos.mini)[2]>1) pos.mini <- pos.mini[1,]
+    pos.maxi <- which(mat == maxi, arr.ind=TRUE);if(dim(pos.maxi)[2]>1) pos.maxi <- pos.maxi[1,]
+    di <- sqrt((lon[pos.mini[1]]-lon[pos.maxi[1]])^2+(lat[pos.mini[2]]-lat[pos.maxi[2]])^2)
+    res <- (maxi-mini)/di
+    c(res,di,lon[pos.mini[1]],lon[pos.maxi[1]])
+  }
+  
+  des <- t(apply(geo,3,fun.mat)) # en m/degrés
+  des <- rollapply(des,nbdays,mean)
+  des
+}
+
+# Comparaison de MPD a MPD version gradient
+compare.dP.grad <- function(k,rean,nbdays,start="1950-01-01",end="2017-12-31",explain=F,qua=F,example=F){
+  
+  # Import des indicateurs
+  dP <- get.descriptor(descriptor = "dP",k = k,dist = "TWS",nbdays = nbdays,start = start,end = end,standardize = F,rean = rean,threeday = F,desais = F,period = "present")
+  dP_grad <- get.dP.grad(k = k,nbdays = nbdays,start = start,end = end,rean = rean)
+  dP.grad <- dP_grad[,1]
+  di <- dP_grad[,2]
+  lon.min <- dP_grad[,3]
+  lon.max <- dP_grad[,4]
+  rm(dP_grad)
+  
+  # Traitement et Graphique Scatterplot
+  corr <- round(cor(dP,dP.grad),2)
+  if(explain){
+    diag <- sqrt(32^2+16^2)
+    larg <- 16
+    pos.diag <- which(di==diag)
+    pos.larg <- which(di==larg)
+  }
+  
+  png(filename = paste0(get.dirstr(k,rean,period="present"),"compare.dP.grad/compare_dP_dPgrad_k",k,"_mean",nbdays,"day_",rean,"_",start,"_",end,ifelse(explain,"_explain",""),ifelse(qua,"_qua",""),ifelse(example,"_example",""),".png"),width = 6,height = 6,units = "in",res = 600)
+  par(pty="s")
+  plot(dP,dP.grad,main=paste0("R = ",corr),xlab="MPD (m)",ylab="MPD_grad (m/°)")
+  if(explain){
+    points(dP[pos.diag],dP.grad[pos.diag],col="red")
+    points(dP[pos.larg],dP.grad[pos.larg],col="blue")
+  }
+  if(qua){
+    abline(h=quantile(dP.grad,probs=0.75),col="red",lwd=2)
+    abline(v=quantile(dP,probs=0.75),col="red",lwd=2)
+    text(450,quantile(dP.grad,probs=0.8),"q75",col="red",font=2)
+  }
+  if(example){
+    points(dP[10574],dP.grad[10574],col="green",pch=19)
+    points(dP[11695],dP.grad[11695],col="green",pch=19)
+  }
+  graphics.off()
+  
+  # Traitement et Graphique densité des longitudes des pressions min pour les flux/MPD forts
+  pos.dP <- which(dP>quantile(dP,probs=0.8))
+  pos.dPgrad <- which(dP.grad>quantile(dP.grad,probs=0.8))
+  
+  # Min
+  png(filename = paste0(get.dirstr(k,rean,period="present"),"compare.dP.grad/compare_lon_pressure_min_q80_k",k,"_mean",nbdays,"day_",rean,"_",start,"_",end,".png"),width = 7,height = 5,units = "in",res = 600)
+  plot(density(lon.min[pos.dP]),ylim=c(0,0.1),xlab="Longitude (°)",main="Longitude du minimum de pression - MPD>q80 et MPD_grad>q80",lwd=2)
+  grid()
+  lines(density(lon.min[pos.dPgrad]),col="red",lwd=2)
+  legend("topright",inset=.02,bty="n",col=c("black","red"),c("MPD","MPD_grad"),lty=1,lwd=2)
+  graphics.off()
+  
+  # Max
+  png(filename = paste0(get.dirstr(k,rean,period="present"),"compare.dP.grad/compare_lon_pressure_max_q80_k",k,"_mean",nbdays,"day_",rean,"_",start,"_",end,".png"),width = 7,height = 5,units = "in",res = 600)
+  plot(density(lon.max[pos.dP]),xlab="Longitude (°)",main="Longitude du maximum de pression - MPD>q80 et MPD_grad>q80",lwd=2)
+  grid()
+  lines(density(lon.max[pos.dPgrad]),col="red",lwd=2)
+  legend("topright",inset=.02,bty="n",col=c("black","red"),c("MPD","MPD_grad"),lty=1,lwd=2)
+  graphics.off()
+  
+  # Traitement et Graphique flux et MPD des precip extremes Atlantiques en fonction de la longitude
+  pos.extr <- get.ind.max.flow(flow = 1,agreg = T,nbdays = nbdays,start = start,end = end,spazm = T,supseuil = T,nei = T)
+  
+  # MPD
+  png(filename = paste0(get.dirstr(k,rean,period="present"),"compare.dP.grad/dP_lon_pressure_min_precip_extr_k",k,"_mean",nbdays,"day_",rean,"_",start,"_",end,".png"),width = 7,height = 5,units = "in",res = 600)
+  plot(lon.min,dP,pch=19,cex=0.5,xlab="Longitude (°)",ylab="MPD (m)",main=paste0("Precip Max Atlantique - ",nbdays," jours"))
+  grid()
+  points(lon.min,dP,pch=19,cex=0.5)
+  abline(h=quantile(dP,probs=0.8),col="red",lwd=2)
+  text(22.7,quantile(dP,probs=0.9),"q80",col="red",font=2,cex=0.7)
+  points(lon.min[pos.extr],dP[pos.extr],pch=19,col="blue")
+  graphics.off()
+  
+  # MPD_grad
+  png(filename = paste0(get.dirstr(k,rean,period="present"),"compare.dP.grad/dPgrad_lon_pressure_min_precip_extr_k",k,"_mean",nbdays,"day_",rean,"_",start,"_",end,".png"),width = 7,height = 5,units = "in",res = 600)
+  plot(lon.min,dP.grad,pch=19,cex=0.5,xlab="Longitude (°)",ylab="MPD_grad (m/°)",main=paste0("Precip Max Atlantique - ",nbdays," jours"))
+  grid()
+  points(lon.min,dP.grad,pch=19,cex=0.5)
+  abline(h=quantile(dP.grad,probs=0.8),col="red",lwd=2)
+  text(22.7,quantile(dP.grad,probs=0.9),"q80",col="red",font=2,cex=0.7)
+  points(lon.min[pos.extr],dP.grad[pos.extr],pch=19,col="blue")
+  graphics.off()
 }
 
 # Calcul de sd
@@ -2943,6 +3068,42 @@ get.ind.max <- function(type="year",nbdays=3,start="1950-01-01", end="2011-12-31
   pos <- pos[,2] + as.numeric(pos[,1]-as.Date(start))
   if(length(pos.NA)!=0) pos <- pos[-(pos.NA)] # on enleve les indices correspondant aux annees/mois incomplets
   pos
+}
+
+# Max annuels de precip issus de zonal ou meridional (Drac et Isere)
+get.ind.max.flow <- function(flow,agreg,nbdays,start,end,spazm=F,supseuil=F,nei=T){
+  
+  # Import des max annuels des deux BVs
+  if(!supseuil){
+    ind1 <- get.ind.max(type = "year",nbdays,start,end,bv="Isere-seul",spazm)
+    ind2 <- get.ind.max(type = "year",nbdays,start,end,bv="Drac-seul",spazm)
+  }else{
+    ind1 <- get.ind.extr(bv = "Isere-seul",nbdays,start,end,nei = T,spazm,seuil = "qua")
+    ind2 <- get.ind.extr(bv = "Drac-seul",nbdays,start,end,nei = T,spazm,seuil = "qua")
+  }
+  
+  # WPs
+  wp <- get.wp(nbdays,start,end,risk=F,bv="Isere",agreg=agreg,spazm = spazm)
+  ind <- sort(c(ind1[wp[ind1]==flow],ind2[wp[ind2]==flow]))
+  ind <- unique(ind) # pour ne compter qu'une seule fois les dates doublons
+  
+  # On veut quand même des séquences independantes une fois les extremes des BVs regroupés!
+  if(nei){
+    for(i in 1:length(ind)){
+      if(ind[i]!=0){
+        if(ind[i]<nbdays) {neib <- 1:(ind[i]+nbdays-1) # si sequence 2 ou 1, on ne va pas chercher des sequences aux indicaes negatifs
+        }else{neib <- (ind[i]-nbdays+1):(ind[i]+nbdays-1)} # indices voisins que l'on veut retirer
+        neib <- neib[-nbdays] # sauf la sequence concernee
+        pos <- match(neib,ind) # position des voisins
+        ind[pos] <- 0 # on les retire
+      }
+    }
+  }
+  
+  # On retire les 0
+  ind <- ind[ind!=0]
+  print(length(ind))
+  ind
 }
 
 # Renvoie les indices des min et max d'un descripteur a partir d'une certaine reference
@@ -3371,8 +3532,8 @@ image.europe<- function(rean="20CR"){
   lat <- nc$dim$lat$vals
   nc_close(nc)
   delta <- abs(lon[1]-lon[2])/2 # demi ditance entre deux points de grille pour tracer precisement la fenetre d'analogie
-  rect(xleft = lon[fen1[1,1]]-delta,ybottom = lat[fen1[2,1]]-delta,xright = lon[fen1[1,1]+fen1[1,2]-1]+delta,ytop = lat[fen1[2,1]+fen1[2,2]-1]+delta,
-         border="blue",lwd=2)
+  #rect(xleft = lon[fen1[1,1]]-delta,ybottom = lat[fen1[2,1]]-delta,xright = lon[fen1[1,1]+fen1[1,2]-1]+delta,ytop = lat[fen1[2,1]+fen1[2,2]-1]+delta,
+  #       border="blue",lwd=2)
   #rect(xleft = lon[fen2[1,1]]-delta,ybottom = lat[fen2[2,1]]-delta,xright = lon[fen2[1,1]+fen2[1,2]-1]+delta,ytop = lat[fen2[2,1]+fen2[2,2]-1]+delta,
   #     border="deepskyblue",lwd=2)
   #points(expand.grid(lon[fen[1,1]:(fen[1,1]+fen[1,2]-1)],lat[fen[2,1]:(fen[2,1]+fen[2,2]-1)]),pch=19,cex=0.1)
@@ -4073,6 +4234,7 @@ nam2str<-function(nams,cloud=FALSE,whole=F,unit=F){
     if(nams[i] == "Isere-seul") nams[i] <- "Isère"
     if(nams[i] == "Drac-seul") nams[i] <- "Drac"
     if(nams[i] == "dP" & !unit) nams[i] <- "MPD"
+    if(nams[i] == "dP_grad" & !unit) nams[i] <- "MPD_grad"
     if(nams[i] == "dP" & unit) nams[i] <- "MPD (m)"
     if(nams[i] == "sing05") nams[i] <- "sing"
     if(nams[i] == "rsing05") nams[i] <- "rsing"

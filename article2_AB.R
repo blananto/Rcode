@@ -921,9 +921,11 @@ plot.trend.descr.cond.regquant <- function(descr,k,dist,rean,sais="all",start="1
     plot(tab$sais[pos],tab$descr[pos],ylim = ylim,pch=19,cex=0.3,xlab="Year",ylab=nam2str(descr,whole=T,unit=T),main=namflow[i])
     
     # Les regressions
-    abline(coef[,1],col="red",lwd=2)
-    abline(coef[,2],col="blue",lwd=2)
-    abline(coef[,3],col="red",lwd=2)
+    if(ncol(summa[[1]]$coefficients) == 4){
+    abline(coef[,1],col="red",lwd=2,lty=ifelse(summa[[1]]$coefficients[2,4]<0.05,1,2))
+    abline(coef[,2],col="blue",lwd=2,lty=ifelse(summa[[2]]$coefficients[2,4]<0.05,1,2))
+    abline(coef[,3],col="red",lwd=2,lty=ifelse(summa[[3]]$coefficients[2,4]<0.05,1,2))
+    }
     
     # Les pvalue
     if(ncol(summa[[1]]$coefficients) == 4){

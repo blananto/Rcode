@@ -176,7 +176,7 @@ compute.cor.descr.precip <- function(k,dist,bv="Isere-seul",sais="all",start="19
 compute.cor.descr.precip.clean <- function(k,dist,bv="Isere-seul",sais="winter",spazm=T,start="1950-01-01",end="2017-12-31",rean){
   
   dates <- getdates(start,end)
-  descr <- c("celnei","singnei","rsingnei","dP","cel","sing05","rsing05")
+  descr <- c("celnei","singnei","rsingnei","dP","dP_grad","cel","sing05","rsing05")
   
   # Import indicateur
   des <- matrix(data = NA,nrow = length(dates),ncol = length(descr))
@@ -850,13 +850,13 @@ plot.cor.interannual <- function(bv1="Isere-seul",bv2="Drac-seul",rean){
 plot.cor.interannual.one <- function(bv="Isere",spazm=T,rean){
   
   # Indicateurs qu'on garde
-  ind <- c("NAO_norm","Atlantic","Mediterranean","Northeast","Anticyclonic","dP","sing05")
-  sign <- c(-1,1,-1,-1,-1,1,-1,-1) # pour etre coherent avec figure lissage
+  ind <- c("NAO_norm","Atlantic","Mediterranean","Northeast","Anticyclonic","dP","dP_grad","sing05")
+  sign <- c(-1,1,-1,-1,-1,1,1,-1) # pour etre coherent avec figure lissage
   
   # Import des correlations
   sais <- c("winter","spring","summer","autumn")
   
-  corr.bv <- matrix(NA,4,13)
+  corr.bv <- matrix(NA,4,14)
   for(i in 1:length(sais)){
     load(paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k1/compute.cor.descr.precip.clean/",bv,"_",sais[i],ifelse(spazm,"_spazm",""),".Rdata"))
     corr.bv[i,] <- corr$corr.yearly[1,]
@@ -868,14 +868,14 @@ plot.cor.interannual.one <- function(bv="Isere",spazm=T,rean){
   lty.bv <- sign; lty.bv[lty.bv==-1] <- 2
   
   # Graphique
-  colo <- c("black","blue","red","darkgreen","dimgrey","purple","darkorange")
-  colo.leg <- c("purple","darkorange","black","blue","red","darkgreen","dimgrey")
+  colo <- c("black","blue","red","darkgreen","dimgrey","purple","mediumpurple","darkorange")
+  colo.leg <- c("purple","mediumpurple","darkorange","black","blue","red","darkgreen","dimgrey")
   
-  ind.name <- c("NAO","Atlantic","Mediterranean","Northeast","Anticyclonic","MPD","Singularity") # MPD et sing à la fin pour être au dessus des autres lignes
-  ind.name.leg <- c("MPD","Singularity","NAO","Atlantic","Mediterranean","Northeast","Anticyclonic") # Au debut dans la legende
+  ind.name <- c("NAO","Atlantic","Mediterranean","Northeast","Anticyclonic","MPD","MPD_grad","Singularity") # MPD et sing à la fin pour être au dessus des autres lignes
+  ind.name.leg <- c("MPD","MPD_grad","Singularity","NAO","Atlantic","Mediterranean","Northeast","Anticyclonic") # Au debut dans la legende
   
-  lwidth <- c(2,2,2,2,2,4,4)
-  lwidth.leg <- c(4,4,2,2,2,2,2)
+  lwidth <- c(2,2,2,2,2,4,4,4)
+  lwidth.leg <- c(4,4,4,2,2,2,2,2)
   
   png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k1/plot.cor.interannual/plot_",bv,ifelse(spazm,"_spazm",""),".png"),width = 6,height = 4,units = "in",res=600)
   layout(matrix(1:2,1,2),widths = c(0.7,0.3))

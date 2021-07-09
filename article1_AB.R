@@ -454,7 +454,7 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
 }
 
 # Comparaison des percentiles d'indicateurs pour deux flux
-compare.descr.flow <- function(flow=c(1,2),agreg=T,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,spazm=F,save=T,legend=T,supseuil=F,all=F,desais=F){
+compare.descr.flow <- function(flow=c(1,2),agreg=T,descr=c("celnei","singnei","rsingnei","dP","dP_grad"),k,dist,nbdays,start,end,rean,spazm=F,save=T,legend=T,supseuil=F,all=F,desais=F){
   
   # Import indicateurs
   mat <- NULL
@@ -705,42 +705,6 @@ get.cor.descr <- function(k,dist,nbdays,start="1950-01-01",end="2011-12-31",rean
     print(paste0("Rang: ",round(cor(des1,des2,method="spearman"),2)))
   }
   
-}
-
-# Max annuels de precip issus de zonal ou meridional (Drac et Isere)
-get.ind.max.flow <- function(flow,agreg,nbdays,start,end,spazm=F,supseuil=F,nei=T){
-  
-  # Import des max annuels des deux BVs
-  if(!supseuil){
-  ind1 <- get.ind.max(type = "year",nbdays,start,end,bv="Isere-seul",spazm)
-  ind2 <- get.ind.max(type = "year",nbdays,start,end,bv="Drac-seul",spazm)
-  }else{
-    ind1 <- get.ind.extr(bv = "Isere-seul",nbdays,start,end,nei = T,spazm,seuil = "qua")
-    ind2 <- get.ind.extr(bv = "Drac-seul",nbdays,start,end,nei = T,spazm,seuil = "qua")
-  }
-  
-  # WPs
-  wp <- get.wp(nbdays,start,end,risk=F,bv="Isere",agreg=agreg,spazm = spazm)
-  ind <- sort(c(ind1[wp[ind1]==flow],ind2[wp[ind2]==flow]))
-  ind <- unique(ind) # pour ne compter qu'une seule fois les dates doublons
-  
-  # On veut quand même des séquences independantes une fois les extremes des BVs regroupés!
-  if(nei){
-    for(i in 1:length(ind)){
-      if(ind[i]!=0){
-        if(ind[i]<nbdays) {neib <- 1:(ind[i]+nbdays-1) # si sequence 2 ou 1, on ne va pas chercher des sequences aux indicaes negatifs
-        }else{neib <- (ind[i]-nbdays+1):(ind[i]+nbdays-1)} # indices voisins que l'on veut retirer
-        neib <- neib[-nbdays] # sauf la sequence concernee
-        pos <- match(neib,ind) # position des voisins
-        ind[pos] <- 0 # on les retire
-      }
-    }
-  }
-  
-  # On retire les 0
-  ind <- ind[ind!=0]
-  print(length(ind))
-  ind
 }
 
 # Calcul de pwat moyen journalier
