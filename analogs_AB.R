@@ -181,7 +181,7 @@ convert_dist_past <- function(k,dist,rean){
   gc()
 }
 
-# Calage de lois de densite sur les distributions de precip reconstruite par analogie classique
+# Calage loi exponentielle sur les distributions de precip reconstruite par analogie classique
 fit.exp <- function(k,dist,nbdays,nbana=0.2,nbmini=10,seuil=0,bv,spazm=T,rean,period="past",season=F,dP=F,moments=T){
   
   # Dates utiles
@@ -225,7 +225,7 @@ fit.exp <- function(k,dist,nbdays,nbana=0.2,nbmini=10,seuil=0,bv,spazm=T,rean,pe
   save(fit,file = get.path(fit_exp = T,k = k,rean = rean,period = period,moments = moments,bv = bv,season = season,dP = dP,spazm = spazm,nbdays = nbdays,nbana = nbana,seuil = seuil,dist = dist,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]))
 }
 
-# Calage de lois de densite sur les distributions de precip reconstruite par analogie classique
+# Calage loi gamma sur les distributions de precip reconstruite par analogie classique
 fit.gamma <- function(k,dist,nbdays,nbana=0.2,nbmini=10,seuil=0,bv,spazm=T,rean,period="past",season=F,dP=F,moments=F){
   
   # Dates utiles
@@ -271,7 +271,7 @@ fit.gamma <- function(k,dist,nbdays,nbana=0.2,nbmini=10,seuil=0,bv,spazm=T,rean,
   save(fit,file = get.path(fit_gamma = T,k = k,rean = rean,period = period,moments = moments,bv = bv,season = season,dP = dP,spazm = spazm,nbdays = nbdays,nbana = nbana,seuil = seuil,dist = dist,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]))
 }
 
-# Calage de lois de densite sur les distributions de precip reconstruite par tirage aleatoire (Voir si tirage saisonnier)
+# Calage loi gamma sur les distributions de precip reconstruite par tirage aleatoire (tirage saisonnier possible)
 fit.gamma.random <- function(replic=1000,nbdays,nbana=0.2,nbmini=10,seuil=0,bv,spazm=T,rean,period="past",moments=F,season=T,ncores=3){
   
   # Dates utiles
@@ -343,6 +343,51 @@ fit.gamma.random <- function(replic=1000,nbdays,nbana=0.2,nbmini=10,seuil=0,bv,s
   save(fit,file = get.path(fit_gamma_random = T,rean = rean,period = period,moments = moments,bv = bv,season = season,spazm = spazm,nbdays = nbdays,nbana = nbana,seuil = seuil,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]))
 }
 
+# Calage loi gaussienne inverse sur les distributions de precip reconstruite par analogie classique
+fit.invgauss <- function(k,dist,nbdays,nbana=0.2,nbmini=10,seuil=0,bv,spazm=T,rean,period="past",season=F,dP=F,moments=T){
+  
+  # Dates utiles
+  start.end.rean <- get.start.end.rean(rean,period,"dist",k)
+  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
+  N <- length(dates.rean)
+  start.end.ana <- c("1950-01-01","2010-12-31")
+  
+  # Import des precip
+  load(get.path(save_precip_ana = T,k = k,rean = rean,period = period,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],bv = bv,spazm = spazm,nbana = nbana))
+  
+  # Fonction pour maximum de vraisemblance: revient au meme que methode des moments pour loi exponentielle
+  if(!moments) nloglik.fct<-function(param,x){
+    -sum(dinvGauss(x = x,nu = param[1],lambda = param[2],log = T)) # - car l'optimisation cherche a minimiser cette valeur
+  }
+  
+  # Traitement
+  fit <- matrix(NA,ncol=3,nrow=N)
+  colnames(fit) <- c("mean","shape","p0")
+  
+  for (i in 1:N){
+    
+    if (i %%50==0) print(i)
+    print(i)
+    # Precipitations et stats utiles
+    precip.i <- na.omit(precip.ana[[i]]) # on retire les NA
+    precip.pos <- precip.i[precip.i>seuil]
+    if(length(precip.pos)>nbmini){ # on ne fit pas la loi avec moins de nbmini valeurs positives
+      p0 <- 1-length(precip.pos)/length(precip.i)
+      mean.pos <- mean(precip.pos)
+      var.pos <- var(precip.pos)
+      shape <- mean.pos^3/var.pos
+      
+      if(!moments){
+        opt <- optim(c(mean.pos,shape),nloglik.fct,method="L-BFGS-B",x=precip.pos,lower=c(0.000001,0.000001),upper=c(Inf,Inf)) 
+        mean.pos <- opt$par[1];shape <- opt$par[2]
+      }
+      fit[i,]<- c(mean.pos,shape,p0)
+    }
+  }
+  
+  save(fit,file = get.path(fit_invgauss = T,k = k,rean = rean,period = period,moments = moments,bv = bv,season = season,dP = dP,spazm = spazm,nbdays = nbdays,nbana = nbana,seuil = seuil,dist = dist,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]))
+}
+
 # Genere les precip par analogie par tirage aleatoire dans les analogues ou dans les loi
 generate.precip <- function(n=45,type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,period="past",q.threshold=0.99,seuil=0,season=F,dP=F,rgamma=F,moments=F){
   
@@ -411,7 +456,27 @@ generate.precip <- function(n=45,type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T
         }
         precip.ana.sample[[i]] <- q
       }
+  }
+  
+  # Generation precip loi exponentielle
+  if(type=="invgauss"){
+    
+    # Import des parametres de la loi gamma
+    load(get.path(fit_invgauss = T,k = k,rean = rean,period = period,moments = moments,bv = bv,season = season,dP = dP,spazm = spazm,nbdays = nbdays,nbana = nbana,seuil = seuil,dist = dist,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]))
+    
+    # Traitement
+    for(i in 1:N){
+      if(i%%50==0) print(i)
+      if(!is.na(fit[i,"mean"])){
+        nu <- fit[i,"mean"]
+        shape <- fit[i,"shape"]
+        p0 <- fit[i,"p0"]
+        pq <- rinvGauss(n = n*(1-p0),nu = nu,lambda = shape)
+        q <- c(pq,rep(0,n-length(pq)))
+      }
+      precip.ana.sample[[i]] <- q
     }
+  }
   
   # Sortie
   save(precip.ana.sample,file = get.path(generate_precip = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana))
@@ -489,18 +554,19 @@ get.ind.season.ana <- function(dat,dates){
 }
 
 # Renvoie le chemin vers un fichier
-get.path <- function(k=NULL,rean=NULL,period=NULL,season=NULL,dP=NULL,dist=NULL,nbdays=NULL,start.rean=NULL,end.rean=NULL,start.ana=NULL,end.ana=NULL,bv=NULL,spazm=NULL,nbana=NULL,seuil=NULL,moments=NULL,type=NULL,rgamma=NULL,q.threshold=NULL,schaake=NULL,random=NULL,short=NULL,gamma=F,exp=F,
-                     save_ana=F,save_precip_ana=F,fit_gamma=F,fit_exp=F,fit_gamma_random=F,generate_precip=F,generate_precip_random=F,reordering_precip=F,plot_fit_precip=F,plot_param_ana=F,plot_precip_ana=F,plot_precip_ana_day=F,plot_cum_ana_sais=F,plot_max_ana_sais=F,plot_distrib_ana_sais=F){
+get.path <- function(k=NULL,rean=NULL,period=NULL,season=NULL,dP=NULL,dist=NULL,nbdays=NULL,start.rean=NULL,end.rean=NULL,start.ana=NULL,end.ana=NULL,bv=NULL,spazm=NULL,nbana=NULL,seuil=NULL,moments=NULL,type=NULL,rgamma=NULL,q.threshold=NULL,schaake=NULL,random=NULL,short=NULL,gamma=F,exp=F,invgauss,
+                     save_ana=F,save_precip_ana=F,fit_gamma=F,fit_exp=F,fit_gamma_random=F,fit_invgauss=F,generate_precip=F,generate_precip_random=F,reordering_precip=F,plot_fit_precip=F,plot_param_ana=F,plot_precip_ana=F,plot_precip_ana_day=F,plot_cum_ana_sais=F,plot_max_ana_sais=F,plot_distrib_ana_sais=F){
   
   if(save_ana){path <- paste0(get.dirstr(k,rean,period),"save.ana/ana_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),dist,"_",rean,"_k",k,"_mean",nbdays,"day_",start.rean,"_",end.rean,"_ana_",ifelse(short,start.ana,start.rean),"_",ifelse(short,end.ana,end.rean),".Rdata")}
   if(save_precip_ana){path <- paste0(get.dirstr(k,rean,period),"save.precip.ana/precip_ana_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(fit_gamma){path <- paste0(get.dirstr(k,rean,period),"fit.gamma/fit_gamma_",ifelse(moments,"moments_",""),bv,"_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_seuil",seuil,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(fit_exp){path <- paste0(get.dirstr(k,rean,period),"fit.exp/fit_exp_",ifelse(moments,"moments_",""),bv,"_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_seuil",seuil,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(fit_gamma_random){path <- paste0(get.dirstr(k,rean,period),"fit.gamma.random/fit_gamma_",ifelse(moments,"moments_",""),bv,ifelse(season,"_season",""),"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_seuil",seuil,"_",rean,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
+  if(fit_invgauss){path <- paste0(get.dirstr(k,rean,period),"fit.invgauss/fit_invgauss_",ifelse(moments,"moments_",""),bv,"_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_seuil",seuil,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(generate_precip){path <- paste0(get.dirstr(k,rean,period),"generate.precip/precip_",type,ifelse(type!="empir" & moments,"_moments",""),"_",ifelse(type!="empir" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type!="empir",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(generate_precip_random){path <- paste0(get.dirstr(k,rean,period),"generate.precip.random/precip_",ifelse(moments,"moments_",""),bv,ifelse(season,"_season",""),"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_seuil",seuil,"_",rean,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(reordering_precip){path <- paste0(get.dirstr(k,rean,period),"reordering.precip/precip_final_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
-  if(plot_fit_precip){path <- paste0(get.dirstr(k,rean,period),"plot.fit.precip/plot_",bv,"_",ifelse(gamma,"gamma_",""),ifelse(exp,"exp_",""),ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",ifelse(gamma|exp,paste0("seuil",seuil,"_"),""),ifelse((gamma|exp) & moments,"moments_",""),rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".png")}
+  if(plot_fit_precip){path <- paste0(get.dirstr(k,rean,period),"plot.fit.precip/plot_",bv,"_",ifelse(gamma,"gamma_",""),ifelse(exp,"exp_",""),ifelse(invgauss,"invgauss_",""),ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",ifelse(gamma|exp,paste0("seuil",seuil,"_"),""),ifelse((gamma|exp) & moments,"moments_",""),rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".png")}
   if(plot_param_ana){path <- paste0(get.dirstr(k,rean,period),"plot.param.ana/plot_",bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(type=="gamma" & moments,"moments_",""),rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".png")}
   if(plot_precip_ana){path <- paste0(get.dirstr(k,rean,period),"plot.precip.ana/precip_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
   if(plot_precip_ana_day){path <- paste0(get.dirstr(k,rean,period),"plot.precip.ana.day/precip_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma",paste0("q",q.threshold,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
@@ -663,7 +729,7 @@ plot.distrib.ana.sais <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=
 }
 
 # Trace les cdf empiriques, gamma, et egpd pour 9 jours aleatoires
-plot.fit.precip <- function(k,dist,bv,spazm,nbdays,nbana,rean,period="past",gamma=F,exp=F,season=T,dP=F,seuil=0,moments=F){
+plot.fit.precip <- function(k,dist,bv,spazm,nbdays,nbana,rean,period="past",gamma=F,exp=F,invgauss=F,season=T,dP=F,seuil=0,moments=F){
   
   # Dates utiles
   start.end.rean <- get.start.end.rean(rean,period,"dist",k)
@@ -684,6 +750,11 @@ plot.fit.precip <- function(k,dist,bv,spazm,nbdays,nbana,rean,period="past",gamm
     fit_exp <- fit
   }
   
+  if(invgauss){
+    load(get.path(fit_invgauss = T,k = k,rean = rean,period = period,moments = moments,bv = bv,season = season,dP = dP,spazm = spazm,nbdays = nbdays,nbana = nbana,seuil = seuil,dist = dist,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]))
+    fit_invgauss <- fit
+  }
+  
   # Graphique
   ind <- which(!apply(fit_gamma,1,function(v){all(is.na(v))}))
   print(paste0("Jours non fittés: ",round((N-length(ind))/N*100,1),"%"))
@@ -697,7 +768,7 @@ plot.fit.precip <- function(k,dist,bv,spazm,nbdays,nbana,rean,period="past",gamm
     main <- paste0(dates.rean[ind]," - ",dates.rean[ind+nbdays-1])
   }
 
-  png(filename = get.path(plot_fit_precip = T,k = k,dist = dist,rean = rean,period = period,bv = bv,gamma = gamma,exp = exp,spazm = spazm,nbdays = nbdays,nbana = nbana,seuil = seuil,moments = moments,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]),
+  png(filename = get.path(plot_fit_precip = T,k = k,dist = dist,rean = rean,period = period,bv = bv,gamma = gamma,exp = exp,invgauss = invgauss,spazm = spazm,nbdays = nbdays,nbana = nbana,seuil = seuil,moments = moments,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]),
       width = 6,height = 7,units = "in",res = 600)
   par(mfrow=c(3,3),mar=c(4,4,2,2))
   
@@ -728,9 +799,22 @@ plot.fit.precip <- function(k,dist,bv,spazm,nbdays,nbana,rean,period="past",gamm
       p0 <- fit_exp[ind[i],"p0"]
       p <- seq(round(p0,4)+0.0001,1,0.0001) # on veut tracer la loi de y=p0 à y=1, tous les 0.0001
       ppos <- (p-p0)/(1-p0)
-      pq = qexp(p=ppos,rate=rate) # on extrait les quantiles des probas positives (car gamma loi calee sur precip/quantiles positifs)
+      pq = qexp(p=ppos,rate=rate) # on extrait les quantiles des probas positives
       lines(pq,p,col="royalblue")
       segments(0,0,0,p0,col="royalblue")
+      abline(h = p0,lty=3)
+    }
+    
+    if(invgauss){
+      # Inverse Gaussian
+      nu <- fit_invgauss[ind[i],"mean"]
+      shape <- fit_invgauss[ind[i],"shape"]
+      p0 <- fit_invgauss[ind[i],"p0"]
+      p <- seq(round(p0,3)+0.001,0.999,0.001) # bizarre: erreur quand proba de 1 demandee
+      ppos <- (p-p0)/(1-p0)
+      pq = qinvGauss(p=ppos,nu=nu,lambda = shape) # on extrait les quantiles des probas positives
+      lines(pq,p,col="darkgreen")
+      segments(0,0,0,p0,col="darkgreen")
       abline(h = p0,lty=3)
     }
     
@@ -1157,7 +1241,7 @@ run.analogs <- function(k = 1,dist = "TWS",start = "1851-01-01",end = "2011-12-3
   save_ana=F
   save_precip=F
   fit_law=F
-  generate_precip=F
+  generate_precip=T
   graphics=T
   
   # Calcul des distances
@@ -1184,27 +1268,29 @@ run.analogs <- function(k = 1,dist = "TWS",start = "1851-01-01",end = "2011-12-3
     print("Calage d'une loi parametrique")
     #fit.gamma(k = k,dist = dist,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = F,moments = moments)
     #fit.gamma.random(replic = 1000,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,bv = bv,spazm = spazm,rean = rean,period = period,moments = moments,ncores = 10)
-    fit.exp(k = k,dist = dist,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = F,moments = T)
+    #fit.exp(k = k,dist = dist,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = F,moments = T)
+    fit.invgauss(k = k,dist = dist,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = F,moments = T)
+    
     }
   
   # Generation des series de precipitations avec reodonnancement
   if(generate_precip){
     print("Generation des series de precipitations")
-    #generate.precip(n = 45,type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,season = season,dP = F,rgamma = F,moments = moments)
+    generate.precip(n = 45,type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,season = season,dP = F,rgamma = F,moments = moments)
     #generate.precip.random(n = 45,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = "past",q.threshold = q.threshold,seuil = seuil,rgamma = F,moments = moments,ncores = 10)
-    reordering.precip(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,season = season,dP = F,rgamma = F,moments = moments)
+    #reordering.precip(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,season = season,dP = F,rgamma = F,moments = moments)
   }
   
   # Graphiques de sortie
   if(graphics){
     print("Graphiques")
-    #plot.fit.precip(k = k,dist = dist,bv = bv,spazm = spazm,nbdays = nbdays,nbana = nbana,rean = rean,period = period,gamma = T,exp = T,season = season,dP = F,seuil = seuil,moments = moments)
+    plot.fit.precip(k = k,dist = dist,bv = bv,spazm = spazm,nbdays = nbdays,nbana = nbana,rean = rean,period = period,gamma = T,exp = T,invgauss = T,season = season,dP = F,seuil = seuil,moments = moments)
     #plot.param.ana(k = k,dist = dist,bv = bv,spazm = spazm,nbdays = nbdays,nbana = nbana,rean = rean,period = period,type = type,season = season,dP = F,seuil = seuil,moments = moments)
     #plot.precip.ana(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = F,moments = moments)
     #plot.precip.ana.day(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,schaake = schaake,season = season,dP = F,moments = moments)
     #plot.cum.ana.sais(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = F,moments = moments)
     #plot.max.ana.sais(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = F,moments = moments)
-    plot.distrib.ana.sais(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = F,moments = moments,random=T)
+    plot.distrib.ana.sais(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = F,moments = moments,random=F)
     #compare.schaake(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,season = season,moments = moments)
   }
 }
@@ -1217,7 +1303,7 @@ run.analogs.loop <- function(){
   # Attention a ne pas utiliser k dans les indices de boucle
   
   # Parametres
-  k <- 1#c(1,2,3)
+  k <- 3#c(1,2,3)
   dist <- "TWS"
   start <- "1851-01-01"
   end <- "2011-12-31"
@@ -1230,9 +1316,9 @@ run.analogs.loop <- function(){
   season <- c(T)#,F)
   seuil <- c(0)#,0.1)
   moments <- c(T)#,F)
-  type <- "gamma"#c("empir","gamma")
+  type <- "invgauss"#c("empir","gamma")
   q.threshold <- c(1)#,0.999,1)
-  schaake <- c(T)#,F)
+  schaake <- c(F)#,F)
   
   for(i in 1:length(k)){
     print(paste0("k=",k[i]))

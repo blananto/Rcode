@@ -32,6 +32,8 @@ library("parallel") # check number of cores
 library("doParallel") # Parallelization of calculation
 library("viridis") # Viridis Color Palette
 library("quantreg") # rq
+library("SuppDists") # Inverse Gaussian distribution
+library("abind") # abind
 #library("sf") # sp_transform
 
 # Fonctions graphiques
@@ -112,9 +114,11 @@ getcol<-function(vec=NULL,range=NULL,transparent=FALSE,centered=FALSE,rev=FALSE)
 add.criteria <- function(k,rean,dist,period,start,end,start.ana,end.ana){
   
   # Calcul de MPD
+  print("Calcul MPD")
   dP <- get.dP(k = k,nbdays = 1,start = start,end = end,rean = rean)
   
   # Import de criteria
+  print("Import indicateurs")
   load(paste0(get.dirstr(k,rean,period),"compute_criteria/criteria_",dist,"_",rean,"_k",k,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".Rdata"))
   
   # Calcul de rsing05
@@ -2037,7 +2041,7 @@ compute_dist_gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,perio
       if (dist=="RMSE_I") dist.list<-compute_RMSE_I(k,start,end,rean)
       if (dist=="RMSE_II") dist.list<-compute_RMSE_II(k,start,end,rean)
       if (dist=="Mahalanobis") dist.list<-compute_mahalanobis(k,start,end,rean)
-      save(dist.list,file=paste0(get.dirstr(k,rean,period),"compute_dist/",dist,"_",rean,"_k",k,"_",start,"_",end,".Rdata"))
+      save(dist.list,file=paste0(ifelse(period=="present",paste0("2_Travail/0_Present/",rean,"/Rresults/"),get.dirstr(k,rean,period)),"compute_dist/",dist,"_",rean,"_k",k,"_",start,"_",end,".Rdata"))
     }
     else{ # si on demande un nTWS, sTWS, nRMSE ou sRMSE, les distances sont normalisees par la moyenne ou l'ecart type des distances
       dist0<-substr(dist,2,nchar(dist))
@@ -2049,7 +2053,7 @@ compute_dist_gen<-function(k,dist,start="1950-01-01",end="2011-12-31",rean,perio
       print(norm)
       for (i in 1:length(dist.list)) dist.list[[i]]<-dist.list[[i]]/norm
       
-      save(dist.list,file=paste0(get.dirstr(k,rean,period),"compute_dist/",dist,"_",rean,"_k",k,"_",start,"_",end,".Rdata"))
+      save(dist.list,file=paste0(ifelse(period=="present",paste0("2_Travail/0_Present/",rean,"/Rresults/"),get.dirstr(k,rean,period)),"compute_dist/",dist,"_",rean,"_k",k,"_",start,"_",end,".Rdata"))
     }
   }
 }
@@ -3156,9 +3160,9 @@ get.ind.season <- function(sais,start="1950-01-01",end="2017-12-31"){
 }
 
 # Renvoie les indices appartenant a une saison (hiver non propre)
-get.ind.season.past <- function(sais,start="1851-01-01",end="2010-12-31"){
+get.ind.season.past <- function(sais,start="1851-01-01",end="2010-12-31",nbdays=1){
   
-  dates <- getdates(start,end)
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
   if(sais=="year") ind <- 1:length(dates)
   if(sais=="winter") ind <- which(substr(dates,6,7) %in% c("12","01","02"))
   if(sais=="spring") ind <- which(substr(dates,6,7) %in% c("03","04","05"))
@@ -3297,7 +3301,7 @@ get.start.end.rean <- function(rean,period="present",type="dist",k=1){
         if(rean=="20CR-m1"){start <- "1851-01-01";end <- "2010-12-31"}
         if(rean=="20CR-m2"){start <- "1851-01-01";end <- "2010-12-31"}
         if(rean=="ERA20C"){start <- "1900-01-01";end <- "2010-12-31"}
-        if(rean=="ERA5"){start <- "1950-01-01";end <- "2010-12-31"}
+        if(rean=="ERA5"){start <- "1950-01-01";end <- "2017-12-31"}
         if(rean=="ERA40"){start <- "1957-09-01";end <- "2002-08-31"}
         if(rean=="JRA55"){start <- "1958-01-01";end <- "2010-12-31"}
         if(rean=="JRA55C"){start <- "1972-11-01";end <- "2010-12-30"}
@@ -3700,13 +3704,18 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
       nc1000<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT1000_1900_2010_4daily.nc")
     }
     
+    if(rean == "ERA20C_regrid_20CR"){
+      nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_daily_regrid_20CR.nc")
+      nc1000<-nc500
+    }
+    
     if(rean == "NCEP"){
       nc500<-nc_open("2_Travail/Data/Reanalysis/NCEP/NCEP_HGT500_1950_2010_daily.nc")
       nc1000<-nc_open("2_Travail/Data/Reanalysis/NCEP/NCEP_HGT1000_1950_2010_daily.nc")
     }
     
     if(rean == "ERA5" & var == "hgt"){
-      nc500<-nc_open("2_Travail/Data/Reanalysis/ERA5/HGT500/ERA5_HGT500_1950-01-01_2020-04-30_daily.nc")
+      nc500<-nc_open("2_Travail/Data/Reanalysis/ERA5/HGT500/ERA5_HGT500_1950-01-01_2021-07-17_daily.nc")
       nc1000<-nc500
     }
     
@@ -4249,9 +4258,10 @@ nam2str<-function(nams,cloud=FALSE,whole=F,unit=F){
     if(nams[i] == "summer") nams[i] <- "Summer"
     if(nams[i] == "autumn") nams[i] <- "Autumn"
     if(nams[i] == "year") nams[i] <- "Year"
-    if(nams[i] == "20CR-m0") nams[i] <- "20CR - mean member"
-    if(nams[i] == "20CR-m1") nams[i] <- "20CR - mean 1"
-    if(nams[i] == "20CR-m2") nams[i] <- "20CR - mean 2"
+    if(nams[i] == "20CR-m0") nams[i] <- "20CR-mean mbr"
+    if(nams[i] == "20CR-m1") nams[i] <- "20CR-mbr 1"
+    if(nams[i] == "20CR-m2") nams[i] <- "20CR-mbr 2"
+    if(nams[i] == "ERA20C_regrid_20CR") nams[i] <- "ERA20C"
     }
   
   if(!cloud && length(nams)==2 && nams != c("A","A")){ # si on ne l'utilise pas pour un nuage de points, alors nams de longueur 1
@@ -6187,6 +6197,32 @@ reshape.ERA5.period <- function(){
   
   # Export
   save(dist.list, file="2_Travail/0_Present/ERA5/Rresults/compute_dist/TWS_member1_k1_1950-01-01_2017-12-31.Rdata")
+}
+
+# Aggregation de ERA5
+reshape.ERA5.recent <- function(z = "500"){
+  
+  # Attention: ERA5 a 4 dimensions
+  # expver=1: donnees ERA5
+  # expver=5: donnees ERA5T (near real time), qui permet de boucher le trou entre la fin d'ERA5
+  # jusqu'à 5 jours avant le telechargement.
+  # Le netcdf peut donc contenir les deux dimensions. Ici:
+  # ERA5 (expver=1) de 2018-01-01 à 2021-04-30
+  # ERAT (expver=5) de 2021-05-01 à 2021-07-17
+  
+  # Import reanalyse brute
+  dates <- getdates("2018-01-01","2021-04-30")
+  dates.T <- getdates("2021-05-01","2021-07-17")
+  nc <- nc_open(filename = paste0("2_Travail/Data/Reanalysis/ERA5/HGT",z,"/ERA5_HGT",z,"_2018-01-01_2021-07-17_daily.nc"))
+  arr <- ncvar_get(nc = nc,varid = "hgt",start = c(1,1,1,1),count=c(length(nc$dim$lon$vals),length(nc$dim$lat$vals),1,length(dates)))
+  arr.T <- ncvar_get(nc = nc,varid = "hgt",start = c(1,1,2,length(dates)+1),count=c(length(nc$dim$lon$vals),length(nc$dim$lat$vals),1,length(dates.T)))
+  arr.final <- abind(arr, arr.T, along = 3)
+  nc_close(nc)
+  
+  # Export
+  res.form   <- ncvar_def(name = "hgt", units = "gpm", dim = list(nc$dim$lon,nc$dim$lat,nc$dim$time),prec = "double",longname = "Geopotential")
+  res.create <- nc_create(filename = paste0("2_Travail/Data/Reanalysis/ERA5/HGT",z,"/ERA5_HGT",z,"_2018-01-01_2021-07-17_daily_bon.nc"), vars = res.form)
+  ncvar_put(nc = res.create, varid = res.form,vals = arr.final)
 }
 
 # Mise en forme de JRA

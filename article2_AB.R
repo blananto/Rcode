@@ -1,5 +1,26 @@
 source('2_Travail/Rcode/utils_AB.R', encoding = 'UTF-8')
 
+# Combinaison de plusieurs plot.descr.density.subperiod
+combine.plot.descr.density.subperiod <- function(wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
+  
+  descr <- c("cel","sing05","rsing05","dP")
+  pl <- vector(mode="list",length=length(descr))
+  for(i in 1:length(descr)){
+    pl[[i]] <- plot.descr.density.subperiod(descr = descr[i],wp = wp,k = k,dist = dist,nbdays = nbdays,
+                                            rean = rean,start = start,end = end,start.ana = start.ana,end.ana = end.ana,add.nb.density = ifelse(i==1,T,F))
+  }
+  
+  ggarrange(pl[[1]],pl[[2]],pl[[3]],pl[[4]],
+            ncol = 2, nrow = 2,
+            widths = c(1,1),
+            common.legend = TRUE, legend = "bottom",
+            align = "hv")
+  
+  if(is.null(wp)) wp <- "none"
+  ggsave(filename = paste0(get.dirstr(k,rean,"past"),"plot.descr.density.subperiod/plot_combine_density_k",k,"_mean",nbdays,"day_wp=",wp,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".png"),width = 10,height = 10)
+  graphics.off()
+}
+
 # Combinaison de plusieurs plot.trend.descr
 combine.plot.trend.descr <- function(k,dist,liss=5,ana.comm=F,align=F,nao=F){
   
@@ -14,13 +35,98 @@ combine.plot.trend.descr <- function(k,dist,liss=5,ana.comm=F,align=F,nao=F){
   namsais <- ifelse(length(sais)==1,sais,"allsais")
   
   # Graphique
-  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.descr/plot_combine_trend_",namind,"_",namsais,"_liss=",liss,ifelse(ana.comm,paste0("_ana_",dates.ana[[1]][1],"_",dates.ana[[1]][2]),""),ifelse(align,"_align",""),ifelse(nao,"_nao",""),".png"),width = 9,height = 6,units = "in",res=600)
+  dates.ana <- c("1950-01-01","2010-12-31")
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.descr/plot_combine_trend_",namind,"_",namsais,"_liss=",liss,ifelse(ana.comm,paste0("_ana_",dates.ana[1],"_",dates.ana[2]),""),ifelse(align,"_align",""),ifelse(nao,"_nao",""),".png"),width = 9,height = 6,units = "in",res=600)
   par(mfrow=c(2,2))
   for(i in 1:length(sais)){
     print(paste0("plot ",i,"/",length(sais)))
     leg <- ifelse(i==1,T,F)
     plot.trend.descr(descr = ind,k = 1,dist = dist,sais = sais[i],liss = liss,
                      ana.comm = ana.comm,align = align,nao = nao,leg = leg,save = F,type="season")
+  }
+  graphics.off()
+}
+
+# Combinaison de plusieurs plot.trend.descr.sais
+combine.plot.trend.descr.sais <- function(k,dist,rean,nbdays=1,start="1950-01-01",end="2010-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
+  
+  # Indicateurs
+  descr <- c("cel","sing05","rsing05","dP")
+  
+  # Graphique
+  png(filename = paste0(get.dirstr(k,rean,period="past"),"plot.trend.descr.sais/plot_combine_",rean,"_mean",nbdays,"day_",start,"_",end,".png"),width = 9,height = 6,units = "in",res=600)
+  par(mfrow=c(2,2))
+  for(i in 1:length(descr)){
+    print(paste0("plot ",i,"/",length(descr)))
+    leg <- ifelse(i==1,T,F)
+    plot.trend.descr.sais(descr = descr[i],k = k,dist = dist,rean = rean,nbdays = nbdays,
+                          start = start,end = end,start.ana = start.ana,end.ana = end.ana,leg = leg,save = F)
+  }
+  graphics.off()
+}
+
+# Combinaison de plusieurs combine.plot.trend.wp
+combine.plot.trend.wp <- function(nbdays=1,start="1950-01-01",end="2017-12-31"){
+  
+  # Saisons
+  sais <- c("winter","spring","summer","autumn")
+  
+  # Graphique occurence
+  print("Occurence")
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.wp/plot_combine_occurence_wp_mean",nbdays,"day_",start,"_",end,".png"),width = 9,height = 6,units = "in",res=600)
+  par(mfrow=c(2,2),mar=c(4,4,2,1))
+  for(i in 1:length(sais)){
+    print(paste0("plot ",i,"/",length(sais)))
+    leg <- ifelse(i==1,T,F)
+    plot.trend.wp(type = "occurence",sais = sais[i],nbdays = nbdays,start = start,end = end,leg = leg,save = F)
+  }
+  graphics.off()
+  
+  # Graphique persistance
+  print("Persistance")
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.wp/plot_combine_persistence_wp_mean",nbdays,"day_",start,"_",end,".png"),width = 9,height = 6,units = "in",res=600)
+  par(mfrow=c(2,2),mar=c(4,4,2,1))
+  for(i in 1:length(sais)){
+    print(paste0("plot ",i,"/",length(sais)))
+    leg <- ifelse(i==1,T,F)
+    plot.trend.wp(type = "persistence",sais = sais[i],nbdays = nbdays,start = start,end = end,leg = leg,save = F)
+  }
+  graphics.off()
+  
+  # Graphique occurence et persistance
+  print("Occurence et Persistance")
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.wp/plot_combine_occurence_persistence_wp_mean",nbdays,"day_",start,"_",end,".png"),width = 10,height = 6,units = "in",res=600)
+  layout(mat = matrix(data = 1:10,nrow = 2,ncol = 5,byrow = F),widths = c(0.1,rep(1,4)),heights = c(1,1))
+  
+  par(mar=c(0,0,0,0))
+  plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+  text(1,0.5,"WP Occurrence (%)",srt=90,cex=1.3)
+  plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+  text(1,0.5,"WP Persistence (days)",srt=90,cex=1.3)
+  
+  par(mar=c(2,2,2,0))
+  for(i in 1:length(sais)){
+    print(paste0("plot ",i,"/",length(sais)))
+    leg <- ifelse(i==1,T,F)
+    plot.trend.wp(type = "occurence",sais = sais[i],nbdays = nbdays,start = start,end = end,leg = leg,save = F)
+    plot.trend.wp(type = "persistence",sais = sais[i],nbdays = nbdays,start = start,end = end,leg = leg,save = F)
+  }
+  graphics.off()
+}
+
+# Combinaison de plusieurs plot.TWS.crossed
+combine.plot.TWS.crossed <- function(k,start="1851-01-01",end="2010-12-31"){
+  
+  # Saisons
+  sais <- c("winter","spring","summer","autumn")
+  
+  # Graphique
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.TWS.crossed/plot_combine_TWS_k",k,".png"),width = 9,height = 6,units = "in",res=600)
+  par(mfrow=c(2,2))
+  for(i in 1:length(sais)){
+    print(paste0("plot ",i,"/",length(sais)))
+    leg <- ifelse(i==1,T,F)
+    plot.TWS.crossed(k = k,start = start,end = end,sais = sais[i],leg = leg,save = F)
   }
   graphics.off()
 }
@@ -285,6 +391,39 @@ compute.lat.jet <- function(gamme=c(5450,5550),k,start="1851-01-01",end="2010-12
   
 }
 
+# Calcul des scores TWS jour à jour entre 2 jeux de données
+compute_TWS_crossed <- function(k,start="1851-01-01",end="2010-12-31",rean1,rean2){
+  
+  N <- length(getdates(start,end))
+  
+  # Import des gradients des 2 jeux de données
+  gradlist<-grad(k,start,end,rean1)
+  gradlon1 <- gradlist$gradlon
+  gradlat1 <- gradlist$gradlat
+  
+  gradlist<-grad(k,start,end,rean2)
+  gradlon2 <- gradlist$gradlon
+  gradlat2 <- gradlist$gradlat
+  
+  rm(gradlist)
+  gc()
+  
+  # Calcul du TWS
+  # Numerateur
+  fct <- function(v) sum(abs(v))
+  dif_grad <- apply(gradlon1-gradlon2,3,fct)+apply(gradlat1-gradlat2,3,fct) # on calcule la somme des differences entre les gradients de chaque point de grille du jour i et le gradient de chaque point de grille de tous les jours j
+    
+  # Denominateur
+  max_grad <- apply(pmax(abs(gradlon1),abs(gradlon2)),3,sum)+apply(pmax(abs(gradlat1),abs(gradlat2)),3,sum) # on calcule la somme des gradients maximums pour chaque point de grille entre ceux du jour i et ceux de tous les jours j 
+  gc()
+  
+  # TWS
+  dist.vec <- dif_grad/max_grad/2
+  
+  # Export
+  save(dist.vec,file = paste0("2_Travail/1_Past/Rresults/compute.TWS.crossed/TWS_",rean1,"_",rean2,"_k",k,"_",start,"_",end,".Rdata"))
+}
+
 # Reconstitution des WP de 1850 a 1950 (20CR) puis de 1900 a 1950 (ERA20C)
 compute_wp_past <- function(k,dist,start="1851-01-01",end="1947-12-31",start.ana="1948-01-01",end.ana="2010-12-31",rean="20CR"){
   
@@ -366,6 +505,51 @@ get.event <- function(){
   as.character(data$RTM.T)
 }
 
+# Calcul une moyenne d'indicateur sur toute la periode et a partir de toutes les reanalyses (pour cel en reference dans plot.TWS.crossed)
+get.mean.descr.allrean <- function(k,descr,sais,ana.comm=T){
+  
+  # Reanalyses
+  rean <- c(
+    "20CR-m0",
+    "20CR-m1",
+    "20CR-m2",
+    "ERA20C",
+    "ERA5"
+  )
+  
+  # Dates utiles
+  dates <- list(length=length(rean))
+  dat <- dates.ana <- dates
+  
+  for(i in 1:length(rean)){
+    dates[[i]] <- get.start.end.rean(rean = rean[i],period="past",type = "criteria",k = k) # date debut fin rean
+    dat[[i]] <- getdates(dates[[i]][1],dates[[i]][2]) # serie de dates
+    dates.ana[[i]] <- dates[[i]] # dates ana
+    if(ana.comm) dates.ana[[i]] <- c("1950-01-01","2010-12-31") # dates ana
+  }
+  
+  # Import et traitement
+  des <- list(length=length(rean))
+  
+  for(i in 1:length(rean)){
+    
+    # Import de l'indicateur
+    des[[i]] <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,
+                               start = dates[[i]][1],end = dates[[i]][2],
+                               standardize = F,rean = rean[i],threeday = F,
+                               period = "past",start.ana = dates.ana[[i]][1],
+                               end.ana = dates.ana[[i]][2])
+    if(i %in% c(4,5)) des[[i]] <- c(rep(NA,length(des[[i-1]])-length(des[[i]])),des[[i]])
+  }
+  des <- do.call(cbind,des)
+  
+  # Traitement saisonnier
+  ind <- get.ind.season.past(sais = sais,start = dates[[1]][1],end = dates[[1]][2])
+  des <- des[ind,]
+  moy <- mean(apply(des,1,mean,na.rm=T),na.rm=T)
+  moy
+}
+
 # Import de la serie mensuelle de NAO
 get.nao <- function(start="1950",end="2019",sais="all",daily=F){
   if(!daily){
@@ -387,6 +571,32 @@ get.nao <- function(start="1950",end="2019",sais="all",daily=F){
   year <- seq(as.numeric(start),as.numeric(end))
   nao <- nao[nao[,"YEAR"] %in% year,]
   nao
+}
+
+# Calcule le nombre de jours superieurs/inferieurs à un quantile d'indicateur pour chaque saison d'une periode
+get.nbr.qua <- function(descr,qua=0.2,lower=T,wp=NULL,k,dist,nbdays=1,rean,sais,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
+  
+  # Import de l'indicateur
+  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = nbdays,start = start,end = end,standardize = F,rean = rean,
+                        threeday = F,desais = F,period = "past",start.ana = start.ana,end.ana = end.ana)
+  
+  # Import des types de temps
+  if(!is.null(wp)){
+    tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+    pos.NA.wp <- which(tt!=wp)
+    des[pos.NA.wp] <- NA
+  }
+  
+  # Traitement saisonnier
+  pos <- get.ind.season(sais = sais,start = start,end = end)
+  des <- des[pos$pos.season]
+  des[pos$pos.NA] <- NA
+  des.qua <- quantile(des,probs=qua,na.rm=T)
+  
+  # Nombre de jours
+  dim(des) <- c(pos$l.season,pos$n.season)
+  count <- apply(des,2,function(v){ifelse(lower,sum(v<des.qua,na.rm=T),sum(v>des.qua,na.rm=T))})
+  count
 }
 
 # Import des dates d'evenements 1-fluviaux seuls / 2-torrentiels seuls / 3-concomittants seuls
@@ -425,81 +635,8 @@ get.subperiod <- function(){
   sub.period
 }
 
-# Difference altitude geopotentiel 1900-1930 et 1970-2000
-map.diff.geo <- function(k,rean,sais){
-  
-  # Import des donnees
-  dates.deb <- c("1900-01-01","1929-12-31")
-  data.deb <- getdata(k = k,day0 = dates.deb[1],day1 = dates.deb[2],rean = rean,climat = NULL,run = 1,large_win = F,small_win = F,all = T,ssp = NULL,var = "hgt")
-  pos.deb <- get.ind.season.past(sais = sais,start = dates.deb[1],end = dates.deb[2])
-  data.deb <- data.deb[,,pos.deb]
-  
-  dates.fin <- c("1970-01-01","1999-12-31")
-  data.fin <- getdata(k = k,day0 = dates.fin[1],day1 = dates.fin[2],rean = rean,climat = NULL,run = 1,large_win = F,small_win = F,all = T,ssp = NULL,var = "hgt")
-  pos.fin <- get.ind.season.past(sais = sais,start = dates.fin[1],end = dates.fin[2])
-  data.fin <- data.fin[,,pos.fin]
-  
-  # Moyennes et difference
-  mean.deb <- apply(data.deb,1:2,mean)
-  mean.fin <- apply(data.fin,1:2,mean)
-  diff.geo <- mean.fin - mean.deb
-  
-  # Cartes
-  nc <- load.nc(rean,var="hgt")
-  nc <- nc[[k]]
-  lon <- nc$dim$lon$vals
-  lat <- nc$dim$lat$vals
-  fen <- getinfo_window(k = k,rean=rean,var = "hgt")
-  nc_close(nc)
-  
-  png(filename = paste0("2_Travail/1_Past/Rresults/map.diff.geo/map_diff_k",k,"_",rean,"_",sais,".png"),width = 12,height = 6,units = "in",res=600)
-  par(pty="s",mfrow=c(1,3),mar=c(4,6,4,6))
-  
-  #range(mean.deb,mean.fin)
-  breaks <- seq(4850,6100,length.out = 12)
-  N <- 11
-  lab <- seq(4900,6100,200)
-  
-  # debut
-  image.plot(lon,lat,mean.deb,xlim=c(-15,25),ylim=c(25,65),main="1900-1930",
-             col=rev(brewer.pal(n = N, name = "RdBu")),
-             xlab="Longitude (°)",ylab="Latitude (°)",
-             legend.line=-2.3,breaks = breaks,
-             axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
-  
-  data(wrld_simpl)
-  plot(wrld_simpl, add = TRUE)
-  rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
-  
-  # fin
-  image.plot(lon,lat,mean.fin,xlim=c(-15,25),ylim=c(25,65),main="1970-2000",
-             col=rev(brewer.pal(n = N, name = "RdBu")),
-             xlab="Longitude (°)",ylab="Latitude (°)",
-             legend.line=-2.3,breaks = breaks,
-             axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
-  
-  plot(wrld_simpl, add = TRUE)
-  rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
-  
-  # diff
-  breaks <- seq(-50,50,length.out = 12)
-  N <- 11
-  lab <- seq(-50,50,10)
-  
-  image.plot(lon,lat,diff.geo,xlim=c(-15,25),ylim=c(25,65),main="1970-2000 - 1900-1930",
-             col=rev(brewer.pal(n = N, name = "RdBu")),
-             xlab="Longitude (°)",ylab="Latitude (°)",
-             legend.line=-2.3,breaks = breaks,
-             axis.args = list(at=lab,labels=as.character(lab),cex.axis=1.3))
-  
-  plot(wrld_simpl, add = TRUE)
-  rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
-  
-  graphics.off()
-}
-
 # Difference altitude geopotentiel 1900-1930 et 1970-2000 pour 2 reanalyses et les 4 saisons
-map.diff.geo.combine <- function(k,rean=c("20CR-m1","ERA20C")){
+map.diff.geo <- function(k,rean=c("20CR-m1","ERA20C")){
   
   # Import des donnees
   dates.deb <- c("1900-01-01","1929-12-31")
@@ -510,6 +647,7 @@ map.diff.geo.combine <- function(k,rean=c("20CR-m1","ERA20C")){
   png(filename = paste0("2_Travail/1_Past/Rresults/map.diff.geo/map_diff_combine_allsais_k",k,"_",rean[1],"_",rean[2],".png"),width = 8,height = 5,units = "in",res=600)
   layout(matrix(c(1:8,rep(9,4)),nrow = 3,ncol = 4,byrow = T),widths = c(1,1,1,1),heights = c(1,1,0.3))
   par(mar=c(1,1,2,1),pty="s")
+  data(wrld_simpl)
   
   for(i in 1:length(rean)){
     print(rean[i])
@@ -522,6 +660,7 @@ map.diff.geo.combine <- function(k,rean=c("20CR-m1","ERA20C")){
     lon <- nc$dim$lon$vals
     lat <- nc$dim$lat$vals
     fen <- getinfo_window(k = k,rean=rean[i],var = "hgt")
+    delta <- 0.25/2 # on force la grille de ERA5 pour tracer le meme rectangle tout le temps
     nc_close(nc)
     
     for(j in 1:length(season)){
@@ -538,15 +677,15 @@ map.diff.geo.combine <- function(k,rean=c("20CR-m1","ERA20C")){
       diff.geo <- mean.fin - mean.deb
       
       # Cartes
-      breaks <- seq(-50,50,length.out = 12)
+      breaks <- seq(-60,60,length.out = 12)
       N <- 11
-      lab <- seq(-50,50,10)
+      lab <- seq(-60,60,15)
       
-      image(lon,lat,diff.geo,xlim=c(-15,25),ylim=c(25,65),main=paste0(rean[i]," - ",nam2str(season[j])),
+      image(lon,lat,diff.geo,xlim=c(-15,25),ylim=c(25,65),main=paste0(nam2str(rean[i])," - ",nam2str(season[j])),
                  col=rev(brewer.pal(n = N, name = "RdBu")),xaxt="n",yaxt="n",xlab="",ylab="",breaks = breaks)
       
       plot(wrld_simpl, add = TRUE)
-      rect(xleft = lon[fen[1,1]]-1,ybottom = lat[fen[2,1]]-1,xright = lon[fen[1,1]+fen[1,2]-1]+1,ytop = lat[fen[2,1]+fen[2,2]-1]+1,lwd=2)
+      rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
     }
   }
   
@@ -554,10 +693,90 @@ map.diff.geo.combine <- function(k,rean=c("20CR-m1","ERA20C")){
   par(pty="m",mar=c(0,0,0,0))
   plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
   colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
-              labels = lab,at =  seq(0,1,length.out = N),
+              labels = lab,at =  seq(0,1,length.out = length(lab)),
               vertical = F,xlim = c(0.8,1.2),ylim = c(0.25,0.65),cex=1.4)
   text(x = 1,y = 0.9,"1970-2000 minus 1900-1930 Geopotential Height (m)",cex=1.2,font=2)
   
+  graphics.off()
+}
+
+# Difference altitude geopotentiel 1950-1983 et 1984-2017 pour 2 wp et les 4 saisons
+map.diff.geo.wp <- function(wp=1,k,rean,start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  
+  # Import des donnees
+  print("Import")
+  data <- getdata(k = k,day0 = start,day1 = end,rean = rean,climat = NULL,run = 1,large_win = F,small_win = F,all = T,ssp = NULL,var = "hgt")
+  gc()
+  
+  # Periode
+  sep <- as.Date(median(as.numeric(as.Date(dates))))
+  period1 <- paste0(substr(start,1,4),"-",substr(sep-1,1,4))
+  period2 <- paste0(substr(sep,1,4),"-",substr(end,1,4))
+  per <- rep(1,length(dates))
+  per[as.Date(dates)>=sep] <- 2
+  
+  # Saison
+  season <- c("winter","spring","summer","autumn")
+  sais <- rep(NA,length(dates))
+  for(i in 1:length(season)){
+    ind <- get.ind.season.past(sais = season[i],start = start,end = end,nbdays = 1)
+    sais[ind] <- season[i]
+  }
+  
+  # WP
+  tt <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+  
+  # Figure
+  # Pour lon/lat et ajout du rectangle
+  nc <- load.nc(rean,var="hgt")
+  nc <- nc[[k]]
+  lon <- nc$dim$lon$vals
+  lat <- nc$dim$lat$vals
+  fen <- getinfo_window(k = k,rean=rean,var = "hgt")
+  delta <- abs(lon[1]-lon[2])/2
+  nc_close(nc)
+  
+  png(filename = paste0(get.dirstr(k,rean,"past"),"map.diff.geo.wp/map_diff_k",k,"_wp",wp,".png"),width = 8,height = 3,units = "in",res=600)
+  layout(matrix(c(1:4,rep(5,4)),nrow = 2,ncol = 4,byrow = T),widths = c(1,1,1,1),heights = c(1,0.3))
+  par(mar=c(1,1,2,1),pty="s")
+  data(wrld_simpl)
+  
+  for(i in 1:length(season)){
+    print(season[i])
+    
+    # Donnees
+    pos.per1 <- which(per==1 & sais==season[i] & tt==wp)
+    pos.per2 <- which(per==2 & sais==season[i] & tt==wp)
+    
+    data.per1 <- data[,,pos.per1]
+    data.per2 <- data[,,pos.per2]
+    
+    # Moyennes et difference
+    mean.per1 <- apply(data.per1,1:2,mean)
+    mean.per2 <- apply(data.per2,1:2,mean)
+    diff.per <- mean.per2 - mean.per1
+    
+    # Cartes
+    breaks <- seq(-60,60,length.out = 12)
+    N <- 11
+    lab <- seq(-60,60,15)
+    
+    image(lon,lat,diff.per,xlim=c(-15,25),ylim=c(25,65),main=nam2str(season[i]),
+          col=rev(brewer.pal(n = N, name = "RdBu")),xaxt="n",yaxt="n",xlab="",ylab="",breaks = breaks)
+    plot(wrld_simpl, add = TRUE)
+    rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
+    gc()
+  }
+  
+  # Legende
+  par(pty="m",mar=c(0,0,0,0))
+  plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+  colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
+              labels = lab,at =  seq(0,1,length.out = length(lab)),
+              vertical = F,xlim = c(0.8,1.2),ylim = c(0.25,0.65),cex=1.4)
+  text(x = 1,y = 0.9,paste0(period2," minus ",period1," Geopotential Height (m)"),cex=1.2,font=2)
   graphics.off()
 }
 
@@ -670,6 +889,125 @@ plot.descr <- function(descr,k,dist,liss=5,ana.comm=F,align=F,nao=F){
   graphics.off()
 }
 
+# Calcule le nombre de jours superieurs/inferieurs à un quantile d'indicateur pour chaque saison d'une periode
+plot.descr.density.subperiod <- function(descr,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",add.nb.density=F){
+  
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  
+  # Import de l'indicateur
+  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = nbdays,start = start,end = end,standardize = F,rean = rean,
+                        threeday = F,desais = F,period = "past",start.ana = start.ana,end.ana = end.ana)
+  tab <- data.frame(Dates=dates,Descr=des,Season=NA,Period=NA)
+  
+  # Import des types de temps
+  if(!is.null(wp)){
+    tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+    pos.NA.tt <- which(tt!=wp)
+    tab$Descr[pos.NA.tt] <- NA
+  }
+  
+  # Saison
+  sais <- c("winter","spring","summer","autumn")
+  for(i in 1:length(sais)){
+    pos <- get.ind.season.past(sais = sais[i],start = start,end = end,nbdays = nbdays)
+    tab$Season[pos] <- nam2str(sais[i])
+  }
+  tab$Season <- factor(tab$Season,levels = nam2str(sais))
+  
+  # Periode
+  sep <- as.Date(median(as.numeric(as.Date(dates))))
+  period1 <- paste0(substr(start,1,4),"-",substr(sep-1,1,4))
+  period2 <- paste0(substr(sep,1,4),"-",substr(end,1,4))
+  tab$Period[as.Date(dates)<sep] <- period1
+  tab$Period[as.Date(dates)>=sep] <- period2
+  
+  # Graphiques Densité
+  pl <- ggplot(tab, aes(x=Descr, fill=Period)) +
+    theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12,colour="black",vjust=0),
+          axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=14),
+          legend.position = "bottom",legend.title = element_text(hjust=-1,vjust=0.6,size = 16,face = "bold"),
+          legend.text = element_text(size=12,colour="black"))+
+    geom_density(alpha=0.4)+
+    facet_wrap(~Season) +
+  xlab(nam2str(descr,whole=T)) + 
+    ylab("Density")+
+    ggtitle(nam2str(descr,whole=T))+
+    scale_fill_manual( values = c(brewer.pal(n = 11, name = "RdBu")[9],brewer.pal(n = 11, name = "RdBu")[3]))
+    
+  # Pour eviter chevauchement x-ticks dans le combine
+  if(descr=="cel") pl <- pl+scale_x_continuous(breaks = seq(from = 0.1,to = 0.4,by = 0.1)) 
+  if(descr=="sing05") pl <- pl+scale_x_continuous(breaks = seq(from = 0.2,to = 0.4,by = 0.1)) 
+  if(descr=="rsing05") pl <- pl+scale_x_continuous(breaks = c(0.9,0.95))
+  
+  # Extraction et ajout du nombre de points dans les densites
+ if(add.nb.density){
+  pl.data <- ggplot_build(pl)$data[[1]]
+  n <- aggregate(pl.data$n,by=list(pl.data$group,pl.data$PANEL),unique)[,3]
+  dim(n) <- c(2,length(sais))
+  n[1,] <- paste0("n_per1=",n[1,]);n[2,] <- paste0("n_per2=",n[2,])
+  n <- apply(n,2,function(v){paste0(v[1],"\n",v[2])})
+  
+  dat_text <- data.frame(
+    label = n,
+    Season   = nam2str(sais),
+    Period = "1950-1983"
+  )
+  pl <- pl + geom_text(
+    data    = dat_text,
+    mapping = aes(x = Inf, y = Inf, label = label),
+    hjust   = 1,
+    vjust   = 1,
+    size = 3
+  )
+ }
+  
+  # Calcul et tracé de la significativite de la difference de distribution: Kolmogorov-Smirnov Test
+  test <- vector(length=length(sais))
+  
+  for(i in 1:length(sais)){
+    x <- tab$Descr[tab$Season==nam2str(sais[i]) & tab$Period==period1]
+    y <- tab$Descr[tab$Season==nam2str(sais[i]) & tab$Period==period2]
+    test[i] <- ks.test(x = x,y = y)$p.value < 0.05
+  }
+  
+  pl+geom_rect(data=subset(tab,Season %in% nam2str(sais)[test]),aes(fill=Season),xmin=-Inf,xmax=Inf,ymin=-Inf,ymax=Inf,colour="red",fill=NA,alpha=0.9)
+}
+
+# Trace la relation entre la singularite
+plot.sing.ana <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,period="past",q.threshold=0.99,schaake=T,season=F,dP=F){
+  
+  # Dates utiles
+  start.end.rean <- get.start.end.rean(rean,period,"dist")
+  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2010-12-31")
+  dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
+  n <- length(dates.ana)
+  
+  # Imports
+  pos <- match(dates.ana,dates.rean)
+  sing05 <- get.descriptor(descriptor = "sing05",k = k,dist = dist,nbdays = nbdays,start = start.end.rean[1],end = start.end.rean[2],standardize = F,rean = rean,threeday = F,
+                           desais = F,period = "past",start.ana = start.end.ana[1],end.ana = start.end.ana[2])
+  
+  sing05 <- sing05[pos]
+  load(paste0(get.dirstr(k,rean,period),"save.ana/ana_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),dist,"_",rean,"_k",k,"_mean",nbdays,"day_",start.end.rean[1],"_",start.end.rean[2],"_ana_",start.end.ana[1],"_",start.end.ana[2],".Rdata"))
+  precip <- get.precip(nbdays,start.end.ana[1],start.end.ana[2],bv,spazm)
+  
+  # Traitement
+  nbnei <- round(nbana*0.01*n,0)
+  nei <- lapply(nei,function(v){v[1:nbnei]})
+  nei <- unlist(nei)
+  co <- rep(0,n)
+  count <- table(nei)
+  nam <- as.numeric(names(count))
+  co[nam] <- count
+  
+  plot(sing05,co)
+  plot(density(co))
+}
+
 # Trace l'evolution d'un indicateur, pour plusieurs reanalyses et par saison, avec NAO
 plot.trend.descr <- function(descr,k,dist,sais="year",liss=5,ana.comm=F,align=F,nao=F,leg=T,save=F,type="descr"){
   
@@ -738,7 +1076,7 @@ plot.trend.descr <- function(descr,k,dist,sais="year",liss=5,ana.comm=F,align=F,
     # Alignement et lissage
     if(align){
       delta[i] <- des[[i]][nrow(des[[i]]),2]
-      des[[i]][,2] <- des[[i]][,2] - des[[i]][nrow(des[[i]]),2]
+      des[[i]][,2] <- des[[i]][,2] - delta[i]
     }
     if(liss!=1){
       des[[i]][,2] <- rollapply(des[[i]][,2],liss,mean,partial=F,fill=NA)
@@ -761,7 +1099,8 @@ plot.trend.descr <- function(descr,k,dist,sais="year",liss=5,ana.comm=F,align=F,
   xaxis <- seq(start.xaxis,end.xaxis,10)
   pos.axis <- match(xaxis,des[[1]][,1])
   if(is.na(pos.axis[1])) pos.axis[1] <- pos.axis[2]-10
-  ylim <- range(unlist(lapply(des,function(v){range(v[,2],na.rm=T)})))
+  #ylim <- range(unlist(lapply(des,function(v){range(v[,2],na.rm=T)})))
+  ylim <- c(-130,100)
   if(align) {delta <- delta - delta[which(rean=="ERA5")]; ylim <- range(ylim,delta)} # ERA5 en reference
   main <- ifelse(type=="season",nam2str(sais),nam2str(descr,whole=T))
   
@@ -798,7 +1137,7 @@ plot.trend.descr <- function(descr,k,dist,sais="year",liss=5,ana.comm=F,align=F,
 # Trace l'evolution d'un indicateur conditionnellement au type de temps et a la saison
 plot.trend.descr.cond <- function(descr,k,dist,rean,sais="all",type="mean",start="1950-01-01",end="2010-12-31",start.ana="1950-01-01",end.ana="2010-12-31",pvalue=T){
   
-  dates <- getdates(start,end)
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
   
   # Import de l'indicateur
   des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = start,end = end,
@@ -865,7 +1204,7 @@ plot.trend.descr.cond <- function(descr,k,dist,rean,sais="all",type="mean",start
 # Trace l'evolution d'un indicateur conditionnellement au type de temps et a la saison
 plot.trend.descr.cond.regquant <- function(descr,k,dist,rean,sais="all",start="1950-01-01",end="2010-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
   
-  dates <- getdates(start,end)
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
   
   # Import de l'indicateur
   des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = start,end = end,
@@ -903,7 +1242,7 @@ plot.trend.descr.cond.regquant <- function(descr,k,dist,rean,sais="all",start="1
   # Graphique
   ylim <- range(tab$descr)
   
-  png(filename = paste0(get.dirstr(k,rean,"past"),"plot.trend.descr.cond.regquant/plot_",descr,"_",sais,".png"),width = 8,height = 6,units = "in",res = 600)
+  png(filename = paste0(get.dirstr(k,rean,"past"),"plot.trend.descr.cond.regquant/plot_",descr,"_",sais,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".png"),width = 8,height = 6,units = "in",res = 600)
   par(mfrow=c(2,2),mar=c(4,4,3,0.5))
   
   for(i in 1:length(wp.unique)){
@@ -936,6 +1275,130 @@ plot.trend.descr.cond.regquant <- function(descr,k,dist,rean,sais="all",start="1
   }
   
   graphics.off()
+}
+
+# Trace l'evolution du nombre de jours en dessous/dessus d'un quantile pour tous les indicateurs, pour toutes les ciculations puis circulations Atl et Med, pour une saison
+plot.trend.descr.nbr.qua <- function(qua=0.2,lower=T,wp1=1,wp2=2,k,dist,nbdays=1,rean,sais,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",leg=T,save=T){
+  
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  year <- unique(substr(dates,1,4))
+  if(sais=="winter") year <- year[-1]
+  
+  # Import des nombres de jours sup/inf le quantile
+  descr <- c("cel","sing05","rsing05","dP")
+  inf <- c(T,T,T,F)
+  quant <- c(qua,qua,qua,1-qua)
+  nbr <- nbr.wp1 <- nbr.wp2 <- matrix(NA,nrow = length(year),ncol = length(descr))
+  
+  for(i in 1:length(descr)){
+  nbr[,i] <- get.nbr.qua(descr = descr[i],qua = quant[i],lower = inf[i],wp = NULL,k = k,dist = dist,nbdays = nbdays,rean = rean,sais = sais,
+                     start = start,end = end,start.ana = start.ana,end.ana = end.ana)
+  nbr.wp1[,i] <- get.nbr.qua(descr = descr[i],qua = quant[i],lower = inf[i],wp = wp1,k = k,dist = dist,nbdays = nbdays,rean = rean,sais = sais,
+                         start = start,end = end,start.ana = start.ana,end.ana = end.ana)
+  nbr.wp2[,i] <- get.nbr.qua(descr = descr[i],qua = quant[i],lower = inf[i],wp = wp2,k = k,dist = dist,nbdays = nbdays,rean = rean,sais = sais,
+                         start = start,end = end,start.ana = start.ana,end.ana = end.ana)
+  }
+  
+  # Graphique
+  start.xaxis <- trunc(as.numeric(year[1])*0.1)*10 # manip pour avoir une annee "ronde" inferieure (si 1958 -> 1950)
+  end.xaxis <- round(as.numeric(year[length(year)])*0.1)*10 # manip pour avoir une annee "ronde"
+  xaxis <- seq(start.xaxis,end.xaxis,10)
+  
+  if(save) png(filename = paste0(get.dirstr(k,rean,period="past"),"plot.trend.descr.sais/plot_",descr,"_",rean,"_mean",nbdays,"day_",start,"_",end,".png"),width = 7,height = 5,units = "in",res=600)
+  par(mar=c(4,4,2,1))
+  
+  # All
+  ran <- range(nbr);ylim <- c(ran[1],ran[1]+diff(ran)*1.2);rm(ran)
+  plot(year,nbr[,1],type="n",xaxt="n",xlab="Year",ylab="Number of day < q0.2",main=paste0(nam2str(sais)," - All"),ylim=ylim)
+  grid(ny=NULL,nx=NA)
+  axis(side = 1,at = xaxis,labels = xaxis) # petite manip pour ajouter 1850 a xaxis
+  abline(v = xaxis,lty=3,col="grey")
+  
+  for(i in 1:4){
+    lines(year,nbr[,i],col="gray40",lwd=2,lty=i)
+  }
+  
+  # wp1
+  ran <- range(nbr.wp1);ylim <- c(ran[1],ran[1]+diff(ran)*1.2);rm(ran)
+  plot(year,nbr.wp1[,1],type="n",xaxt="n",xlab="Year",ylab="Number of day < q0.2",main=paste0(nam2str(sais)," - WP1"),ylim=ylim)
+  grid(ny=NULL,nx=NA)
+  axis(side = 1,at = xaxis,labels = xaxis) # petite manip pour ajouter 1850 a xaxis
+  abline(v = xaxis,lty=3,col="grey")
+  
+  for(i in 1:4){
+    lines(year,nbr.wp1[,i],col="lightblue",lwd=2,lty=i)
+  }
+  
+  # wp2
+  ran <- range(nbr.wp2);ylim <- c(ran[1],ran[1]+diff(ran)*1.2);rm(ran)
+  plot(year,nbr.wp2[,1],type="n",xaxt="n",xlab="Year",ylab="Number of day < q0.2",main=paste0(nam2str(sais)," - WP2"),ylim=ylim)
+  grid(ny=NULL,nx=NA)
+  axis(side = 1,at = xaxis,labels = xaxis) # petite manip pour ajouter 1850 a xaxis
+  abline(v = xaxis,lty=3,col="grey")
+  
+  for(i in 1:4){
+    lines(year,nbr.wp2[,i],col="red",lwd=2,lty=i)
+    
+  }
+  
+  tmp <- lm(nbr.wp1[,4]~as.numeric(year))
+  c(tmp$coefficients,round(unname(summary(tmp)$coefficients[,4][2]),3))
+  
+}
+
+# Trace l'evolution d'un indicateur conditionnellement a la saison
+plot.trend.descr.sais <- function(descr,k,dist,rean,nbdays=1,start="1950-01-01",end="2010-12-31",start.ana="1950-01-01",end.ana="2010-12-31",leg=T,save=T){
+  
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  year <- unique(substr(dates,1,4))
+  
+  # Import de l'indicateur
+  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = nbdays,start = start,end = end,standardize = F,rean = rean,
+                        threeday = F,desais = F,period = "past",start.ana = start.ana,end.ana = end.ana)
+  
+  # Traitement saisonnier
+  sais <- c("winter","spring","summer","autumn")
+  des.sais <- matrix(NA,nrow = length(year),ncol = length(sais))
+  reg <- vector(mode = "list",length = 4)
+  
+  for(i in 1:length(sais)){
+    # Moyenne saisonniere
+    pos <- get.ind.season(sais = sais[i],start = start,end = end)
+    tmp <- des[pos$pos.season]
+    tmp[pos$pos.NA] <- NA
+    dim(tmp) <- c(pos$l.season,pos$n.season)
+    tmp <- apply(tmp,2,mean,na.rm=T)
+    if(sais[i]=="winter") tmp <- c(NA,tmp)
+    des.sais[,i] <- tmp
+    rm(tmp)
+    
+    # Regression
+    tmp <- lm(des.sais[,i]~as.numeric(year))
+    reg[[i]] <- c(tmp$coefficients,round(unname(summary(tmp)$coefficients[,4][2]),3)) # intersept, slope, pvalue
+    gc()
+  }
+  
+  # Graphique
+  colo <- c("blue","darkgreen","red","darkorange")
+  start.xaxis <- trunc(as.numeric(year[1])*0.1)*10 # manip pour avoir une annee "ronde" inferieure (si 1958 -> 1950)
+  end.xaxis <- round(as.numeric(year[length(year)])*0.1)*10 # manip pour avoir une annee "ronde"
+  xaxis <- seq(start.xaxis,end.xaxis,10)
+  ran <- range(des.sais,na.rm=T);ylim <- c(ran[1],ran[1]+diff(ran)*1.2);rm(ran)
+  
+if(save) png(filename = paste0(get.dirstr(k,rean,period="past"),"plot.trend.descr.sais/plot_",descr,"_",rean,"_mean",nbdays,"day_",start,"_",end,".png"),width = 7,height = 5,units = "in",res=600)
+    par(mar=c(4,4,2,1))
+    plot(year,des.sais[,1],type="n",xaxt="n",xlab="Year",ylab=nam2str(descr,whole=T),main=nam2str(descr,whole=T),ylim=ylim)
+    grid(ny=NULL,nx=NA)
+    axis(side = 1,at = xaxis,labels = xaxis) # petite manip pour ajouter 1850 a xaxis
+    abline(v = xaxis,lty=3,col="grey")
+    
+    for(i in 1:4){
+      lines(year,des.sais[,i],col=colo[i],lwd=2)
+      abline(reg[[i]][1],reg[[i]][2],col=colo[i],lwd=2,lty=ifelse(reg[[i]][3]<0.05,1,3))
+    }
+    
+    if(leg) legend("top",nam2str(sais),col=colo,lty=1,lwd=2,bty="n",cex=0.9,ncol=2)
+    if(save) graphics.off()
 }
 
 # Trace l'evolution dans le temps de la latitude du jet saison et type de temps
@@ -1112,7 +1575,90 @@ plot.trend.precip <- function(bv="Isere-seul",nbdays,start="1950-01-01",end="201
 }
 
 # Trace l'évolution de l'occurrence des WP par saison
-plot.trend.wp <- function(start="1900-01-01",end="2010-12-31",rean,liss=1,n.ana=115){
+plot.trend.wp <- function(type="occurence",sais,nbdays=1,start="1950-01-01",end="2017-12-31",leg=T,save=T){
+  
+  # Import
+  wp <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+  
+  # Traitement
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  year <- unique(substr(dates,1,4))
+  if(sais=="winter") year <- year[-1]
+  
+  pos <- get.ind.season(sais = sais,start = start,end = end)
+  wp <- wp[pos$pos.season]
+  wp[pos$pos.NA] <- NA
+  dim(wp) <- c(pos$l.season,pos$n.season)
+  
+  occ <- pers <- reg.occ <- reg.pers <- vector(mode = "list",length = 4)
+  tt <- c(1,2,5,8)
+  tt.name <- c("Atlantic","Mediterranean","Northeast","Anticyclonic")
+  
+  for(i in 1:4){
+    # Occurence
+    if(type=="occurence"){
+      occ[[i]] <- apply(wp,2,function(v){sum(v==tt[i],na.rm=T)/length(v)*100})
+      tmp <- lm(occ[[i]]~as.numeric(year))
+      reg.occ[[i]] <- c(tmp$coefficients,round(unname(summary(tmp)$coefficients[,4][2]),3)) # intersept, slope, pvalue
+    }
+    
+    # Persistance
+    if(type=="persistence"){
+      pers[[i]] <- apply(wp,2,function(v){tmp <- rle(v);mean(tmp$length[tmp$values==tt[i]],na.rm=T)})
+      tmp <- lm(pers[[i]]~as.numeric(year))
+      reg.pers[[i]] <- c(tmp$coefficients,round(unname(summary(tmp)$coefficients[,4][2]),3)) # intersept, slope, pvalue
+    }
+  }
+  
+  # Graphiques
+  colo <- c("blue","red","darkgreen","darkgrey")
+  start.xaxis <- trunc(as.numeric(year[1])*0.1)*10 # manip pour avoir une annee "ronde" inferieure (si 1958 -> 1950)
+  end.xaxis <- round(as.numeric(year[length(year)])*0.1)*10 # manip pour avoir une annee "ronde"
+  xaxis <- seq(start.xaxis,end.xaxis,10)
+  
+  # Occurence
+  if(type=="occurence"){
+    if(save){
+      png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.wp/plot_occurence_wp_",sais,"_mean",nbdays,"day_",start,"_",end,".png"),width = 7,height = 5,units = "in",res=600)
+      par(mar=c(4,4,2,1))
+    }
+    plot(year,occ[[1]],type="n",xaxt="n",xlab="Year",ylab="WP Occurence (%)",ylim=c(0,100),main=nam2str(sais))
+    grid(ny=NULL,nx=NA)
+    axis(side = 1,at = xaxis,labels = xaxis) # petite manip pour ajouter 1850 a xaxis
+    abline(v = xaxis,lty=3,col="grey")
+    
+    for(i in 1:4){
+      lines(year,occ[[i]],col=colo[i],lwd=2)
+      abline(reg.occ[[i]][1],reg.occ[[i]][2],col=colo[i],lwd=2,lty=ifelse(reg.occ[[i]][3]<0.05,1,3))
+    }
+    
+    if(leg) legend("top",tt.name,col=colo,lty=1,lwd=2,bty="n",cex=1,ncol=2)
+    if(save) graphics.off()
+  }
+  
+  # Persistance
+  if(type=="persistence"){
+    if(save){
+      png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.wp/plot_persistence_wp_",sais,"_mean",nbdays,"day_",start,"_",end,".png"),width = 7,height = 5,units = "in",res=600)
+      par(mar=c(4,4,2,1))
+    }
+    plot(year,pers[[1]],type="n",xaxt="n",xlab="Year",ylab="WP Persistence (days)",ylim=c(0,11),main=nam2str(sais))
+    grid(ny=NULL,nx=NA)
+    axis(side = 1,at = xaxis,labels = xaxis) # petite manip pour ajouter 1850 a xaxis
+    abline(v = xaxis,lty=3,col="grey")
+    
+    for(i in 1:4){
+      lines(year,pers[[i]],col=colo[i],lwd=2)
+      abline(reg.pers[[i]][1],reg.pers[[i]][2],col=colo[i],lwd=2,lty=ifelse(reg.pers[[i]][3]<0.05,1,3))
+    }
+    
+    if(leg) legend("top",tt.name,col=colo,lty=1,lwd=2,bty="n",cex=1,ncol=2)
+    if(save) graphics.off()
+  }
+}
+
+# Trace l'évolution de l'occurrence des WP reconstitues dans le passe par saison
+plot.trend.wp.past <- function(start="1900-01-01",end="2010-12-31",rean,liss=1,n.ana=115){
   
   # Import
   load(paste0("2_Travail/1_Past/",rean,"/compute_wp_past/wp_final_",start,"_1947-12-31_start.ana_1948-01-01_end.ana_2010-12-31_n.ana=",n.ana,".Rdata"))
@@ -1190,40 +1736,85 @@ plot.trend.wp <- function(start="1900-01-01",end="2010-12-31",rean,liss=1,n.ana=
   
 }
 
-# Trace la relation entre la singularite
-plot.sing.ana <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,period="past",q.threshold=0.99,schaake=T,season=F,dP=F){
+# Calcul des scores TWS jour à jour entre 2 jeux de données
+plot.TWS.crossed <- function(k,start="1851-01-01",end="2010-12-31",sais,leg=T,save=F){
   
-  # Dates utiles
-  start.end.rean <- get.start.end.rean(rean,period,"dist")
-  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
-  N <- length(dates.rean)
+  # Import des TWS
+  rean <- list(
+    c("20CR-m0","20CR-m1"),
+    c("20CR-m0","20CR-m2"),
+    c("20CR-m1","20CR-m2"),
+    c("20CR-m0","ERA20C_regrid_20CR"),
+    c("20CR-m1","ERA20C_regrid_20CR"),
+    c("20CR-m2","ERA20C_regrid_20CR")
+  )
   
-  start.end.ana <- c("1950-01-01","2010-12-31")
-  dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
-  n <- length(dates.ana)
+  dates <- list(
+    c(start,end),
+    c(start,end),
+    c(start,end),
+    c("1900-01-01",end),
+    c("1900-01-01",end),
+    c("1900-01-01",end)
+  )
   
-  # Imports
-  pos <- match(dates.ana,dates.rean)
-  sing05 <- get.descriptor(descriptor = "sing05",k = k,dist = dist,nbdays = nbdays,start = start.end.rean[1],end = start.end.rean[2],standardize = F,rean = rean,threeday = F,
-                       desais = F,period = "past",start.ana = start.end.ana[1],end.ana = start.end.ana[2])
+  colo <- c("gray0","gray30","gray60","red","red3","red4")
   
-  sing05 <- sing05[pos]
-  load(paste0(get.dirstr(k,rean,period),"save.ana/ana_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),dist,"_",rean,"_k",k,"_mean",nbdays,"day_",start.end.rean[1],"_",start.end.rean[2],"_ana_",start.end.ana[1],"_",start.end.ana[2],".Rdata"))
-  precip <- get.precip(nbdays,start.end.ana[1],start.end.ana[2],bv,spazm)
+  dist.list <- vector(mode="list",length(length(rean)))
   
-  # Traitement
-  nbnei <- round(nbana*0.01*n,0)
-  nei <- lapply(nei,function(v){v[1:nbnei]})
-  nei <- unlist(nei)
-  co <- rep(0,n)
-  count <- table(nei)
-  nam <- as.numeric(names(count))
-  co[nam] <- count
+  for(i in 1:length(rean)){
+  load(paste0("2_Travail/1_Past/Rresults/compute.TWS.crossed/TWS_",rean[[i]][1],"_",rean[[i]][2],"_k",k,"_",dates[[i]][1],"_",dates[[i]][2],".Rdata"))
+  dist.list[[i]] <- dist.vec
+  }
   
-  plot(sing05,co)
-  plot(density(co))
+  # Traitement saisonnier
+  for(i in 1:length(rean)){
+    tmp <- dist.list[[i]]
+    pos <- get.ind.season(sais = sais,start = dates[[i]][1],end = dates[[i]][2])
+    tmp <- tmp[pos$pos.season]
+    tmp[pos$pos.NA] <- NA
+    dim(tmp) <- c(pos$l.season,pos$n.season)
+    rm(pos)
+    
+    tmp <- apply(tmp,2,mean,na.rm=T)
+    year <- unique(substr(getdates(dates[[i]][1],dates[[i]][2]),1,4))
+    if(sais=="winter") year <- year[-1] # car pas de premiere saison hiver
+    dist.list[[i]] <- data.frame(Year=year,TWS=tmp)
+    dist.list[[i]][,1] <- as.character(dist.list[[i]][,1])
+  }
+ 
+  # Graphique
+  # Parametres
+  start.xaxis <- trunc(as.numeric(dist.list[[1]][1,1])*0.1)*10 # manip pour avoir une annee "ronde" inferieure (si 1958 -> 1950)
+  end.xaxis <- trunc(as.numeric(dist.list[[1]][nrow(dist.list[[1]]),1])*0.1)*10 # manip pour avoir une annee "ronde"
+  xaxis <- seq(start.xaxis,end.xaxis,10)
+  pos.axis <- match(xaxis,dist.list[[1]][,1])
+  if(is.na(pos.axis[1])) pos.axis[1] <- pos.axis[2]-10
+  #ylim <- c(0,max(unlist(lapply(dist.list,function(v){max(v[,2],na.rm=T)}))))
+  ylim <- c(0,0.35)
+  main <- nam2str(sais)
+  ylab <- "TWS"
+  
+  # Initialisation
+  if(save) png(filename = paste0("2_Travail/1_Past/Rresults/plot.TWS.crossed/plot_TWS_k",k,"_",sais,".png"),width = 7,height = 5,units = "in",res=600)
+  par(mar=c(4,4,2,1))
+  plot(dist.list[[1]][,2],type="n",xaxt="n",ylim=ylim,xlab="Year",ylab=ylab,main=main)
+  grid(ny=NULL,nx=NA)
+  axis(side = 1,at = pos.axis,labels = xaxis)
+  abline(v = pos.axis,lty=3,col="grey")
+  
+  # Ajout courbes
+  for(i in 1:length(rean)){
+    lines(match(dist.list[[i]][,1],dist.list[[1]][,1]),dist.list[[i]][,2],col=colo[i],lwd=2)
+  }
+  abline(h=0,col="black",lwd=2,lty=2)
+  abline(h=get.mean.descr.allrean(k = k,descr = "cel",sais = sais,ana.comm = T),col="black",lwd=2,lty=2)
+  
+  # Legende
+  if(leg) legend("topright",inset=.005,unlist(lapply(rean,function(v){paste(nam2str(v[1]),nam2str(v[2]),sep = " // ")})),col=colo,lty=1,lwd=2,bty="n",cex=0.7,ncol = 2)
+  if(save) graphics.off()
 }
-  
+
 # Run des fonctions
 run.past <- function(type=1){
   
@@ -1392,7 +1983,8 @@ run.past <- function(type=1){
       print(descr[i])
       for(j in 1:length(sais)){
         print(sais[j])
-         plot.trend.descr.cond.regquant(descr = descr[i],k = 1,dist = "TWS",rean = "ERA5",sais = sais[j])
+         plot.trend.descr.cond.regquant(descr = descr[i],k = 1,dist = "TWS",rean = "ERA5",sais = sais[j],start = "1950-01-01",end = "2010-12-31")
+         plot.trend.descr.cond.regquant(descr = descr[i],k = 1,dist = "TWS",rean = "ERA5",sais = sais[j],start = "1950-01-01",end = "2017-12-31")
       }
     }
   }
@@ -1435,6 +2027,24 @@ run.past <- function(type=1){
       for(j in 1:length(sais)){
         print(sais[j])
         map.diff.geo(k = 1,rean = rean[i],sais = sais[j])
+      }
+    }
+  }
+  
+  # plot.descr.density.subperiod
+  if(type==13){
+    sais <- c("winter","spring","summer","autumn")
+    descr <- c("cel","sing05","rsing05","dP")
+    wp <- c(NULL,1,2)
+    
+    for(i in 1:length(sais)){
+      print(sais[i])
+      for(j in 1:length(descr)){
+        print(descr[j])
+        for(k in 1:length(wp)){
+          print(wp[k])
+          plot.descr.density.subperiod(descr = descr[i],wp = wp[k],k = 1,dist = "TWS",nbdays = 1,rean = "ERA5",sais = sais[j])
+        }
       }
     }
   }
