@@ -34,7 +34,7 @@ library("viridis") # Viridis Color Palette
 library("quantreg") # rq
 library("SuppDists") # Inverse Gaussian distribution
 library("abind") # abind
-#library("sf") # sp_transform
+library("kSamples") # ad.test
 
 # Fonctions graphiques
 addcircle<-function(radius){
@@ -3290,7 +3290,7 @@ get.start.end.rean <- function(rean,period="present",type="dist",k=1){
         if(rean=="20CR-m1"){start <- "1851-01-01";end <- ifelse(k==1,"2014-12-31","2011-12-31")}
         if(rean=="20CR-m2"){start <- "1851-01-01";end <- "2011-12-31"}
         if(rean=="ERA20C"){start <- "1900-01-01";end <- "2010-12-31"}
-        if(rean=="ERA5"){start <- "1950-01-01";end <- "2017-12-31"}
+        if(rean=="ERA5"){start <- "1950-01-01";end <- "2021-07-17"} #end <- "2017-12-31"}
         if(rean=="ERA40"){start <- "1957-09-01";end <- "2002-08-31"}
         if(rean=="JRA55"){start <- "1958-01-01";end <- "2010-12-31"}
         if(rean=="JRA55C"){start <- "1972-11-01";end <- "2012-12-31"}

@@ -10,7 +10,7 @@ combine.plot.descr.density.subperiod <- function(wp=NULL,k,dist,nbdays=1,rean,st
                                             rean = rean,start = start,end = end,start.ana = start.ana,end.ana = end.ana,add.nb.density = ifelse(i==1,T,F))
   }
   
-  ggarrange(pl[[1]],pl[[2]],pl[[3]],pl[[4]],
+  ggarrange(plotlist = pl,
             ncol = 2, nrow = 2,
             widths = c(1,1),
             common.legend = TRUE, legend = "bottom",
@@ -19,6 +19,98 @@ combine.plot.descr.density.subperiod <- function(wp=NULL,k,dist,nbdays=1,rean,st
   if(is.null(wp)) wp <- "none"
   ggsave(filename = paste0(get.dirstr(k,rean,"past"),"plot.descr.density.subperiod/plot_combine_density_k",k,"_mean",nbdays,"day_wp=",wp,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".png"),width = 10,height = 10)
   graphics.off()
+}
+
+# Combinaison de plusieurs plot.descr.violin.subperiod
+combine.plot.descr.violin.subperiod <- function(k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
+  
+  # Parametres
+  wp <- c(1,2,5,8)
+  wp.name <- c("All","Atlantic","Mediterranean","Northeast","Anticyclonic")
+  descr <- c("cel","sing05","rsing05","dP")
+  
+  # Graphiques individuels et par types de temps
+  pl <- vector(mode="list",length=(length(wp)+1)*length(descr))
+  pl.wp <- vector(mode="list",length=length(wp)+1)
+  
+  for(i in 1:(length(wp)+1)){
+    
+    if(i==1){wp.i <- NULL
+    }else{wp.i<-wp[i-1]}
+    
+    for(j in 1:length(descr)){
+      pos <- length(descr)*(i-1)+j
+      print(pos)
+      pl[[pos]] <- plot.descr.violin.subperiod(descr = descr[j],wp = wp.i,k = k,dist = dist,nbdays = nbdays,rean = rean,
+                                               start = start,end = end,start.ana = start.ana,end.ana = end.ana,add.nb.box = F)#ifelse(j==1,T,F))
+    }
+  }
+    
+  for(i in 1:(length(wp)+1)){
+    pos.i <- length(descr)*(i-1)+(1:4)
+    if(i==5){
+      leg.i <- "bottom";comm.leg.i <- T
+    }else{leg.i <- F;comm.leg.i <- F}
+    
+    pl.wp[[i]] <-  ggarrange(plotlist=pl[pos.i], ncol = 4, nrow = 1,
+                             legend=leg.i,common.legend = comm.leg.i,labels=NULL)
+    pl.wp[[i]] <- annotate_figure(pl.wp[[i]], top = text_grob(wp.name[i], face = "bold", size = 18))
+  }
+    
+  # Graphique complet
+  pl.final <- ggarrange(plotlist=pl.wp, ncol = 1, nrow = 5, legend = F, heights = c(1,1,1,1,1.2))
+  pl.final <- annotate_figure(pl.final, left = text_grob("Percentile of descriptor value (%)", face = "bold", size = 16,rot=90))
+  
+  ggsave(filename = paste0(get.dirstr(k,rean,"past"),"plot.descr.violin.subperiod/plot_combine_violon_k",k,"_mean",nbdays,"day_",start,"_",end,"_ana_",start.ana,"_",end.ana,".png"),
+         plot = pl.final,height = 24,width = 22)
+  graphics.off()
+}
+
+# Combinaison de plusieurs plot.sais.violin.subperiod
+combine.plot.sais.violin.subperiod <- function(wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",combine=F){
+  
+  # Parametres
+  sais <- c("winter","spring","summer","autumn")
+  
+  # Graphiques
+  pl <- vector(mode="list",length=length(sais))
+  for(i in 1:length(sais)){
+    pl[[i]] <- plot.season.violin.subperiod(sais = sais[i],wp = wp,k = k,dist = dist,nbdays = nbdays,
+                                 rean = rean,start = start,end = end,start.ana = start.ana,end.ana = end.ana,add.nb.box = T)
+  }
+  
+  if(!combine){
+    pl.final <- ggarrange(plotlist=pl, ncol = 2, nrow = 2, common.legend = T, legend = "bottom")
+    pl.final <- annotate_figure(pl.final, left = text_grob("Percentile of descriptor value (%)", face = "bold", size = 16,rot=90))
+    if(is.null(wp)) wp <- "none"
+    ggsave(filename = paste0(get.dirstr(k,rean,"past"),"plot.sais.violin.subperiod/plot_combine_violon_k",k,"_mean",nbdays,"day_wp=",wp,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".png"),
+           plot = pl.final,height = 8,width = 14)
+    graphics.off()
+  }
+  
+  # Si second wp
+  if(combine){
+    tt <- c(1,2,5,8)
+    wp.name <- c("Atlantic","Mediterranean","Northeast","Anticyclonic")
+    wp2 <- 2
+    
+    pl.final <- ggarrange(plotlist=pl, ncol = 2, nrow = 2, legend = F)
+    pl.final <- annotate_figure(pl.final, top = text_grob(wp.name[tt==wp], face = "bold", size = 28))
+    
+    pl2 <- vector(mode="list",length=length(sais))
+    for(i in 1:length(sais)){
+      pl2[[i]] <- plot.season.violin.subperiod(sais = sais[i],wp = wp2,k = k,dist = dist,nbdays = nbdays,
+                                              rean = rean,start = start,end = end,start.ana = start.ana,end.ana = end.ana,add.nb.box = T)
+    }
+    pl.final2 <- ggarrange(plotlist=pl2, ncol = 2, nrow = 2, common.legend = T, legend = "bottom")
+    pl.final2 <- annotate_figure(pl.final2, top = text_grob(wp.name[tt==wp2], face = "bold", size = 28))
+    
+    pl.combine <- ggarrange(pl.final,pl.final2,ncol = 1,nrow = 2,heights = c(1,1.1))
+    pl.combine <- annotate_figure(pl.combine, left = text_grob("Percentile of descriptor value (%)", face = "bold", size = 20,rot=90))
+    ggsave(filename = paste0(get.dirstr(k,rean,"past"),"plot.sais.violin.subperiod/plot_combine_violon_k",k,"_mean",nbdays,"day_wp=",wp,"_wp=",wp2,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".png"),
+           plot = pl.combine,height = 18,width = 14)
+    graphics.off()
+  }
 }
 
 # Combinaison de plusieurs plot.trend.descr
@@ -889,7 +981,7 @@ plot.descr <- function(descr,k,dist,liss=5,ana.comm=F,align=F,nao=F){
   graphics.off()
 }
 
-# Calcule le nombre de jours superieurs/inferieurs à un quantile d'indicateur pour chaque saison d'une periode
+# Densites des indicateur pour deux sous-periodes par saison et pour un type de temps
 plot.descr.density.subperiod <- function(descr,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",add.nb.density=F){
   
   dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
@@ -933,7 +1025,7 @@ plot.descr.density.subperiod <- function(descr,wp=NULL,k,dist,nbdays=1,rean,star
   xlab(nam2str(descr,whole=T)) + 
     ylab("Density")+
     ggtitle(nam2str(descr,whole=T))+
-    scale_fill_manual( values = c(brewer.pal(n = 11, name = "RdBu")[9],brewer.pal(n = 11, name = "RdBu")[3]))
+    scale_fill_manual(values = c(brewer.pal(n = 11, name = "RdBu")[9],brewer.pal(n = 11, name = "RdBu")[3]))
     
   # Pour eviter chevauchement x-ticks dans le combine
   if(descr=="cel") pl <- pl+scale_x_continuous(breaks = seq(from = 0.1,to = 0.4,by = 0.1)) 
@@ -972,6 +1064,173 @@ plot.descr.density.subperiod <- function(descr,wp=NULL,k,dist,nbdays=1,rean,star
   }
   
   pl+geom_rect(data=subset(tab,Season %in% nam2str(sais)[test]),aes(fill=Season),xmin=-Inf,xmax=Inf,ymin=-Inf,ymax=Inf,colour="red",fill=NA,alpha=0.9)
+}
+
+# Boxplot d'un indicateur pour deux sous-periodes par saison et pour un type de temps
+plot.descr.violin.subperiod <-  function(descr,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",add.nb.box=F){
+  
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  
+  # Import de l'indicateur
+  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = nbdays,start = start,end = end,standardize = F,rean = rean,
+                        threeday = F,desais = F,period = "past",start.ana = start.ana,end.ana = end.ana)
+  tab <- data.frame(Dates=dates,Descr=ecdf(des)(des)*100,Season=NA,Period=NA)
+  
+  # Import des types de temps
+  if(!is.null(wp)){
+    tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+    pos.NA.tt <- which(tt!=wp)
+    tab$Descr[pos.NA.tt] <- NA
+  }
+  
+  # Saison
+  sais <- c("winter","spring","summer","autumn")
+  for(i in 1:length(sais)){
+    pos <- get.ind.season.past(sais = sais[i],start = start,end = end,nbdays = nbdays)
+    tab$Season[pos] <- nam2str(sais[i])
+  }
+  tab$Season <- factor(tab$Season,levels = nam2str(sais))
+  
+  # Periode
+  sep <- as.Date(median(as.numeric(as.Date(dates))))
+  period1 <- paste0(substr(start,1,4),"-",substr(sep-1,1,4))
+  period2 <- paste0(substr(sep,1,4),"-",substr(end,1,4))
+  tab$Period[as.Date(dates)<sep] <- period1
+  tab$Period[as.Date(dates)>=sep] <- period2
+  
+  # Graphiques Violon + boxplot
+  dodge <- position_dodge(width = 0.9)
+  
+  pl <- ggplot(tab, aes(x=Season, y=Descr, fill=Period)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0,0,-0.5,-0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=12,colour="black",vjust=0),
+          axis.text.y = element_text(size=12),plot.title = element_text(hjust = 0.5,vjust=0,face="bold",size=12),
+          legend.position = "right",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=12),
+          legend.title = element_blank())+
+    geom_violin(position=dodge,col="black")+
+    geom_boxplot(position=dodge,width=0.2,alpha=0)+
+    scale_fill_manual(values = alpha(c(brewer.pal(n = 11, name = "RdBu")[9],brewer.pal(n = 11, name = "RdBu")[3]),0.4))+
+    ylim(-5,100)+
+    xlab("")+
+    ylab("")+
+    ggtitle(nam2str(descr,whole=T))
+  
+  # Extraction et ajout du nombre de points dans les densites
+  if(add.nb.box){
+    pl.data <- ggplot_build(pl)$data[[1]]
+    n <- aggregate(pl.data$n,by=list(pl.data$group,pl.data$PANEL),unique)[,3]
+    
+    pl <- pl + annotate("text",x=c(0.8,1.2,1.8,2.2,2.8,3.2,3.8,4.2),y=-5,label=as.character(n),size=4)
+  }
+  
+  # Calcul et tracé de la significativite de la difference de distribution: Kolmogorov-Smirnov Test
+  test <- vector(length=length(sais))
+  
+  for(i in 1:length(sais)){
+    x <- tab$Descr[tab$Season==nam2str(sais[i]) & tab$Period==period1]
+    y <- tab$Descr[tab$Season==nam2str(sais[i]) & tab$Period==period2]
+    test[i] <- ks.test(x = x,y = y)$p.value < 0.05
+  }
+  
+  pos <- 1:4; pos <- pos[test]
+  for(i in pos){
+  pl <- pl+geom_rect(xmin=i-0.5,xmax=i+0.5,ymin=-1,ymax=101,colour="red",fill=NA,size=1)
+  }
+  
+  pl
+}
+
+# Boxplot d'es indicateur'une saison pour deux sous-periodes par indicateur et pour un type de temps
+plot.season.violin.subperiod <-  function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",add.nb.box=F){
+  
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  
+  # Import des indicateurs
+  descr <- c("cel","sing05","rsing05","dP")
+  des <- matrix(data = NA,nrow = length(dates),ncol = length(descr))
+  
+  for(i in 1:length(descr)){
+    des.i <- get.descriptor(descriptor = descr[i],k = k,dist = dist,nbdays = nbdays,start = start,end = end,standardize = F,rean = rean,
+                              threeday = F,desais = F,period = "past",start.ana = start.ana,end.ana = end.ana)
+    des[,i] <- ecdf(des.i)(des.i)*100
+  }
+  
+  tab <- as.data.frame(cbind(dates,des))
+  colnames(tab) <- c("Dates",nam2str(descr,whole=T))
+  
+  # Import des types de temps
+  if(!is.null(wp)){
+    tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+    pos.NA.tt <- which(tt!=wp)
+    tab[pos.NA.tt,-1] <- NA
+  }
+  
+  # Saison
+  pos <- get.ind.season.past(sais = sais,start = start,end = end,nbdays = nbdays)
+  pos.NA.sais <- which(!(1:length(dates)) %in% pos)
+  tab[pos.NA.sais,-1] <- NA
+  
+  # Periode
+  sep <- as.Date(median(as.numeric(as.Date(dates))))
+  period1 <- paste0(substr(start,1,4),"-",substr(sep-1,1,4))
+  period2 <- paste0(substr(sep,1,4),"-",substr(end,1,4))
+  tab$Period[as.Date(dates)<sep] <- period1
+  tab$Period[as.Date(dates)>=sep] <- period2
+  
+  # Nettoyage et mise en forme du tableau
+  pos <- (1:length(dates))[apply(tab[,2:5],1,function(v){!all(is.na(v))})]
+  tab <- tab[pos,]
+  tab <- pivot_longer(data = tab,cols = 2:5,names_to = "Descr",values_to = "Value")
+  tab$Value <- as.numeric(as.character(tab$Value))
+  tab$Descr <- factor(tab$Descr,levels = nam2str(descr,whole=T))
+  
+  # Graphiques Violon + boxplot
+  dodge <- position_dodge(width = 0.9)
+  
+  pl <- ggplot(tab, aes(x=Descr, y=Value, fill=Period)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0.5,0,0,-0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=13,colour="black",vjust=0),
+          axis.text.y = element_text(size=13),plot.title = element_text(hjust = 0.5,vjust=3,face="bold",size=18),
+          legend.position = "bottom",legend.key.size = unit(1.5,"cm"),
+          legend.title = element_text(hjust=0.5,vjust=0.5,size = 18,face = "bold"),
+          legend.text = element_text(size=16,colour="black"))+
+    geom_violin(position=dodge,col="black")+
+    geom_boxplot(position=dodge,width=0.2,alpha=0)+
+    scale_fill_manual(values = alpha(c(brewer.pal(n = 11, name = "RdBu")[9],brewer.pal(n = 11, name = "RdBu")[3]),0.4))+
+    ylim(-5,100)+
+    xlab("")+
+    ylab("")+
+    ggtitle(nam2str(sais,whole=T))
+  
+  # Extraction et ajout du nombre de points dans les densites
+  if(add.nb.box){
+    pl.data <- ggplot_build(pl)$data[[1]]
+    n <- aggregate(pl.data$n,by=list(pl.data$group,pl.data$PANEL),unique)[,3][1:2]
+    
+    pl <- pl + annotate("text",x=c(0.8,1.2),y=-5,label=as.character(n),size=5)
+  }
+  
+  # Calcul et tracé de la significativite de la difference de distribution: Kolmogorov-Smirnov Test et Anderson-Darling Test
+  test.ks <- test.ad <- vector(length=length(descr))
+  
+  for(i in 1:length(descr)){
+    x <- tab$Value[tab$Descr==nam2str(descr[i],whole=T) & tab$Period==period1]
+    y <- tab$Value[tab$Descr==nam2str(descr[i],whole=T) & tab$Period==period2]
+    test.ks[i] <- ks.test(x = x,y = y)$p.value < 0.05
+    test.ad[i] <- ad.test(x,y)$ad[1,3] < 0.05
+  }
+  
+  res <- test.ks+test.ad
+  pos <- 1:4;pos <- pos[res>=1]
+  for(i in pos){pl <- pl+geom_rect(xmin=i-0.5,xmax=i+0.5,ymin=-1,ymax=101,colour="black",fill=NA,size=1,linetype=ifelse(res[i]==2,1,2))}
+  #pos.ks <- pos.ad <- 1:4
+  #pos.ks <- pos.ks[test.ks];pos.ad <- pos.ad[test.ad]
+  #for(i in pos.ks){pl <- pl+geom_rect(xmin=i-0.5,xmax=i+0.5,ymin=-1,ymax=101,colour="red",fill=NA,size=1)}
+  #for(i in pos.ad){pl <- pl+geom_rect(xmin=i-0.5,xmax=i+0.5,ymin=-1,ymax=101,colour="purple",fill=NA,size=1,linetype=3)}
+  
+  pl
 }
 
 # Trace la relation entre la singularite

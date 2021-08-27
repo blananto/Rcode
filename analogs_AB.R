@@ -1371,7 +1371,7 @@ save.ana <- function(k,dist,nbdays,rean,period="past"){
   dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
   N <- length(dates.rean)
   
-  start.end.ana <- c("1950-01-01","2010-12-31")
+  start.end.ana <- c("1950-01-01","2021-07-17")
   dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
   n <- length(dates.ana)
   
@@ -1546,7 +1546,7 @@ save.ana.par <- function(k,dist,nbdays,rean,period="past",season=F,ncores=6){
   dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
   N <- length(dates.rean)
   
-  start.end.ana <- c("1950-01-01","2010-12-31")
+  start.end.ana <- c("1950-01-01","2021-07-17")
   dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
   n <- length(dates.ana)
   
