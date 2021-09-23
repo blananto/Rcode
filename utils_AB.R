@@ -3301,7 +3301,7 @@ get.start.end.rean <- function(rean,period="present",type="dist",k=1){
         if(rean=="20CR-m1"){start <- "1851-01-01";end <- "2010-12-31"}
         if(rean=="20CR-m2"){start <- "1851-01-01";end <- "2010-12-31"}
         if(rean=="ERA20C"){start <- "1900-01-01";end <- "2010-12-31"}
-        if(rean=="ERA5"){start <- "1950-01-01";end <- "2017-12-31"}
+        if(rean=="ERA5"){start <- "1950-01-01";end <- "2017-12-31"} # 2010-12-31 pour results part 1 article 2. 2017-12-31 ou 2021-07-17 pour le reste
         if(rean=="ERA40"){start <- "1957-09-01";end <- "2002-08-31"}
         if(rean=="JRA55"){start <- "1958-01-01";end <- "2010-12-31"}
         if(rean=="JRA55C"){start <- "1972-11-01";end <- "2010-12-30"}
@@ -3719,6 +3719,16 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
       nc1000<-nc500
     }
     
+    if(rean == "ERA5_regrid_20CR"){
+      nc500<-nc_open("2_Travail/Data/Reanalysis/ERA5/HGT500/ERA5_HGT500_1950-01-01_2021-07-17_daily_regrid_20CR.nc")
+      nc1000<-nc500
+    }
+    
+    if(rean == "ERA5_regrid_ERA20C"){
+      nc500<-nc_open("2_Travail/Data/Reanalysis/ERA5/HGT500/ERA5_HGT500_1950-01-01_2021-07-17_daily_regrid_ERA20C.nc")
+      nc1000<-nc500
+    }
+    
     if(rean == "ERA5" & var == "tcw"){
       nc<-nc_open("2_Travail/Data/Reanalysis/ERA5/TCW/ERA5_TCW_1950_2019_daily.nc")
       names(nc$dim) <- c("lon","lat","time","bnds")
@@ -4032,7 +4042,7 @@ map.geo <- function(date,rean="20CR",climat=NULL,run=1,k,nbdays=1,save=F,win=F,l
     plot(wrld_simpl, add = TRUE)
     
     # Region d'etude
-    points(6,45,col="red",pch=19)
+    #points(6,45,col="red",pch=19)
     
     # Fenetre d'analogie
     delta <- abs(lon[1]-lon[2])/2
@@ -4262,6 +4272,8 @@ nam2str<-function(nams,cloud=FALSE,whole=F,unit=F){
     if(nams[i] == "20CR-m1") nams[i] <- "20CR-mbr 1"
     if(nams[i] == "20CR-m2") nams[i] <- "20CR-mbr 2"
     if(nams[i] == "ERA20C_regrid_20CR") nams[i] <- "ERA20C"
+    if(nams[i] == "ERA5_regrid_20CR") nams[i] <- "ERA5"
+    if(nams[i] == "ERA5_regrid_ERA20C") nams[i] <- "ERA5"
     }
   
   if(!cloud && length(nams)==2 && nams != c("A","A")){ # si on ne l'utilise pas pour un nuage de points, alors nams de longueur 1

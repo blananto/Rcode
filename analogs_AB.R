@@ -1422,7 +1422,7 @@ save.ana <- function(k,dist,nbdays,rean,period="past"){
     gc()
     soso<-sort(di,index.return=TRUE)
     soso$ix <- soso$ix[!(soso$ix %in% out)] # on retire les journees/sequences trop proches de la cible
-    soso$ix[1:(0.2*N)] # on garde les 20% dans un permier temps
+    #soso$ix[1:(0.2*N)] # on garde les 20% dans un permier temps
     nei.long[[i]] <- soso$ix[1:(0.05*N)] # on garde les 5% analogues pour etre large
     soso$ix <- soso$ix[soso$ix %in% ind]
     nei.short[[i]] <- soso$ix[1:(0.05*n)] # on garde les 5% analogues pour etre large

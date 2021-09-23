@@ -113,6 +113,27 @@ combine.plot.sais.violin.subperiod <- function(wp=NULL,k,dist,nbdays=1,rean,star
   }
 }
 
+# Combinaison de plusieurs plot.season.diff.density.subperiod
+combine.plot.season.diff.density.subperiod <- function(wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
+  
+  # Parametres
+  sais <- c("winter","spring","summer","autumn")
+  
+  # Graphiques
+  pl <- vector(mode="list",length=length(sais))
+  for(i in 1:length(sais)){
+    pl[[i]] <- plot.season.diff.density.subperiod(sais = sais[i],wp = wp,k = k,dist = dist,nbdays = nbdays,
+                                                  rean = rean,start = start,end = end,start.ana = start.ana,end.ana = end.ana,add.nb.box = T)
+  }
+  
+  pl.final <- ggarrange(plotlist=pl, ncol = 2, nrow = 2, common.legend = T, legend = "bottom")
+  pl.final <- annotate_figure(pl.final, left = text_grob("Percentile of descriptor value (%)", face = "bold", size = 16,rot=90))
+  if(is.null(wp)) wp <- "none"
+  ggsave(filename = paste0(get.dirstr(k,rean,"past"),"plot.sais.diff.density.subperiod/plot_combine_diff_density_k",k,"_mean",nbdays,"day_wp=",wp,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".png"),
+         plot = pl.final,height = 8,width = 14)
+  graphics.off()
+}
+
 # Combinaison de plusieurs plot.trend.descr
 combine.plot.trend.descr <- function(k,dist,liss=5,ana.comm=F,align=F,nao=F){
   
@@ -135,6 +156,48 @@ combine.plot.trend.descr <- function(k,dist,liss=5,ana.comm=F,align=F,nao=F){
     leg <- ifelse(i==1,T,F)
     plot.trend.descr(descr = ind,k = 1,dist = dist,sais = sais[i],liss = liss,
                      ana.comm = ana.comm,align = align,nao = nao,leg = leg,save = F,type="season")
+  }
+  graphics.off()
+}
+
+# Combinaison de plusieurs plot.trend.descr
+combine.plot.trend.descr.all <- function(k,dist,liss=1,ana.comm=F,align=F,nao=F){
+  
+  # Indicateurs
+  ind <- c("cel","sing05","rsing05","dP")
+  namind <- ifelse(length(ind)==1,ind,"alldescr")
+  
+  # Saisons
+  sais <- c("winter","spring","summer","autumn")
+  namsais <- ifelse(length(sais)==1,sais,"allsais")
+  
+  # Graphique
+  dates.ana <- c("1950-01-01","2010-12-31")
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.descr/plot_combine_trend_",namind,"_",namsais,"_liss=",liss,ifelse(ana.comm,paste0("_ana_",dates.ana[1],"_",dates.ana[2]),""),ifelse(align,"_align",""),ifelse(nao,"_nao",""),".png"),width = 12,height = 12,units = "in",res=600)
+  layout(mat = matrix(data = 1:25,nrow = 5,ncol = 5,byrow = 5),widths = c(0.2,1,1,1,1),heights = c(0.2,1,1,1,1))
+  
+  # Titres
+  par(mar=c(0,0,0,0))
+  plot(1,1,type="n",xaxt="n",yaxt="n",bty="n")
+  for(i in 1:length(sais)){
+    plot(1,1,type="n",xaxt="n",yaxt="n",bty="n")
+    text(1,1,nam2str(sais[i]),cex=2,font=2)
+  }
+  
+
+  # ylab et graphiques
+  for(i in 1:length(ind)){
+    print(ind[i])
+    par(mar=c(0,0,0,0))
+    plot(1,1,type="n",xaxt="n",yaxt="n",bty="n")
+    text(1,1.1,nam2str(ind[i],whole = T,unit = T),cex=2,font=2,srt=90)
+    par(mar=c(3,1.5,0,1))
+    for(j in 1:length(sais)){
+      print(paste0("plot ",j,"/",length(sais)))
+      leg <- F; if(i==1 & j==1) leg <- T
+      plot.trend.descr(descr = ind[i],k = 1,dist = dist,sais = sais[j],liss = liss,
+                       ana.comm = ana.comm,align = align,nao = nao,leg = leg,save = F,type="season")
+    }
   }
   graphics.off()
 }
@@ -1066,6 +1129,110 @@ plot.descr.density.subperiod <- function(descr,wp=NULL,k,dist,nbdays=1,rean,star
   pl+geom_rect(data=subset(tab,Season %in% nam2str(sais)[test]),aes(fill=Season),xmin=-Inf,xmax=Inf,ymin=-Inf,ymax=Inf,colour="red",fill=NA,alpha=0.9)
 }
 
+# Graphique du nombre d'indicateurs en dessous d'un seuil sur une saison pour deux sous-periodes et pour un type de temps (comptage d'extremes de precipitation dans ces seuils)
+plot.season.count.subperiod <-  function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",add.nb.box=F){
+  
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  
+  # Import des indicateurs
+  descr <- c("cel","sing05","rsing05","dP")
+  des <- matrix(data = NA,nrow = length(dates),ncol = length(descr))
+  
+  for(i in 1:length(descr)){
+    des[,i] <- get.descriptor(descriptor = descr[i],k = k,dist = dist,nbdays = nbdays,start = start,end = end,standardize = F,rean = rean,
+                            threeday = F,desais = F,period = "past",start.ana = start.ana,end.ana = end.ana)
+    #des[,i] <- ecdf(des.i)(des.i)*100
+  }
+  
+  tab <- as.data.frame(cbind(dates,des))
+  colnames(tab) <- c("Dates",nam2str(descr,whole=T))
+  
+  # Import des types de temps
+  if(!is.null(wp)){
+    tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+    pos.NA.tt <- which(tt!=wp)
+    tab[pos.NA.tt,-1] <- NA
+  }
+  
+  pos <- apply(tab[,2:5],1,function(v){!all(is.na(v))})
+  tab[,2:5] <- apply(tab[,2:5],2,function(v){v <- na.omit(as.numeric(as.character(v)));dis <- ecdf(v)(v)*100;res <- rep(NA,nrow(tab));res[pos] <- dis;res})
+  
+  # Saison
+  pos <- get.ind.season.past(sais = sais,start = start,end = end,nbdays = nbdays)
+  pos.NA.sais <- which(!(1:length(dates)) %in% pos)
+  tab[pos.NA.sais,-1] <- NA
+  
+  # Periode
+  sep <- as.Date(median(as.numeric(as.Date(dates))))
+  period1 <- paste0(substr(start,1,4),"-",substr(sep-1,1,4))
+  period2 <- paste0(substr(sep,1,4),"-",substr(end,1,4))
+  tab$Period[as.Date(dates)<sep] <- period1
+  tab$Period[as.Date(dates)>=sep] <- period2
+  
+  # Nettoyage et mise en forme du tableau
+  tab <- pivot_longer(data = tab,cols = 2:5,names_to = "Descr",values_to = "Value")
+  tab$Value <- as.numeric(as.character(tab$Value))
+  tab$Descr <- factor(tab$Descr,levels = nam2str(descr,whole=T))
+  
+  # Precipitations extremes
+  extr <- get.ind.max.flow(flow = wp,agreg = T,nbdays = nbdays,start = start,end = end,spazm = T,supseuil = T,nei = T)
+  dates[extr]
+  tmp <- tab[tab$Dates %in% dates[extr],]
+  
+  pos <- which(tab$Descr=="Celerity" & tab$Value<25)
+  pos1 <- which(tab$Descr=="Singularity" & tab$Value<25)
+  pos2 <- which(tab$Descr=="Relative Singularity" & tab$Value<25)
+  pos3 <- which(tab$Descr=="MPD" & tab$Value>75)
+  pos <- sort(c(pos,pos1,pos2,pos3))
+  tab <- tab[pos,]
+  
+  # Graphiques Violon + boxplot
+  dodge <- position_dodge(width = 0.9)
+  
+  pl <- ggplot(tab, aes(x=Descr, y=Value, fill=Period)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0.5,0,0,-0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=13,colour="black",vjust=0),
+          axis.text.y = element_text(size=13),plot.title = element_text(hjust = 0.5,vjust=3,face="bold",size=18),
+          legend.position = "bottom",legend.key.size = unit(1.5,"cm"),
+          legend.title = element_text(hjust=0.5,vjust=0.5,size = 18,face = "bold"),
+          legend.text = element_text(size=16,colour="black"))+
+    geom_bar(stat="identity")+
+    scale_fill_manual(values = alpha(c(brewer.pal(n = 11, name = "RdBu")[9],brewer.pal(n = 11, name = "RdBu")[3]),0.4))+
+    #ylim(-5,100)+
+    xlab("")+
+    ylab("")+
+    ggtitle(nam2str(sais,whole=T))
+  
+  # Extraction et ajout du nombre de points dans les densites
+  if(add.nb.box){
+    pl.data <- ggplot_build(pl)$data[[1]]
+    n <- aggregate(pl.data$n,by=list(pl.data$group,pl.data$PANEL),unique)[,3][1:2]
+    
+    pl <- pl + annotate("text",x=c(0.8,1.2),y=-5,label=as.character(n),size=5)
+  }
+  
+  # Calcul et tracé de la significativite de la difference de distribution: Kolmogorov-Smirnov Test et Anderson-Darling Test
+  test.ks <- test.ad <- vector(length=length(descr))
+  
+  for(i in 1:length(descr)){
+    x <- tab$Value[tab$Descr==nam2str(descr[i],whole=T) & tab$Period==period1]
+    y <- tab$Value[tab$Descr==nam2str(descr[i],whole=T) & tab$Period==period2]
+    test.ks[i] <- ks.test(x = x,y = y)$p.value < 0.05
+    test.ad[i] <- ad.test(x,y)$ad[1,3] < 0.05
+  }
+  
+  res <- test.ks+test.ad
+  pos <- 1:4;pos <- pos[res>=1]
+  for(i in pos){pl <- pl+geom_rect(xmin=i-0.5,xmax=i+0.5,ymin=-1,ymax=101,colour="red",fill=NA,size=1,linetype=ifelse(res[i]==2,1,2))}
+  #pos.ks <- pos.ad <- 1:4
+  #pos.ks <- pos.ks[test.ks];pos.ad <- pos.ad[test.ad]
+  #for(i in pos.ks){pl <- pl+geom_rect(xmin=i-0.5,xmax=i+0.5,ymin=-1,ymax=101,colour="red",fill=NA,size=1)}
+  #for(i in pos.ad){pl <- pl+geom_rect(xmin=i-0.5,xmax=i+0.5,ymin=-1,ymax=101,colour="purple",fill=NA,size=1,linetype=3)}
+  
+  pl
+}
+
 # Boxplot d'un indicateur pour deux sous-periodes par saison et pour un type de temps
 plot.descr.violin.subperiod <-  function(descr,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",add.nb.box=F){
   
@@ -1141,7 +1308,7 @@ plot.descr.violin.subperiod <-  function(descr,wp=NULL,k,dist,nbdays=1,rean,star
   pl
 }
 
-# Boxplot d'es indicateur'une saison pour deux sous-periodes par indicateur et pour un type de temps
+# Boxplot des indicateurs d'une saison pour deux sous-periodes par indicateur et pour un type de temps
 plot.season.violin.subperiod <-  function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",add.nb.box=F){
   
   dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
@@ -1224,11 +1391,164 @@ plot.season.violin.subperiod <-  function(sais,wp=NULL,k,dist,nbdays=1,rean,star
   
   res <- test.ks+test.ad
   pos <- 1:4;pos <- pos[res>=1]
-  for(i in pos){pl <- pl+geom_rect(xmin=i-0.5,xmax=i+0.5,ymin=-1,ymax=101,colour="black",fill=NA,size=1,linetype=ifelse(res[i]==2,1,2))}
+  for(i in pos){pl <- pl+geom_rect(xmin=i-0.5,xmax=i+0.5,ymin=-1,ymax=101,colour="red",fill=NA,size=1,linetype=ifelse(res[i]==2,1,2))}
   #pos.ks <- pos.ad <- 1:4
   #pos.ks <- pos.ks[test.ks];pos.ad <- pos.ad[test.ad]
   #for(i in pos.ks){pl <- pl+geom_rect(xmin=i-0.5,xmax=i+0.5,ymin=-1,ymax=101,colour="red",fill=NA,size=1)}
   #for(i in pos.ad){pl <- pl+geom_rect(xmin=i-0.5,xmax=i+0.5,ymin=-1,ymax=101,colour="purple",fill=NA,size=1,linetype=3)}
+  
+  pl
+}
+
+# Differences de distribution des indicateurs entre deux sous-périodes, pour une saison et pour un type de temps
+plot.season.diff.density.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",add.nb.box=F){
+  
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  
+  # Import des indicateurs
+  descr <- c("cel","sing05","rsing05","dP")
+  des <- matrix(data = NA,nrow = length(dates),ncol = length(descr))
+  
+  for(i in 1:length(descr)){
+    des.i <- get.descriptor(descriptor = descr[i],k = k,dist = dist,nbdays = nbdays,start = start,end = end,standardize = F,rean = rean,
+                            threeday = F,desais = F,period = "past",start.ana = start.ana,end.ana = end.ana)
+    des[,i] <- ecdf(des.i)(des.i)*100
+  }
+  
+  tab <- as.data.frame(cbind(dates,des))
+  colnames(tab) <- c("Dates",nam2str(descr,whole=T))
+  
+  # Import des types de temps
+  if(!is.null(wp)){
+    tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+    pos.NA.tt <- which(tt!=wp)
+    tab[pos.NA.tt,-1] <- NA
+  }
+  
+  # Saison
+  pos <- get.ind.season.past(sais = sais,start = start,end = end,nbdays = nbdays)
+  pos.NA.sais <- which(!(1:length(dates)) %in% pos)
+  tab[pos.NA.sais,-1] <- NA
+  
+  # Periode
+  sep <- as.Date(median(as.numeric(as.Date(dates))))
+  period1 <- paste0(substr(start,1,4),"-",substr(sep-1,1,4))
+  period2 <- paste0(substr(sep,1,4),"-",substr(end,1,4))
+  tab$Period[as.Date(dates)<sep] <- period1
+  tab$Period[as.Date(dates)>=sep] <- period2
+  
+  # Nettoyage et mise en forme du tableau
+  pos <- (1:length(dates))[apply(tab[,2:5],1,function(v){!all(is.na(v))})]
+  tab <- tab[pos,]
+  tab <- pivot_longer(data = tab,cols = 2:5,names_to = "Descr",values_to = "Value")
+  tab$Value <- as.numeric(as.character(tab$Value))
+  tab$Descr <- factor(tab$Descr,levels = nam2str(descr,whole=T))
+  pos.ok <- which(!is.na(tab$Value)) # pour retirer celerite 1er jour
+  tab <- tab[pos.ok,]
+  
+  # Graphiques boxplot
+  dodge <- position_dodge(width = 0.9)
+  tab.segment <- data.frame(x = c(1,2,3,4), y = rep(0,4), xend = c(1,2,3,4), yend = rep(100,4),Period=NA,Descr=NA,Value=NA)
+  
+  
+  pl <- ggplot(tab, aes(x=Descr, y=Value, fill=Period)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0.5,0,0,-0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=13,colour="black",vjust=0),
+          axis.text.y = element_text(size=13),plot.title = element_text(hjust = 0.5,vjust=3,face="bold",size=18),
+          legend.position = "bottom",legend.key.size = unit(1.5,"cm"),
+          legend.title = element_text(hjust=0.5,vjust=0.5,size = 18,face = "bold"),
+          legend.text = element_text(size=16,colour="black"))+
+    geom_boxplot(position=dodge,width=0.2)+
+    scale_fill_manual(values = c(brewer.pal(n = 11, name = "RdBu")[9],brewer.pal(n = 11, name = "RdBu")[3]))+
+    ylim(-5,100)+
+    xlab("")+
+    ylab("")+
+    ggtitle(nam2str(sais,whole=T))+
+    geom_segment(data=tab.segment,aes(x=x,y=y,xend=xend,yend=yend), linetype="dashed")
+  
+  # Ajout densites
+  value <- as.numeric(as.matrix(tab$Value))
+  res <- list()
+  
+  for(i in 1:length(descr)){
+    # Difference de densite
+    pos1 <- which(tab$Descr==nam2str(descr[i],whole=T) & tab$Period==period1)
+    pos2 <- which(tab$Descr==nam2str(descr[i],whole=T) & tab$Period==period2)
+    dens1 <- density(value[pos1],from=0,to=100,n=101)
+    dens2 <- density(value[pos2],from=0,to=100,n=101)
+    x <- c(0,dens2$y-dens1$y,0)
+    y <- c(0,dens1$x,100)
+    
+    # Mise en forme
+    x <- x*35; x <- x+i
+    tmp <- data.frame(X=x,Y=y,Descr=rep(nam2str(descr[i],whole=T),length(x)),Value=rep(NA,length(x))) # ajout des colonnes factices Descr et Value obligatoire
+    
+    # Graphique densites
+    pl <- pl +
+      geom_path(data = tmp, aes(x = X, y = Y,fill=NULL))
+    
+    # Stockage des positions pour remplissage
+    Xmin <- tmp$X;Xmin[which(tmp$X>i)] <- i
+    Xmax <- tmp$X;Xmax[which(tmp$X<i)] <- i
+    res[[i]] <- data.frame(Xmin=Xmin,Xmax=Xmax)
+    #res[[i]] <- data.frame(Xmin.prec=rep(0.5,length(x)),Xmin=Xmin,Xmax=Xmax,Y=tmp$Y,Descr=tmp$Descr,Value=tmp$Value)
+    #if(i>1) res[[i]][,"Xmin.prec"] <- res[[i-1]][,"Xmax"]
+  }
+  
+  # Graphique remplissage: serait plus concis sous forme de boucle, mais mauvais remplissage en boucle avec geom_ribbon...
+  
+  #for(i in 1:length(descr)){
+  #  pl <- pl + geom_ribbon(data=res[[i]],aes(xmin=Xmin.prec,xmax=Xmin,y=Y),fill=NA)
+  #  pl <- pl + geom_ribbon(data=res[[i]],aes(xmin=Xmin,xmax=i,y=Y),fill=brewer.pal(n = 11, name = "RdBu")[9])
+  #  pl <- pl + geom_ribbon(data=res[[i]],aes(xmin=i,xmax=Xmax,y=Y),fill=brewer.pal(n = 11, name = "RdBu")[3])
+  #}
+  
+  # Mise en forme
+  res <- do.call(cbind,res)
+  res <- cbind(tmp$Descr,tmp$Value,tmp$Y,res)
+  colnames(res)[1:3] <- c("Descr","Value","Y")
+  colnames(res)[6:7] <- paste0(colnames(res)[6:7],"2")
+  colnames(res)[8:9] <- paste0(colnames(res)[8:9],"3")
+  colnames(res)[10:11] <- paste0(colnames(res)[10:11],"4")
+  
+  # Graphique
+  pl <- pl + geom_ribbon(data=res,aes(xmin=Xmin,xmax=1,y=Y),fill=brewer.pal(n = 11, name = "RdBu")[9])
+  pl <- pl + geom_ribbon(data=res,aes(xmin=1,xmax=Xmax,y=Y),fill=brewer.pal(n = 11, name = "RdBu")[3])
+ 
+  pl <- pl + geom_ribbon(data=res,aes(xmin=Xmax,xmax=Xmin2,y=Y),fill=NA)
+  pl <- pl + geom_ribbon(data=res,aes(xmin=Xmin2,xmax=2,y=Y),fill=brewer.pal(n = 11, name = "RdBu")[9])
+  pl <- pl + geom_ribbon(data=res,aes(xmin=2,xmax=Xmax2,y=Y),fill=brewer.pal(n = 11, name = "RdBu")[3])
+  
+  pl <- pl + geom_ribbon(data=res,aes(xmin=Xmax2,xmax=Xmin3,y=Y),fill=NA)
+  pl <- pl + geom_ribbon(data=res,aes(xmin=Xmin3,xmax=3,y=Y),fill=brewer.pal(n = 11, name = "RdBu")[9])
+  pl <- pl + geom_ribbon(data=res,aes(xmin=3,xmax=Xmax3,y=Y),fill=brewer.pal(n = 11, name = "RdBu")[3])
+  
+  pl <- pl + geom_ribbon(data=res,aes(xmin=Xmax3,xmax=Xmin4,y=Y),fill=NA)
+  pl <- pl + geom_ribbon(data=res,aes(xmin=Xmin4,xmax=4,y=Y),fill=brewer.pal(n = 11, name = "RdBu")[9])
+  pl <- pl + geom_ribbon(data=res,aes(xmin=4,xmax=Xmax4,y=Y),fill=brewer.pal(n = 11, name = "RdBu")[3])
+
+  # Extraction et ajout du nombre de points dans les densites
+  if(add.nb.box){
+    n <- c(sum(tab$Descr==nam2str(descr[1],whole=T) & tab$Period==period1),
+           sum(tab$Descr==nam2str(descr[1],whole=T) & tab$Period==period2))
+    
+    pl <- pl + annotate("text",x=c(0.8,1.2),y=-5,label=as.character(n),size=5)
+  }
+  
+  # Calcul et tracé de la significativite de la difference de distribution: Kolmogorov-Smirnov Test et Anderson-Darling Test
+  test.ks <- test.ad <- vector(length=length(descr))
+  
+  for(i in 1:length(descr)){
+    x <- tab$Value[tab$Descr==nam2str(descr[i],whole=T) & tab$Period==period1]
+    y <- tab$Value[tab$Descr==nam2str(descr[i],whole=T) & tab$Period==period2]
+    test.ks[i] <- ks.test(x = x,y = y)$p.value < 0.05
+    test.ad[i] <- ad.test(x,y)$ad[1,3] < 0.05
+  }
+  
+  res <- test.ks+test.ad
+  pos <- 1:4;pos <- pos[res>=1]
+  for(i in pos){pl <- pl+geom_rect(xmin=i-0.5,xmax=i+0.5,ymin=0,ymax=100,colour="red",fill=NA,size=1,linetype=ifelse(res[i]==2,1,2))}
   
   pl
 }
@@ -1332,14 +1652,16 @@ plot.trend.descr <- function(descr,k,dist,sais="year",liss=5,ana.comm=F,align=F,
     des[[i]] <- data.frame(Year=year,Ind=ind)
     des[[i]][,1] <- as.character(des[[i]][,1])
     
-    # Alignement et lissage
-    if(align){
-      delta[i] <- des[[i]][nrow(des[[i]]),2]
-      des[[i]][,2] <- des[[i]][,2] - delta[i]
-    }
+    # Lissage et alignement
     if(liss!=1){
       des[[i]][,2] <- rollapply(des[[i]][,2],liss,mean,partial=F,fill=NA)
     }
+    
+    if(align){
+      delta[i] <- des[[i]][max(which(!is.na(des[[i]][,2]))),2]
+      des[[i]][,2] <- des[[i]][,2] - delta[i]
+    }
+    
   }
   
   # Si NAO (non utilise)
@@ -1358,17 +1680,35 @@ plot.trend.descr <- function(descr,k,dist,sais="year",liss=5,ana.comm=F,align=F,
   xaxis <- seq(start.xaxis,end.xaxis,10)
   pos.axis <- match(xaxis,des[[1]][,1])
   if(is.na(pos.axis[1])) pos.axis[1] <- pos.axis[2]-10
-  #ylim <- range(unlist(lapply(des,function(v){range(v[,2],na.rm=T)})))
-  ylim <- c(-130,100)
+  #main <- ifelse(type=="season",nam2str(sais),nam2str(descr,whole=T))
+  main <- ""
+  
+  ylim <- range(unlist(lapply(des,function(v){range(v[,2],na.rm=T)})))
   if(align) {delta <- delta - delta[which(rean=="ERA5")]; ylim <- range(ylim,delta)} # ERA5 en reference
-  main <- ifelse(type=="season",nam2str(sais),nam2str(descr,whole=T))
+  
+  if(liss==1 & align){
+  if(descr=="cel") ylim <- c(-0.1,0.06)
+  if(descr=="sing05") ylim <- c(-0.06,0.08)
+  if(descr=="rsing05") ylim <- c(-0.02,0.015)
+  if(descr=="dP") ylim <- c(-150,100)
+  }
+  
+  if(liss==5 & align){
+  if(descr=="cel") ylim <- c(-0.08,0.02)
+  if(descr=="sing05") ylim <- c(-0.03,0.03)
+  if(descr=="rsing05") ylim <- c(-0.01,0.015)
+  if(descr=="dP") ylim <- c(-80,40)
+  }
   
   # Initialisation
-  if(save) png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.descr/plot_trend_",descr,"_",sais,"_liss=",liss,ifelse(ana.comm,paste0("_ana_",dates.ana[[1]][1],"_",dates.ana[[1]][2]),""),ifelse(align,"_align",""),ifelse(nao,"_nao",""),".png"),width = 7,height = 5,units = "in",res=600)
-  par(mar=c(4,4,2,1))
-  plot(des[[1]][,2],type="n",xaxt="n",ylim=ylim,xlab="Year",ylab=nam2str(descr,whole=T,unit = T),main=main)
+  if(save) {
+    png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.descr/plot_trend_",descr,"_",sais,"_liss=",liss,ifelse(ana.comm,paste0("_ana_",dates.ana[[1]][1],"_",dates.ana[[1]][2]),""),ifelse(align,"_align",""),ifelse(nao,"_nao",""),".png"),width = 7,height = 5,units = "in",res=600)
+    par(mar=c(4,4,2,1))
+  }
+  plot(des[[1]][,2],type="n",xaxt="n",yaxt="n",ylim=ylim,xlab="Year",ylab=nam2str(descr,whole=T,unit = T),main=main)
   grid(ny=NULL,nx=NA)
-  axis(side = 1,at = pos.axis,labels = xaxis)
+  axis(side = 1,at = pos.axis,labels = xaxis,cex.axis=1.5)
+  axis(side = 2,cex.axis=1.5)
   abline(v = pos.axis,lty=3,col="grey")
   
   # Ajout courbes
@@ -1377,7 +1717,7 @@ plot.trend.descr <- function(descr,k,dist,sais="year",liss=5,ana.comm=F,align=F,
   }
   
   # Points delta si align
-  if(align) points(rep(tail(pos.axis,1),length(delta)),delta,col=colo,pch=18,cex=1.5)
+  if(align) points(rep(tail(pos.axis,1),length(delta)),delta,col=colo,pch=18,cex=2)
   
   # NAO
   if(nao){
@@ -1389,7 +1729,7 @@ plot.trend.descr <- function(descr,k,dist,sais="year",liss=5,ana.comm=F,align=F,
   }
   
   # Legende
-  if(leg) legend("topleft",inset=.01,nam2str(rean),col=colo,lty=1,lwd=2,bty="n",cex=0.7)
+  if(leg) legend("bottomright",inset=.01,nam2str(rean),col=colo,lty=1,lwd=2,bty="n",cex=1.5)
   if(save) graphics.off()
 }
 
@@ -2005,7 +2345,11 @@ plot.TWS.crossed <- function(k,start="1851-01-01",end="2010-12-31",sais,leg=T,sa
     c("20CR-m1","20CR-m2"),
     c("20CR-m0","ERA20C_regrid_20CR"),
     c("20CR-m1","ERA20C_regrid_20CR"),
-    c("20CR-m2","ERA20C_regrid_20CR")
+    c("20CR-m2","ERA20C_regrid_20CR"),
+    c("20CR-m0","ERA5_regrid_20CR"),
+    c("20CR-m1","ERA5_regrid_20CR"),
+    c("20CR-m2","ERA5_regrid_20CR"),
+    c("ERA20C","ERA5_regrid_ERA20C")
   )
   
   dates <- list(
@@ -2014,10 +2358,14 @@ plot.TWS.crossed <- function(k,start="1851-01-01",end="2010-12-31",sais,leg=T,sa
     c(start,end),
     c("1900-01-01",end),
     c("1900-01-01",end),
-    c("1900-01-01",end)
+    c("1900-01-01",end),
+    c("1950-01-01",end),
+    c("1950-01-01",end),
+    c("1950-01-01",end),
+    c("1950-01-01",end)
   )
   
-  colo <- c("gray0","gray30","gray60","red","red3","red4")
+  colo <- c("gray0","gray30","gray60","red4","red","red3","steelblue4","steelblue1","steelblue","purple")
   
   dist.list <- vector(mode="list",length(length(rean)))
   
@@ -2050,7 +2398,7 @@ plot.TWS.crossed <- function(k,start="1851-01-01",end="2010-12-31",sais,leg=T,sa
   pos.axis <- match(xaxis,dist.list[[1]][,1])
   if(is.na(pos.axis[1])) pos.axis[1] <- pos.axis[2]-10
   #ylim <- c(0,max(unlist(lapply(dist.list,function(v){max(v[,2],na.rm=T)}))))
-  ylim <- c(0,0.35)
+  ylim <- c(0,0.4)
   main <- nam2str(sais)
   ylab <- "TWS"
   
@@ -2062,15 +2410,17 @@ plot.TWS.crossed <- function(k,start="1851-01-01",end="2010-12-31",sais,leg=T,sa
   axis(side = 1,at = pos.axis,labels = xaxis)
   abline(v = pos.axis,lty=3,col="grey")
   
+  abline(h=0,col="black",lwd=2,lty=2)
+  #abline(h=get.mean.descr.allrean(k = k,descr = "cel",sais = sais,ana.comm = T),col="black",lwd=2,lty=2)
+  abline(h=0.28,col="black",lwd=2,lty=2) # celerite du 1978-12-12 (figure 1 article 2)
+  
   # Ajout courbes
   for(i in 1:length(rean)){
     lines(match(dist.list[[i]][,1],dist.list[[1]][,1]),dist.list[[i]][,2],col=colo[i],lwd=2)
   }
-  abline(h=0,col="black",lwd=2,lty=2)
-  abline(h=get.mean.descr.allrean(k = k,descr = "cel",sais = sais,ana.comm = T),col="black",lwd=2,lty=2)
   
   # Legende
-  if(leg) legend("topright",inset=.005,unlist(lapply(rean,function(v){paste(nam2str(v[1]),nam2str(v[2]),sep = " // ")})),col=colo,lty=1,lwd=2,bty="n",cex=0.7,ncol = 2)
+  if(leg) legend("topleft",unlist(lapply(rean,function(v){paste(nam2str(v[1]),nam2str(v[2]),sep = " // ")})),col=colo,lty=1,lwd=2,bty="n",cex=0.65,ncol = 2,text.width = 60)
   if(save) graphics.off()
 }
 

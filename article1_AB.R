@@ -501,7 +501,7 @@ compare.descr.flow <- function(flow=c(1,2),agreg=T,descr=c("celnei","singnei","r
     stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
     geom_boxplot(outlier.shape = NA,col="darkblue")+
     scale_fill_manual(values=c("cornflowerblue","burlywood1"))+
-    geom_vline(xintercept=c(1.5), linetype="dashed")+ # ,2.5,3.5
+    geom_vline(xintercept=c(1.5,2.5,3.5), linetype="dashed")+ # ,2.5,3.5
     xlab("Descriptor")+
     ylab("Percentile of descriptor value (%)")+
     labs(fill="Flow")#,title = namdescr
@@ -965,7 +965,7 @@ map.composite.wp.light <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,a
   
   data(wrld_simpl)
   plot(wrld_simpl, add = TRUE)
-  points(6,45,col="red",pch=19)
+  #points(6,45,col="red",pch=19)
   if(win) rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
   if(let!=F) mtext(let, side=3, at=-20,line = 0,cex=1.4)
   if(iso) contour(x=lon,y=lat,z=comp, levels=lev, drawlabels=F, lty=1, lwd=1, add=TRUE, col="black")
