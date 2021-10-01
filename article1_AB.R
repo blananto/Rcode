@@ -454,7 +454,7 @@ compare.descr.bv <- function(bv1,bv2,descr=c("celnei","singnei","rsingnei","dP")
 }
 
 # Comparaison des percentiles d'indicateurs pour deux flux
-compare.descr.flow <- function(flow=c(1,2),agreg=T,descr=c("celnei","singnei","rsingnei","dP","dP_grad"),k,dist,nbdays,start,end,rean,spazm=F,save=T,legend=T,supseuil=F,all=F,desais=F){
+compare.descr.flow <- function(flow=c(1,2),agreg=T,descr=c("celnei","singnei","rsingnei","dP"),k,dist,nbdays,start,end,rean,spazm=F,save=T,legend=T,supseuil=F,all=F,desais=F){
   
   # Import indicateurs
   mat <- NULL

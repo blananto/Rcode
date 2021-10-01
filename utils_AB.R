@@ -3557,7 +3557,7 @@ image.europe<- function(rean="20CR"){
 }
 
 # Trace la carte du BV avec pluvios, rivieres, villes
-image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F){
+image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F,entites=F,agglo=F){
   
   # BVs a tracer
   bv <- c(#"isere",
@@ -3582,7 +3582,7 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F){
     #)
   }
   
-  if(save) pdf(file=paste0("2_Travail/0_Present/Rresults/image.region/map_region_",ifelse(pluvios,"pluvios_",""),paste0(bv,collapse = "_"),".pdf"),width = 7.5,height = 7.5)
+  if(save) pdf(file=paste0("2_Travail/0_Present/Rresults/image.region/map_region_",ifelse(pluvios,"pluvios_",""),paste0(bv,collapse = "_"),ifelse(entites,"_entites",""),ifelse(agglo,"_agglo",""),".pdf"),width = 7.5,height = 7.5)
   
   # Fond de carte
   if(!bd_alti){
@@ -3610,6 +3610,56 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F){
     tmp<-riv@lines[[i]]@Lines[[1]]@coords/1000
     lines(tmp[,1],tmp[,2],col="blue",lwd=2)
   }
+  
+  # Entites
+  if(entites){
+    isere<-readOGR("2_Travail/Data/Carto/shapefile_Isere/GlobalWithMesh.shp")
+    isere <- spTransform(isere,crs(riv))
+    for(i in 1:length(isere@polygons)){
+      tmp <- isere@polygons[[i]]@Polygons[[1]]@coords/1000
+      lines(tmp[,1],tmp[,2],col="darkblue",lwd=1)
+    }
+    
+    drac<-readOGR("2_Travail/Data/Carto/shapefile_Drac/GlobalWithMesh.shp")
+    drac <- spTransform(drac,crs(riv))
+    for(i in 1:length(drac@polygons)){
+      tmp <- drac@polygons[[i]]@Polygons[[1]]@coords/1000
+      lines(tmp[,1],tmp[,2],col="darkblue",lwd=1)
+    }
+  }
+  
+  # Agglo
+  if(agglo){
+    ag<-readOGR("2_Travail/Data/Carto/shapefile_Y/RTM_BV_agglo.shp")
+    ag <- spTransform(ag,crs(riv))
+    for(i in 1:length(ag@polygons)){
+      tmp <- ag@polygons[[i]]@Polygons[[1]]@coords/1000
+      lines(tmp[,1],tmp[,2],col="red",lwd=1)
+    }
+  }
+  
+  # Code utile Juliette
+  #plot.BVRTM_agglo<-function(new=FALSE,...){
+  #  contour.file = '2_Travail/Data/Carto/shapefile_Y/RTM_BV_agglo.shp'
+  #  contour = sf::st_read(contour.file,quiet=TRUE)
+  #  
+  #  
+  #  if (new){
+  #    par(mar=c(5,5,2,2))
+  #    plot(c(50,1050),c(1650,2700),type="n",xlab="X(km) - Lambert II extended",ylab="Y(km) - Lambert II extended",...)
+  #  }
+  #  for (i in 1:length(contour$geometry)) {
+  #    spdfr <- data.frame(x = contour$geometry[[i]][[1]][[1]][,1], y =  contour$geometry[[i]][[1]][[1]][,2])
+  #    ## transformation en SpatialPointDataFrame
+  #    coordinates(spdfr) <- c("x","y")
+  #    proj4string(spdfr) <- CRS("+init=epsg:2154") #Lambert93
+  #    spdfrLambert <- spTransform(spdfr, CRS("+init=epsg:27572"))#LambertII extended
+  #    spdfrLambe = as.data.frame(spdfrLambert)
+  #    
+  #    lines(spdfrLambe$x/1000,spdfrLambe$y/1000,...)
+  #  }
+  #  
+  #}
   
   # Bordure du BV et des sous-BV
   for(i in 1:length(bv)){
