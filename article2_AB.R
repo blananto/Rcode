@@ -1,5 +1,44 @@
 source('2_Travail/Rcode/utils_AB.R', encoding = 'UTF-8')
 
+# Combinaison de map.diff.geo.wp
+combine.map.diff.geo.wp <- function(wp=c(8,1,2),k,rean,start="1950-01-01",end="2017-12-31"){
+  
+  tt <- c(1,2,5,8)
+  wp.name <- c("Atlantic","Mediterranean","Northeast","Anticyclonic")
+  png(filename = paste0(get.dirstr(k,rean,"past"),"map.diff.geo.wp/map_diff_combine_k",k,"_wp",paste(wp,collapse = "_"),".png"),width = 8,height = 8,units = "in",res=600)
+  layout(mat = matrix(data = c(rep(1,4),2:5,rep(6,4),7:10,rep(11,4),12:15,rep(16,4)),nrow = 7,ncol = 4,byrow = T),widths = c(1,1,1,1),heights = c(0.1,1,0.1,1,0.1,1,0.4))
+  
+  for(i in 1:length(wp)){
+  # Titre
+  par(pty="m",mar=c(0,0,0,0))
+  plot(1,1,type="n",xaxt="n",yaxt="n",bty="n",xlim=c(0,2),ylim=c(0,2))
+  text(1,1,wp.name[tt==wp[i]],cex=2,font=2)
+  
+  # Cartes
+  par(mar=c(0.5,0.5,1.5,0.5),pty="s")
+  map.diff.geo.wp(wp = wp[i],k = k,rean = rean,start = start,end = end,save = F)
+  }
+  
+  # Legende
+  dates <- getdates(start,end)
+  sep <- as.Date(median(as.numeric(as.Date(dates))))
+  period1 <- paste0(substr(start,1,4),"-",substr(sep-10,1,4))
+  period2 <- paste0(substr(sep+10,1,4),"-",substr(end,1,4))
+  
+  N <- 11
+  lab <- seq(-60,60,15)
+  
+  
+  par(pty="m",mar=c(0,0,0,0))
+  plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+  colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
+              labels = lab,at =  seq(0,1,length.out = length(lab)),
+              vertical = F,xlim = c(0.8,1.2),ylim = c(0.25,0.65),cex=1.4)
+  text(x = 1,y = 0.9,paste0(period2," minus ",period1," Geopotential Height (m)"),cex=1.2,font=2)
+  graphics.off()
+  
+}
+
 # Combinaison de plusieurs plot.descr.density.subperiod
 combine.plot.descr.density.subperiod <- function(wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
   
@@ -75,7 +114,7 @@ combine.plot.sais.violin.subperiod <- function(wp=NULL,k,dist,nbdays=1,rean,star
   # Graphiques
   pl <- vector(mode="list",length=length(sais))
   for(i in 1:length(sais)){
-    pl[[i]] <- plot.season.violin.subperiod(sais = sais[i],wp = wp,k = k,dist = dist,nbdays = nbdays,
+    pl[[i]] <- plot.sais.violin.subperiod(sais = sais[i],wp = wp,k = k,dist = dist,nbdays = nbdays,
                                  rean = rean,start = start,end = end,start.ana = start.ana,end.ana = end.ana,add.nb.box = T)
   }
   
@@ -114,7 +153,7 @@ combine.plot.sais.violin.subperiod <- function(wp=NULL,k,dist,nbdays=1,rean,star
 }
 
 # Combinaison de plusieurs plot.season.diff.density.subperiod
-combine.plot.season.diff.density.subperiod <- function(wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",ref="all"){
+combine.plot.sais.diff.density.subperiod <- function(wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",ref="all"){
   
   # Parametres
   sais <- c("winter","spring","summer","autumn")
@@ -122,7 +161,7 @@ combine.plot.season.diff.density.subperiod <- function(wp=NULL,k,dist,nbdays=1,r
   # Graphiques
   pl <- vector(mode="list",length=length(sais))
   for(i in 1:length(sais)){
-    pl[[i]] <- plot.season.diff.density.subperiod(sais = sais[i],wp = wp,k = k,dist = dist,nbdays = nbdays,
+    pl[[i]] <- plot.sais.diff.density.subperiod(sais = sais[i],wp = wp,k = k,dist = dist,nbdays = nbdays,
                                                   rean = rean,start = start,end = end,start.ana = start.ana,end.ana = end.ana,add.nb.box = T,ref = ref)
   }
   
@@ -131,6 +170,22 @@ combine.plot.season.diff.density.subperiod <- function(wp=NULL,k,dist,nbdays=1,r
   if(is.null(wp)) wp <- "none"
   ggsave(filename = paste0(get.dirstr(k,rean,"past"),"plot.sais.diff.density.subperiod/plot_combine_diff_density_k",k,"_mean",nbdays,"day_wp=",wp,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,"_ref=",ref,".png"),
          plot = pl.final,height = 8,width = 14)
+  graphics.off()
+}
+
+# Combinaison de plusieurs plot.season.diff.nbdays.subperiod
+combine.plot.sais.diff.nbdays.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",ref="all"){
+  
+  pl <- vector(mode="list",length=length(sais))
+  
+  for(i in 1:length(sais)){
+    pl[[i]] <- plot.sais.diff.nbdays.subperiod(sais = sais[i],wp = wp,k = k,dist = dist,nbdays = nbdays,rean = rean,
+                                      start = start,end = end,start.ana = start.ana,end.ana = end.ana,ref = ref)
+  }
+  
+  pl.final <- ggarrange(plotlist=pl, ncol = length(sais), nrow = 1, common.legend = T, legend = "bottom")
+  ggsave(filename = paste0(get.dirstr(k,rean,"past"),"plot.sais.diff.nbdays.subperiod/plot_combine_diff_nbdays_k",k,"_",paste(sais,collapse="_"),"_wp=",wp,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,"_ref=",ref,".png"),
+         plot = pl.final,height = 5,width = 10)
   graphics.off()
 }
 
@@ -287,7 +342,7 @@ combine.plot.TWS.crossed <- function(k,start="1851-01-01",end="2010-12-31"){
 }
 
 # Combinaison de scatterplot.density.subperiod
-combine.scatterplot.density.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
+combine.scatterplot.density.subperiod <- function(sais,sais2=NULL,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
   
   # Definition des couples d'indicateurs
   descr <- list(
@@ -295,7 +350,7 @@ combine.scatterplot.density.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,r
     c("sing05","dP"),
     c("rsing05","dP")
   )
-    
+  
   # Graphiques
   pl <- vector(mode="list",length=length(sais))
   
@@ -305,10 +360,23 @@ combine.scatterplot.density.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,r
                                              start = start,end = end,start.ana = start.ana,end.ana = end.ana)
   }
   
+  if(!is.null(sais2)){
+    for(i in 1:length(descr)){
+      pl[[i+length(descr)]] <- scatterplot.density.subperiod(descr = descr[[i]],sais = sais2,wp = wp,
+                                                             k = k,dist = dist,nbdays = nbdays,rean = rean,
+                                                             start = start,end = end,start.ana = start.ana,end.ana = end.ana)
+    }
+  }
+  
   # Export
-  pl.final <- ggarrange(plotlist=pl, ncol = 3, nrow = 1, common.legend = T, legend = "bottom")
-  ggsave(filename = paste0(get.dirstr(k,rean,"past"),"scatterplot.density.subperiod/scatterplot_combine_density_k",k,"_mean",nbdays,"day_wp=",wp,"_",sais,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".png"),
-         plot = pl.final,height = 4.5,width = 12)
+  pl.final <- ggarrange(plotlist=pl, ncol = 3, nrow = ifelse(!is.null(sais2),2,1), common.legend = T, legend = "bottom")
+  if(!is.null(sais2)){
+    pl.final <- pl.final+geom_text(aes(x = 0.5,y=0.965,label=nam2str(sais),fontface=2),size=10)
+    pl.final <- pl.final+geom_text(aes(x = 0.5,y=0.51,label=nam2str(sais2),fontface=2),size=10)
+  }
+  
+  ggsave(filename = paste0(get.dirstr(k,rean,"past"),"scatterplot.density.subperiod/scatterplot_combine_density_k",k,"_mean",nbdays,"day_wp=",wp,"_",sais,"_",ifelse(!is.null(sais2),paste0(sais2,"_"),""),start,"_",end,"_ana_",start.ana,"_",end.ana,".png"),
+         plot = pl.final,height = ifelse(!is.null(sais2),9,4.5),width = 12)
   graphics.off()
 }
 
@@ -573,7 +641,7 @@ compute.lat.jet <- function(gamme=c(5450,5550),k,start="1851-01-01",end="2010-12
 }
 
 # Nbre de jour < ou > a un quantile d'indicateurs entre deux sous-périodes, pour une saison et pour un type de temps
-compute.season.diff.density.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",ref="all"){
+compute.sais.diff.density.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",ref="all"){
   
   dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
   
@@ -621,22 +689,84 @@ compute.season.diff.density.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,r
   
   # Nbre de jours
   qua <- seq(10,50,10)
-  res <- matrix(data = NA,nrow = 3,ncol = length(qua))
-  colnames(res) <- as.character(qua)
-  rownames(res) <- c("Per1","Per2","Change")
+  res <- data.frame(Percentile=as.factor(x = qua),Per1=NA,Per1.rel=NA,Per2=NA,Per2.rel=NA,Change=NA,Change.rel=NA)
+  colnames(res)[c(3,5)] <- c(period1,period2)
+  
+  len.per1 <- sum(tab$Period==period1) # pour normaliser
+  len.per2 <- sum(tab$Period==period2)
   
   for(i in 1:length(qua)){
-    per1 <- sum(tab[,2]<qua[i] & tab[,3]<qua[i] & tab[,4]<qua[i] & tab[,5]>100-qua[i] & tab$Period=="1950-1983")
-    per2 <- sum(tab[,2]<qua[i] & tab[,3]<qua[i] & tab[,4]<qua[i] & tab[,5]>100-qua[i] & tab$Period=="1984-2017")
+    per1 <- sum(tab[,2]<qua[i] & tab[,3]<qua[i] & tab[,4]<qua[i] & tab[,5]>100-qua[i] & tab$Period==period1)
+    per1.rel <- per1/len.per1*100
+    per2 <- sum(tab[,2]<qua[i] & tab[,3]<qua[i] & tab[,4]<qua[i] & tab[,5]>100-qua[i] & tab$Period==period2)
+    per2.rel <- per2/len.per2*100
     change <- round(((per2/per1)-1)*100,1)
-    res[,i] <- c(per1,per2,change)
-    print(paste0("Nbre period 1: ",per1))
-    print(paste0("Nbre period 2: ",per2))
-    print(paste0("% de variation: ",change,"%"))
+    change.rel <- round(((per2.rel/per1.rel)-1)*100,1)
+    res[i,2:7] <- c(per1,per1.rel,per2,per2.rel,change,change.rel)
+    print(paste0("Nbre period 1: ",per1.rel))
+    print(paste0("Nbre period 2: ",per2.rel))
+    print(paste0("% de variation: ",change.rel,"%"))
   }
+  res <- pivot_longer(data = res,cols=c(3,5),values_to="Value",names_to="Period")
   res
 }
 
+# Calcule la difference de moyenne des indicateurs entre deux sous-périodes, pour une saison et pour un type de temps
+compute.sais.diff.mean.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",ref="all"){
+  
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  
+  # Import des indicateurs
+  descr <- c("cel","sing05","rsing05","dP")
+  #descr <- c("cel","dP")
+  des <- matrix(data = NA,nrow = length(dates),ncol = length(descr))
+  
+  for(i in 1:length(descr)){
+    des.i <- get.descriptor(descriptor = descr[i],k = k,dist = dist,nbdays = nbdays,start = start,end = end,standardize = F,rean = rean,
+                            threeday = F,desais = F,period = "past",start.ana = start.ana,end.ana = end.ana)
+    des[,i] <- des.i
+    if(ref=="all") des[,i] <- ecdf(des.i)(des.i)*100
+  }
+  
+  tab <- as.data.frame(cbind(dates,des))
+  colnames(tab) <- c("Dates",nam2str(descr,whole=T))
+  
+  # Import des types de temps
+  if(!is.null(wp)){
+    tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+    pos.NA.tt <- which(tt!=wp)
+    tab[pos.NA.tt,-1] <- NA
+  }
+  
+  if(ref=="wp") tab[,-1] <- apply(tab[,-1],2,function(v){ecdf(as.numeric(v))(v)*100})
+  
+  # Saison
+  pos <- get.ind.season.past(sais = sais,start = start,end = end,nbdays = nbdays)
+  pos.NA.sais <- which(!(1:length(dates)) %in% pos)
+  tab[pos.NA.sais,-1] <- NA
+  
+  if(ref=="wpsais") tab[,-1] <- apply(tab[,-1],2,function(v){ecdf(as.numeric(v))(v)*100})
+  
+  # Periode
+  sep <- as.Date(median(as.numeric(as.Date(dates))))
+  period1 <- paste0(substr(start,1,4),"-",substr(sep-1,1,4))
+  period2 <- paste0(substr(sep,1,4),"-",substr(end,1,4))
+  tab$Period[as.Date(dates)<sep] <- period1
+  tab$Period[as.Date(dates)>=sep] <- period2
+  
+  # Nettoyage et mise en forme du tableau
+  pos <- (1:length(dates))[apply(tab[,2:5],1,function(v){!all(is.na(v))})]
+  tab <- tab[pos,]
+  tab <- pivot_longer(data = tab,cols = 2:5,names_to = "Descr",values_to = "Value")
+  tab$Value <- as.numeric(as.character(tab$Value))
+  tab$Descr <- factor(tab$Descr,levels = nam2str(descr,whole=T))
+  pos.ok <- which(!is.na(tab$Value)) # pour retirer celerite 1er jour
+  tab <- tab[pos.ok,]
+  
+  # Calcul
+  print(aggregate(tab$Value,by=list(tab$Period,tab$Descr),mean))
+}
+  
 # Calcul des scores TWS jour à jour entre 2 jeux de données
 compute_TWS_crossed <- function(k,start="1851-01-01",end="2010-12-31",rean1,rean2){
   
@@ -947,7 +1077,7 @@ map.diff.geo <- function(k,rean=c("20CR-m1","ERA20C")){
 }
 
 # Difference altitude geopotentiel 1950-1983 et 1984-2017 pour 2 wp et les 4 saisons
-map.diff.geo.wp <- function(wp=1,k,rean,start="1950-01-01",end="2017-12-31"){
+map.diff.geo.wp <- function(wp=1,k,rean,start="1950-01-01",end="2017-12-31",save=T){
   
   dates <- getdates(start,end)
   
@@ -958,8 +1088,8 @@ map.diff.geo.wp <- function(wp=1,k,rean,start="1950-01-01",end="2017-12-31"){
   
   # Periode
   sep <- as.Date(median(as.numeric(as.Date(dates))))
-  period1 <- paste0(substr(start,1,4),"-",substr(sep-1,1,4))
-  period2 <- paste0(substr(sep,1,4),"-",substr(end,1,4))
+  period1 <- paste0(substr(start,1,4),"-",substr(sep-10,1,4))
+  period2 <- paste0(substr(sep+10,1,4),"-",substr(end,1,4))
   per <- rep(1,length(dates))
   per[as.Date(dates)>=sep] <- 2
   
@@ -984,9 +1114,11 @@ map.diff.geo.wp <- function(wp=1,k,rean,start="1950-01-01",end="2017-12-31"){
   delta <- abs(lon[1]-lon[2])/2
   nc_close(nc)
   
-  png(filename = paste0(get.dirstr(k,rean,"past"),"map.diff.geo.wp/map_diff_k",k,"_wp",wp,".png"),width = 8,height = 3,units = "in",res=600)
-  layout(matrix(c(1:4,rep(5,4)),nrow = 2,ncol = 4,byrow = T),widths = c(1,1,1,1),heights = c(1,0.3))
-  par(mar=c(1,1,2,1),pty="s")
+  if(save) {
+    png(filename = paste0(get.dirstr(k,rean,"past"),"map.diff.geo.wp/map_diff_k",k,"_wp",wp,".png"),width = 8,height = 3,units = "in",res=600)
+    layout(matrix(c(1:4,rep(5,4)),nrow = 2,ncol = 4,byrow = T),widths = c(1,1,1,1),heights = c(1,0.3))
+    par(mar=c(1,1,2,1),pty="s")
+  }
   data(wrld_simpl)
   
   for(i in 1:length(season)){
@@ -1017,6 +1149,7 @@ map.diff.geo.wp <- function(wp=1,k,rean,start="1950-01-01",end="2017-12-31"){
   }
   
   # Legende
+  if(save){
   par(pty="m",mar=c(0,0,0,0))
   plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
   colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
@@ -1024,6 +1157,7 @@ map.diff.geo.wp <- function(wp=1,k,rean,start="1950-01-01",end="2017-12-31"){
               vertical = F,xlim = c(0.8,1.2),ylim = c(0.25,0.65),cex=1.4)
   text(x = 1,y = 0.9,paste0(period2," minus ",period1," Geopotential Height (m)"),cex=1.2,font=2)
   graphics.off()
+  }
 }
 
 # Trace l'evolution dans le temps d'un indicateur, pour plusieurs reanalyses
@@ -1400,7 +1534,7 @@ plot.descr.violin.subperiod <-  function(descr,wp=NULL,k,dist,nbdays=1,rean,star
 }
 
 # Boxplot des indicateurs d'une saison pour deux sous-periodes par indicateur et pour un type de temps
-plot.season.violin.subperiod <-  function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",add.nb.box=F){
+plot.sais.violin.subperiod <-  function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",add.nb.box=F){
   
   dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
   
@@ -1492,7 +1626,7 @@ plot.season.violin.subperiod <-  function(sais,wp=NULL,k,dist,nbdays=1,rean,star
 }
 
 # Differences de distribution des indicateurs entre deux sous-périodes, pour une saison et pour un type de temps
-plot.season.diff.density.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",add.nb.box=F,ref="all"){
+plot.sais.diff.density.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",add.nb.box=F,ref="all"){
   
   dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
   
@@ -1529,8 +1663,8 @@ plot.season.diff.density.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,rean
   
   # Periode
   sep <- as.Date(median(as.numeric(as.Date(dates))))
-  period1 <- paste0(substr(start,1,4),"-",substr(sep-1,1,4))
-  period2 <- paste0(substr(sep,1,4),"-",substr(end,1,4))
+  period1 <- paste0(substr(start,1,4),"-",substr(sep-10,1,4)) # - 10 et +10 jours pour etre sur de sauter une annee entre end period1 et start period 2
+  period2 <- paste0(substr(sep+10,1,4),"-",substr(end,1,4))
   tab$Period[as.Date(dates)<sep] <- period1
   tab$Period[as.Date(dates)>=sep] <- period2
   
@@ -1654,26 +1788,40 @@ plot.season.diff.density.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,rean
 }
 
 # Graphique Nbre de jour < ou > a un quantile d'indicateurs entre deux sous-périodes, pour une saison et pour un type de temps
-plot.season.diff.nbdays.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",ref="all"){
+plot.sais.diff.nbdays.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",ref="all"){
   
-  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  # Calcul des nombres de jours
+  tab <- compute.sais.diff.density.subperiod(sais=sais,wp=wp,k=k,dist=dist,nbdays=nbdays,rean=rean,start=start,end=end,start.ana=start.ana,end.ana=end.ana,ref=ref)
   
-  tab <- compute.season.diff.density.subperiod(sais=sais,wp=wp,k=k,dist=dist,nbdays=nbdays,rean=rean,start=start,end=end,start.ana=start.ana,end.ana=end.ana,ref=ref)
-  tab <- t(tab)
-  tab <- cbind(tab,rownames(tab))
-  colnames(tab)[4]="quantile"
-  tab <- pivot_longer(data = as.data.frame(tab),cols=1:2,values_to="value",names_to="Period")
-  tab$value <- as.numeric(as.character(tab$value))
-  tab$quantile <- as.numeric(as.character(tab$quantile))
-  tab$Change <- as.numeric(as.character(tab$Change))
+  # Graphique
+  #if(nbdays==1){
+  #  ylab <- Number of days"
+  #  main <- "1 day"
+  #}else{
+  #  ylab <- paste0("Number of ",nbdays,"-day sequences")
+  #  main <- paste0(nbdays," days")
+  #}
   
-  ggplot(data = tab,aes(quantile,value, fill=Period))+
+  main <- nam2str(sais)
+  ylab <- "% of days"
+  ylimit <- c(0,30)
+  
+  ggplot(data = tab,aes(Percentile,Value, fill=Period))+
+    theme_bw()+
+    theme(plot.margin = unit(c(1,0.5,0.5,0.5),"cm"),axis.title.x = element_text(vjust=-2,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=3,size = 12,face = "bold"),axis.title.y.right = element_text(vjust=3,size = 12,face = "bold",color = "darkgreen"),axis.text.x = element_text(size=13,colour="black",vjust=0),
+          axis.text.y = element_text(size=13),axis.text.y.right = element_text(size=13,color="darkgreen"),plot.title = element_text(hjust = 0.5,vjust=3,face="bold",size=18),
+          legend.position = "bottom",legend.key.size = unit(1,"cm"),
+          legend.title = element_text(hjust=0.5,vjust=0.5,size = 18,face = "bold"),
+          legend.text = element_text(size=16,colour="black"))+
     geom_col(position="dodge")+
-    geom_text(aes(label = value), 
-              position = position_dodge(0.9),
-              vjust = -0.5,hjust = 0.5)+
-    scale_y_continuous(sec.axis = sec_axis(~ . /2, name = "% of change"))+
-    geom_line(aes(x = quantile,y=Change*2),color="blue",size=2)
+    scale_y_continuous(limits=ylimit,sec.axis = sec_axis(~ . *5, name = "% of change"))+
+    geom_line(aes(x = c(1,1,2,2,3,3,4,4,5,5),y=Change.rel/5),color="darkgreen",size=1.5)+
+    geom_text(aes(label = round(Value,1)),position = position_dodge(0.9),vjust = -0.5,fontface="bold")+
+    xlab("Percentile of descriptor value (%)")+
+    ylab(ylab)+
+    ggtitle(main)+
+    scale_fill_manual(values = c(brewer.pal(n = 11, name = "RdBu")[9],brewer.pal(n = 11, name = "RdBu")[3]))
 }
 
 # Trace la relation entre la singularite
@@ -2132,11 +2280,14 @@ plot.trend.lat.jet <- function(gamme=c(5450,5550),wp="all",start="1900-01-01",en
   load(paste0("2_Travail/1_Past/",rean,"/compute.lat.jet/weighted_mean_lat_jet_",start,"_",end,"_btw_",gamme[1],"_and_",gamme[2],".Rdata"))
   
   # Traitement
-  
-  if(wp!="all"){
+  if(wp!="all" & rean!="ERA5"){
     load(paste0("2_Travail/1_Past/",rean,"/compute_wp_past/wp_final_",start,"_1947-12-31_start.ana_1948-01-01_end.ana_2010-12-31_n.ana=1.Rdata"))
     lati[tt_final!=wp] <- NA
-  }
+    }
+  if(wp!="all"){
+    tt_final <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+    lati[tt_final!=wp] <- NA
+    }
   
   # Annuel
   lat.ann <- aggregate(lati,by=list(year),mean,na.rm=T)
@@ -2815,8 +2966,8 @@ scatterplot.density.subperiod <- function(descr=c("cel","sing05"),sais,wp=NULL,k
   
   # Periode
   sep <- as.Date(median(as.numeric(as.Date(dates))))
-  period1 <- paste0(substr(start,1,4),"-",substr(sep-1,1,4))
-  period2 <- paste0(substr(sep,1,4),"-",substr(end,1,4))
+  period1 <- paste0(substr(start,1,4),"-",substr(sep-10,1,4))
+  period2 <- paste0(substr(sep+10,1,4),"-",substr(end,1,4))
   tab$Period[as.Date(dates)<sep] <- period1
   tab$Period[as.Date(dates)>=sep] <- period2
   
@@ -2830,7 +2981,7 @@ scatterplot.density.subperiod <- function(descr=c("cel","sing05"),sais,wp=NULL,k
   # Graphique
   pl <- ggplot(tab, aes(x=Descr1, y=Descr2)) + 
     theme_bw()+
-    theme(plot.margin = unit(c(0,0.5,0.5,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+    theme(plot.margin = unit(c(1.5,0.5,0.5,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
           axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=13,colour="black",vjust=0),
           axis.text.y = element_text(size=13),plot.title = element_text(hjust = 0.5,vjust=3,face="bold",size=18),
           legend.position = "bottom",legend.key.size = unit(1.5,"cm"),
@@ -2842,6 +2993,14 @@ scatterplot.density.subperiod <- function(descr=c("cel","sing05"),sais,wp=NULL,k
     scale_color_manual(values = c(brewer.pal(n = 11, name = "RdBu")[9],brewer.pal(n = 11, name = "RdBu")[3]))+
     xlab(nam2str(descr[1],whole=T,unit=T))+
     ylab(nam2str(descr[2],whole=T,unit=T))
+  
+  # Test densite 2D
+  tab.per1 <- as.matrix(tab[tab$Period==period1,2:3])
+  tab.per2 <- as.matrix(tab[tab$Period==period2,2:3])
+  test <- kde.test(na.omit(tab.per1),na.omit(tab.per2))
+  
+  pl <- pl+
+    geom_text(aes(x=quantile(Descr1,0.97,na.rm=T),y=quantile(Descr2,0.99,na.rm=T),label=paste0("pvalue=",round(test$pvalue,2))))
   
   #pl <- ggplot(tab, aes(x=Descr1, y=Descr2)) + 
   #  theme_bw()+
