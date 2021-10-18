@@ -629,7 +629,7 @@ map.wp <- function(rean="ERA5",anomalies=T){
   wp <- c(1,2,5,8)
   par(mar=c(1,1,1,1))
   for(i in 1:length(wp)){
-    map.composite.wp.light(wp = wp[i],k = 1,start = "1950-01-01",end = "2017-12-31",rean = rean,
+    map.composite.wp.light(wp = wp[i],k = 1,start = "1950-01-01",end = "2019-12-31",rean = rean,
                            leg = F,win = T,let = F,iso = F,agreg = T,anomalies = anomalies,wind = T)
   }
   
@@ -1161,6 +1161,105 @@ run.letter <- function(type=1){
     for(i in 1:length(bv)){
       for(j in 1:length(sais)){
         compute.cor.descr.precip.clean(k = 1,dist = "TWS",bv = bv[i],sais = sais[j],spazm = F,start = start,end=end,rean = rean)
+      }
+    }
+  }
+  
+  # scatterplot.descr.precip
+  if(type==2){
+    bv <- c("Isere-seul","Drac-seul")
+    typ <- c("cum","max")
+    descr <- c("cel","celnei","dP","mean","sing05","singnei","rsing05","rsingnei")
+    nbdays <- c(1,3)
+    rean <- c("20CR","ERA20C")
+    liss <- c(1,5)
+    
+    
+    for(i in 1:length(bv)){
+      for(j in 1:length(typ)){
+        for(k in 1:length(descr)){
+          for(l in 1:length(nbdays)){
+            for(m in 1:length(rean)){
+              for(n in 1:length(liss)){
+                scatterplot.descr.precip(bv = bv[i],type = typ[j],descr = descr[k],k = 1,dist = "TWS",
+                                         nbdays = nbdays[l],start = "1950-01-01",end = "2010-12-31",
+                                         rean = rean[m],liss = liss[n])
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  # compute.cor.descr.precip et plot.cor.descr.precip
+  if(type==3){
+    rean <- c("20CR","ERA20C")
+    bv <- c("Isere-seul","Drac-seul")
+    sais <- c("all","winter","spring","summer","autumn")
+    
+    for(i in rean){
+      for(j in bv){
+        for(k in sais){
+          #compute.cor.descr.precip(k = 1,dist = "TWS",bv = j,sais = k,start = "1950-01-01",
+          #         end = "2010-12-31",rean = i)
+          plot.cor.descr.precip(k = 1,dist = "TWS",bv = j,sais = k,start = "1950-01-01",
+                                end = "2010-12-31",rean = i)
+        }
+      }
+    }
+  }
+  
+  # scatterplot.descr.nao
+  if(type==4){
+    descr <- c("cel","celnei","dP","mean","sing05","singnei","rsing05","rsingnei")
+    rean <- c("20CR","ERA20C")
+    start <- c("1865-01-01","1900-01-01")
+    liss <- c(1,5)
+    
+    for(i in 1:length(descr)){
+      for(j in 1:length(rean)){
+        for(k in 1:length(liss)){
+          scatterplot.descr.nao(descr = descr[i],k = 1,dist = "TWS",start = start[j],end="2010-12-31",
+                                rean = rean[j],liss = liss[k])
+        }
+      }
+    }
+  }
+  
+  # scatterplot.descr.wp
+  if(type==5){
+    descr <- c("cel","celnei","dP","mean","sing05","singnei","rsing05","rsingnei")
+    wp <- c(1,2,5,8)
+    rean <- c("20CR","ERA20C")
+    
+    for(i in descr){
+      for(j in wp){
+        for(k in rean){
+          scatterplot.descr.wp(descr = i,wp = j,k = 1,dist = "TWS",start = "1950-01-01",end = "2010-12-31",
+                               rean = k,liss = 1)
+        }
+      }
+    }
+  }
+  
+  # scatterplot.descr.wp
+  if(type==6){
+    descr <- list(
+      c("cel","dP"),
+      c("sing05","dP"),
+      c("rsing05","dP")
+    )
+    
+    sais <- c("winter","autumn","spring","summer")
+    
+    for(i in 1:length(descr)){
+      print(descr[[i]])
+      for(j in 1:length(sais)){
+        print(sais[j])
+        scatterplot.descr.subperiod(rean = "20CR",k = 1,descriptors = descr[[i]],dist = c("TWS","TWS"),
+                                    sais = sais[j],nbdays = 3,start = "1851-01-01",end = "2010-12-31",
+                                    period = "past",start.ana = "1851-01-01",end.ana = "2010-12-31")
       }
     }
   }

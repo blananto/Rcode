@@ -1172,6 +1172,40 @@ plot.precip.ana.day <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,
   graphics.off()
 }
 
+# Trace la relation entre la singularite et le nbre de fois ou le jour est choisi comme analogue
+plot.sing.ana <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,period="past",q.threshold=0.99,schaake=T,season=F,dP=F){
+  
+  # Dates utiles
+  start.end.rean <- get.start.end.rean(rean,period,"dist")
+  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2010-12-31")
+  dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
+  n <- length(dates.ana)
+  
+  # Imports
+  pos <- match(dates.ana,dates.rean)
+  sing05 <- get.descriptor(descriptor = "sing05",k = k,dist = dist,nbdays = nbdays,start = start.end.rean[1],end = start.end.rean[2],standardize = F,rean = rean,threeday = F,
+                           desais = F,period = "past",start.ana = start.end.ana[1],end.ana = start.end.ana[2])
+  
+  sing05 <- sing05[pos]
+  load(paste0(get.dirstr(k,rean,period),"save.ana/ana_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),dist,"_",rean,"_k",k,"_mean",nbdays,"day_",start.end.rean[1],"_",start.end.rean[2],"_ana_",start.end.ana[1],"_",start.end.ana[2],".Rdata"))
+  precip <- get.precip(nbdays,start.end.ana[1],start.end.ana[2],bv,spazm)
+  
+  # Traitement
+  nbnei <- round(nbana*0.01*n,0)
+  nei <- lapply(nei,function(v){v[1:nbnei]})
+  nei <- unlist(nei)
+  co <- rep(0,n)
+  count <- table(nei)
+  nam <- as.numeric(names(count))
+  co[nam] <- count
+  
+  plot(sing05,co)
+  plot(density(co))
+}
+
 # Application du Schaake shuffle temporel
 reordering.precip <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,period="past",q.threshold=0.99,seuil=0,season=F,dP=F,rgamma=F,moments=F){
   
