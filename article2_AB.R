@@ -2118,6 +2118,56 @@ if(save) png(filename = paste0(get.dirstr(k,rean,period="past"),"plot.trend.desc
     if(save) graphics.off()
 }
 
+# Trace l'evolution des cumuls saisonniers issus des differentes influences atmospheriques
+plot.trend.precip.wp <- function(bv="Isere-seul",wp=1,spazm=T,start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  year <- unique(substr(dates,1,4))
+  
+  # Import precip
+  precip <- get.precip(nbdays = 1,start = start,end = end,bv = bv,spazm = spazm)
+  
+  # Import wp
+  tt <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = bv,agreg = T,spazm = spazm)
+  precip[tt!=wp] <- NA
+  
+  # Traitement saisonnier
+  sais <- c("winter","spring","summer","autumn")
+  precip.sais <- matrix(NA,nrow = length(year),ncol = length(sais))
+  reg <- vector(mode = "list",length = 4)
+  
+  for(i in 1:length(sais)){
+    # Moyenne saisonniere
+    pos <- get.ind.season(sais = sais[i],start = start,end = end)
+    tmp <- precip[pos$pos.season]
+    tmp[pos$pos.NA] <- NA
+    dim(tmp) <- c(pos$l.season,pos$n.season)
+    tmp <- apply(tmp,2,sum,na.rm=T)
+    if(sais[i]=="winter") tmp <- c(NA,tmp)
+    precip.sais[,i] <- tmp
+    rm(tmp)
+    
+    # Regression
+    tmp <- lm(precip.sais[,i]~as.numeric(year))
+    reg[[i]] <- c(tmp$coefficients,round(unname(summary(tmp)$coefficients[,4][2]),3)) # intersept, slope, pvalue
+    gc()
+  }
+  
+  # Graphiques
+  wp.num <- c(1,2,5,8)
+  wp.name <- c("Atlantic","Mediterranean","Northeast","Anticyclonic")
+  
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip.wp/plot_trend_precip_",bv,"_wp",wp,"_",start,"_",end,ifelse(spazm,"_spazm",""),".png"),width = 9,height = 5,units = "in",res=600)
+  par(mfrow=c(2,2),mar=c(4,4,2,1))
+  for(i in 1:4){
+  plot(year,precip.sais[,i],type="n",xlab="Year",ylab="Precipitation (mm)",main=paste0(nam2str(sais[i])," - pvalue=",reg[[i]][3]))
+  grid()
+  lines(year,precip.sais[,i],lwd=2)
+  abline(reg[[i]][1],reg[[i]][2],lwd=2,col="red")
+  }
+  graphics.off()
+}
+
 # Trace l'évolution de l'occurrence des WP par saison
 plot.trend.wp <- function(type="occurence",sais,nbdays=1,start="1950-01-01",end="2017-12-31",leg=T,save=T){
   
@@ -2420,6 +2470,25 @@ run.article2 <- function(type=1){
         for(k in 1:length(wp)){
           print(wp[k])
           plot.descr.density.subperiod(descr = descr[i],wp = wp[k],k = 1,dist = "TWS",nbdays = 1,rean = "ERA5",sais = sais[j])
+        }
+      }
+    }
+  }
+  
+  # plot.trend.precip.wp
+  if(type==9){
+    
+    bv <- c("Isere-seul","Drac-seul","Isere")
+    wp <- c(1,2,5,8)
+    spazm <- c(T,F)
+    
+    for(i in 1:length(bv)){
+      print(bv[i])
+      for(j in 1:length(wp)){
+        print(wp[j])
+        for(k in 1:length(spazm)){
+          print(spazm[k])
+          plot.trend.precip.wp(bv = bv[i],wp = wp[j],spazm = spazm[k],start = "1950-01-01",end = ifelse(spazm[k],"2017-12-31","2019-12-31"))
         }
       }
     }

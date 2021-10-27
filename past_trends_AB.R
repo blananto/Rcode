@@ -338,6 +338,148 @@ plot.trend.precip <- function(bv="Isere-seul",nbdays,spazm=F,start="1950-01-01",
   }
 }
 
+# Carte de l'altitude des mailles ERA5
+map.topo.ERA5 <- function(reg=c("small","medium","large")){
+  
+  start <- end <- "1950-01-01"
+  
+  # Import
+  print("Import")
+  topo <- getdata(k = 1,day0 = start,day1 = end,rean = "ERA5",var = "topo")
+  fen <- getinfo_window(k = 1,rean = "ERA5",var = "topo")
+  nc <- load.nc(rean = "ERA5",var = "topo")
+  lon <- nc$dim$lon$vals
+  lat <- nc$dim$lat$vals
+  nc_close(nc)
+  
+  lon <- lon[fen[1,1]:(fen[1,1]+fen[1,2]-1)]
+  lat <- lat[fen[2,1]:(fen[2,1]+fen[2,2]-1)]
+  gc()
+  
+  # Carte
+  print("Carte")
+  pal <- colorRampPalette(c("darkolivegreen2","chocolate4","white"))
+  
+  if(reg=="small"){xlim <- c(3,8);ylim <- c(43,47)}
+  if(reg=="medium"){xlim <- c(-5,10);ylim <- c(42,52)}
+  if(reg=="large"){xlim <- c(-10,18);ylim <- c(36,52)}
+  
+  png(filename = paste0("2_Travail/1_Past/",rean,"/map.topo.ERA5/map_topo_ERA5_",reg,".png"),width = 9,height = 6,units = "in",res=600)
+  par(pty="s",mar=c(4,4,2,1))
+  image.plot(lon,lat,topo,xlim=xlim,ylim=ylim,
+             col=pal(100),
+             xlab="Longitude (°)",ylab="Latitude (°)",main="Altitude ERA5",legend.lab = "Altitude (m)",legend.line = 3.5)
+  data("wrld_simpl")
+  plot(wrld_simpl, add = TRUE)
+  points(x = 5.73,y = 45.18,col = "red",pch=19)
+  graphics.off()
+}
+
+# Carte des tendances des humidite specifiques
+map.trend.sph <- function(z="850",wp=NULL,extr=F,rean="ERA5",start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  var <- paste0("sph",z)
+  
+  # Import
+  print("Import")
+  tmp <- getdata(k = 1,day0 = start,day1 = end,rean = rean,var = var,return.lonlat = T)
+  sph <- tmp$data;lon <- tmp$lon;lat <- tmp$lat;rm(tmp)
+  gc()
+  
+  # WP
+  if(!is.null(wp)){
+    tt <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+    sph[,,tt!=wp] <- NA
+    
+    if(extr){
+      ind.extr <- get.ind.max.flow(flow = wp,agreg = T,nbdays = 1,start = start,end = end,spazm = T,supseuil = T,nei = T)
+      sph[,,!((1:length(dates)) %in% ind.extr)] <- NA
+    }
+  }
+  
+  # Calcul tendances
+  ann <- substr(dates,1,4)
+  an <- as.numeric(unique(ann))
+  
+  # Annuel
+  print("Calcul Annuel")
+  sph.moy <- apply(sph,1:2,mean,na.rm=T)
+  sph.ann <- apply(sph,1:2,function(v){aggregate(v,by=list(ann),mean,na.rm=T)[,2]})
+  trend.ann <- apply(sph.ann,2:3,function(v){lm(v~an)$coefficients[2]*10}) # unit/10 ans
+  trend.ann.rel <- trend.ann/sph.moy*100 # passage en %/10 ans
+  
+  # Saisonnier
+  if(!extr){
+    print("Calcul Saisonnier")
+    sais <- c("winter","spring","summer","autumn")
+    sph.moy.sais <- trend.sais <- trend.sais.rel <- list()
+    
+    for(i in 1:length(sais)){
+      print(paste0(i,"/",length(sais)))
+      vec.sais <- rep(NA,length(dates))
+      sea <- get.ind.season(sais = sais[i],start = start,end = end)
+      vec.sais[sea$pos.season] <- i
+      sph.moy.sais[[i]] <- apply(sph[,,sea$pos.season],1:2,mean,na.rm=T)
+      sph.sais <- apply(sph,1:2,function(v){aggregate(v,by=list(ann,vec.sais),mean,na.rm=T)[,3]})
+      trend.sais[[i]] <- apply(sph.sais,2:3,function(v){lm(v~an)$coefficients[2]*10})
+      trend.sais.rel[[i]] <- trend.sais[[i]]/sph.moy.sais[[i]]*100
+    }
+  }
+  
+  # Cartes
+  print("Cartes")
+  N <- 9
+  par(pty="s",mar=c(4,4,2,2))
+  
+  # Annuel
+  # Champs moyen
+  png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.sph/",var,"/mean_sph_annual",ifelse(!is.null(wp),paste0("_wp=",wp),""),ifelse(extr,"_extr",""),"_",start,"_",end,".png"),width = 8,height = 6,units = "in",res=600)
+  #breaks <- seq(0,30,length.out = N+1)
+  image.plot(lon,lat,sph.moy*1000,xlim=c(-10,22),ylim=c(36,52),
+             col=brewer.pal(n = N, name = "BuGn"),#breaks = breaks,
+             xlab="Longitude (°)",ylab="Latitude (°)",main="Yearly mean",legend.lab = "sph (g.kg-1)",legend.line = 4.5,legend.mar = 8)
+  data("wrld_simpl")
+  plot(wrld_simpl, add = TRUE)
+  graphics.off()
+  
+  # Tendance absolue
+  png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.sph/",var,"/trend_sph_annual",ifelse(!is.null(wp),paste0("_wp=",wp),""),ifelse(extr,"_extr",""),"_",start,"_",end,".png"),width = 8,height = 6,units = "in",res=600)
+  #breaks <- seq(0,0.45,length.out = N+1)
+  image.plot(lon,lat,trend.ann*1000,xlim=c(-10,22),ylim=c(36,52),
+             col=brewer.pal(n = N, name = "RdBu"),#breaks = breaks,
+             xlab="Longitude (°)",ylab="Latitude (°)",main="Yearly absolute trend",legend.lab = "Trend (g.kg-1/10y)",legend.line = 4.5,legend.mar = 8)
+  plot(wrld_simpl, add = TRUE)
+  graphics.off()
+  
+  # Saisonnier
+  if(!extr){
+    for(i in 1:length(sais)){
+      
+      print(paste0(i,"/",length(sais)))
+      
+      # Champs moyen
+      png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.sph/",var,"/mean_sph_",sais[i],ifelse(!is.null(wp),paste0("_wp=",wp),""),"_",start,"_",end,".png"),width = 8,height = 6,units = "in",res=600)
+      #breaks <- seq(0,30,length.out = N+1)
+      image.plot(lon,lat,sph.moy.sais[[i]]*1000,xlim=c(-10,22),ylim=c(36,52),
+                 col=brewer.pal(n = N, name = "BuGn"),#breaks = breaks,
+                 xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(nam2str(sais[i])," mean"),legend.lab = "sph (g.kg-1)",legend.line = 4.5,legend.mar = 8)
+      data("wrld_simpl")
+      plot(wrld_simpl, add = TRUE)
+      graphics.off()
+      
+      # Tendance absolue
+      png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.sph/",var,"/trend_sph_",sais[i],ifelse(!is.null(wp),paste0("_wp=",wp),""),"_",start,"_",end,".png"),width = 8,height = 6,units = "in",res=600)
+      #breaks <- seq(0,0.45,length.out = N+1)
+      image.plot(lon,lat,trend.sais[[i]]*1000,xlim=c(-10,22),ylim=c(36,52),
+                 col=brewer.pal(n = N, name = "RdBu"),#breaks = breaks,
+                 xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(nam2str(sais[i])," absolute trend"),legend.lab = "Trend (g.kg-1/10y)",legend.line = 4.5,legend.mar = 8)
+      plot(wrld_simpl, add = TRUE)
+      graphics.off()
+    }
+  }
+}
+
 # Carte des tendances de l'humidite atmospherique
 map.trend.tcw <- function(wp=NULL,extr=F,rean="ERA5",start="1950-01-01",end="2017-12-31"){
   
@@ -396,10 +538,10 @@ map.trend.tcw <- function(wp=NULL,extr=F,rean="ERA5",start="1950-01-01",end="201
     }
   }
   
-  # Graphiques
-  print("Graphiques")
+  # Cartes
+  print("Cartes")
   N <- 9
-  par(pty="s")
+  par(pty="s",mar=c(4,4,2,0.5))
   
   # Annuel
   # Champs moyen
@@ -407,7 +549,7 @@ map.trend.tcw <- function(wp=NULL,extr=F,rean="ERA5",start="1950-01-01",end="201
   breaks <- seq(0,30,length.out = N+1)
   image.plot(lon,lat,tcw.moy,xlim=c(-10,22),ylim=c(36,52),
              col=brewer.pal(n = N, name = "BuGn"),breaks = breaks,
-             xlab="Longitude (°)",ylab="Latitude (°)",main="Yearly mean",legend.lab = "TCW (mm)",legend.line = 2.5)
+             xlab="Longitude (°)",ylab="Latitude (°)",main="Yearly mean",legend.lab = "TCW (mm)",legend.line = 3)
   data("wrld_simpl")
   plot(wrld_simpl, add = TRUE)
   graphics.off()
@@ -417,7 +559,7 @@ map.trend.tcw <- function(wp=NULL,extr=F,rean="ERA5",start="1950-01-01",end="201
   breaks <- seq(0,0.45,length.out = N+1)
   image.plot(lon,lat,trend.ann,xlim=c(-10,22),ylim=c(36,52),
              col=brewer.pal(n = N, name = "BuGn"),breaks = breaks,
-             xlab="Longitude (°)",ylab="Latitude (°)",main="Yearly absolute trend",legend.lab = "Trend (mm/10y)",legend.line = 2.5)
+             xlab="Longitude (°)",ylab="Latitude (°)",main="Yearly absolute trend",legend.lab = "Trend (mm/10y)",legend.line = 3)
   plot(wrld_simpl, add = TRUE)
   graphics.off()
   
@@ -426,44 +568,273 @@ map.trend.tcw <- function(wp=NULL,extr=F,rean="ERA5",start="1950-01-01",end="201
   breaks <- seq(0,3,length.out = N+1)
   image.plot(lon,lat,trend.ann.rel,xlim=c(-10,22),ylim=c(36,52),
              col=brewer.pal(n = N, name = "BuGn"),breaks = breaks,
-             xlab="Longitude (°)",ylab="Latitude (°)",main="Yearly relative trend",legend.lab = "Trend (%/10y)",legend.line = 2.5)
+             xlab="Longitude (°)",ylab="Latitude (°)",main="Yearly relative trend",legend.lab = "Trend (%/10y)",legend.line = 3)
   plot(wrld_simpl, add = TRUE)
   graphics.off()
   
   # Saisonnier
   if(!extr){
-  for(i in 1:length(sais)){
-    
-    print(paste0(i,"/",length(sais)))
-    
-    # Champs moyen
-    png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.tcw/mean_tcw_",sais[i],ifelse(!is.null(wp),paste0("_wp=",wp),""),"_",start,"_",end,".png"),width = 8,height = 6,units = "in",res=600)
-    breaks <- seq(0,30,length.out = N+1)
-    image.plot(lon,lat,tcw.moy.sais[[i]],xlim=c(-10,22),ylim=c(36,52),
-               col=brewer.pal(n = N, name = "BuGn"),breaks = breaks,
-               xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(nam2str(sais[i])," mean"),legend.lab = "TCW (mm)",legend.line = 2.5)
-    data("wrld_simpl")
-    plot(wrld_simpl, add = TRUE)
-    graphics.off()
-  
-    # Tendance absolue
-    png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.tcw/trend_tcw_",sais[i],ifelse(!is.null(wp),paste0("_wp=",wp),""),"_",start,"_",end,".png"),width = 8,height = 6,units = "in",res=600)
-    breaks <- seq(0,0.45,length.out = N+1)
-    image.plot(lon,lat,trend.sais[[i]],xlim=c(-10,22),ylim=c(36,52),
-               col=brewer.pal(n = N, name = "BuGn"),breaks = breaks,
-               xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(nam2str(sais[i])," absolute trend"),legend.lab = "Trend (mm/10y)",legend.line = 2.5)
-    plot(wrld_simpl, add = TRUE)
-    graphics.off()
-  
-    # Tendance relative
-    png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.tcw/trend_tcw_",sais[i],"_rel",ifelse(!is.null(wp),paste0("_wp=",wp),""),"_",start,"_",end,".png"),width = 8,height = 6,units = "in",res=600)
-    breaks <- seq(0,3,length.out = N+1)
-    image.plot(lon,lat,trend.sais.rel[[i]],xlim=c(-10,22),ylim=c(36,52),
-               col=brewer.pal(n = N, name = "BuGn"),breaks = breaks,
-               xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(nam2str(sais[i])," relative trend"),legend.lab = "Trend (%/10y)",legend.line = 2.5)
-    plot(wrld_simpl, add = TRUE)
-    graphics.off()
+    for(i in 1:length(sais)){
+      
+      print(paste0(i,"/",length(sais)))
+      
+      # Champs moyen
+      png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.tcw/mean_tcw_",sais[i],ifelse(!is.null(wp),paste0("_wp=",wp),""),"_",start,"_",end,".png"),width = 8,height = 6,units = "in",res=600)
+      breaks <- seq(0,30,length.out = N+1)
+      image.plot(lon,lat,tcw.moy.sais[[i]],xlim=c(-10,22),ylim=c(36,52),
+                 col=brewer.pal(n = N, name = "BuGn"),breaks = breaks,
+                 xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(nam2str(sais[i])," mean"),legend.lab = "TCW (mm)",legend.line = 3)
+      data("wrld_simpl")
+      plot(wrld_simpl, add = TRUE)
+      graphics.off()
+      
+      # Tendance absolue
+      png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.tcw/trend_tcw_",sais[i],ifelse(!is.null(wp),paste0("_wp=",wp),""),"_",start,"_",end,".png"),width = 8,height = 6,units = "in",res=600)
+      breaks <- seq(0,0.45,length.out = N+1)
+      image.plot(lon,lat,trend.sais[[i]],xlim=c(-10,22),ylim=c(36,52),
+                 col=brewer.pal(n = N, name = "BuGn"),breaks = breaks,
+                 xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(nam2str(sais[i])," absolute trend"),legend.lab = "Trend (mm/10y)",legend.line = 3)
+      plot(wrld_simpl, add = TRUE)
+      graphics.off()
+      
+      # Tendance relative
+      png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.tcw/trend_tcw_",sais[i],"_rel",ifelse(!is.null(wp),paste0("_wp=",wp),""),"_",start,"_",end,".png"),width = 8,height = 6,units = "in",res=600)
+      breaks <- seq(0,3,length.out = N+1)
+      image.plot(lon,lat,trend.sais.rel[[i]],xlim=c(-10,22),ylim=c(36,52),
+                 col=brewer.pal(n = N, name = "BuGn"),breaks = breaks,
+                 xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(nam2str(sais[i])," relative trend"),legend.lab = "Trend (%/10y)",legend.line = 3)
+      plot(wrld_simpl, add = TRUE)
+      graphics.off()
+    }
   }
+}
+
+# Carte des tendances d'une variable choisie aux dates des precipitations extremes sur Isere/Drac
+map.trend.var.extr <- function(var="vv700",sais="winter",bv="Isere",wp=1,rean="ERA5",start="1950-01-01",end="2017-12-31",reg="small"){
+  
+  dates <- getdates(start,end)
+  ann <- substr(dates,1,4)
+  
+  # Region
+  tmp <- get.region(reg = reg)
+  xlim <- tmp$xlim; ylim <- tmp$ylim; rm(tmp)
+  
+  # Import
+  tmp <- getdata(k = 1,day0 = start,day1 = end,rean = rean,lim.lon = xlim,lim.lat = ylim,var = var,return.lonlat = T)
+  data <- tmp$data;lon <- tmp$lon;lat <- tmp$lat;rm(tmp)
+  if(substr(var,1,3)=="sph") data <- data*1000 # passage en g/kg
+  gc()
+  
+  # Dates precip extremes
+  extr <- get.ind.max.sais(sais = sais,wp = wp,nbdays = 1,start = start,end = end,bv = bv,spazm = T)
+  data[,,!((1:length(dates)) %in% extr)] <- NA
+  
+  # Calcul moyenne et tendances
+  data.moy <- apply(data,1:2,mean,na.rm=T)
+  data.trend <- apply(data,1:2,function(v){lm(v~as.numeric(ann))$coefficients[2]*10}) # unit/10 ans
+  
+  # Carte moyenne et tendance
+  png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.var.extr/map_extr_",var,"_",sais,"_wp",wp,"_",bv,"_",start,"_",end,"_",reg,".png"),width = 14,height = 6,units = "in",res=600)
+  par(mfrow=c(1,2),mar=c(4,4,2,4))
+  
+  param <- get.param.map(field = data.moy,var = var,type = "Mean")
+  image.plot(lon,lat,data.moy,xlim=xlim,ylim=ylim,breaks=param$breaks,col=param$col,
+             xlab="Longitude (°)",ylab="Latitude (°)",main=param$main,legend.lab = param$leg,legend.line = 3,legend.mar = 12)
+  data("wrld_simpl")
+  plot(wrld_simpl, add = TRUE)
+  points(x = 5.73,y = 45.18,pch=19,cex=1.5)
+  
+  param <- get.param.map(field = data.trend,var = var,type = "Trend")
+  image.plot(lon,lat,data.trend,xlim=xlim,ylim=ylim,breaks=param$breaks,col=param$col,
+             xlab="Longitude (°)",ylab="Latitude (°)",main=param$main,legend.lab = param$leg,legend.line = 3,legend.mar = 12)
+  data("wrld_simpl")
+  plot(wrld_simpl, add = TRUE)
+  points(x = 5.73,y = 45.18,pch=19,cex=1.5)
+  graphics.off()
+}
+
+# Carte des tendances des vitesses verticales
+map.trend.vv <- function(z="850",wp=NULL,extr=F,rean="ERA5",start="1950-01-01",end="2017-12-31",reg="large"){
+  
+  dates <- getdates(start,end)
+  var <- paste0("vv",z)
+  
+  # Import
+  print("Import")
+  vv <- getdata(k = 1,day0 = start,day1 = end,rean = rean,var = var)
+  fen <- getinfo_window(k = 1,rean = rean,var = var)
+  nc <- load.nc(rean = rean,var = var)
+  lon <- nc$dim$lon$vals
+  lat <- nc$dim$lat$vals
+  nc_close(nc)
+  
+  lon <- lon[fen[1,1]:(fen[1,1]+fen[1,2]-1)]
+  lat <- lat[fen[2,1]:(fen[2,1]+fen[2,2]-1)]
+  gc()
+  
+  # WP
+  if(!is.null(wp)){
+    tt <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+    vv[,,tt!=wp] <- NA
+    
+    if(extr){
+      ind.extr <- get.ind.max.flow(flow = wp,agreg = T,nbdays = 1,start = start,end = end,spazm = T,supseuil = T,nei = T)
+      vv[,,!((1:length(dates)) %in% ind.extr)] <- NA
+    }
+  }
+  
+  # Calcul tendances
+  ann <- substr(dates,1,4)
+  an <- as.numeric(unique(ann))
+  
+  # Annuel
+  print("Calcul Annuel")
+  vv.moy <- apply(vv,1:2,mean,na.rm=T)
+  vv.ann <- apply(vv,1:2,function(v){aggregate(v,by=list(ann),mean,na.rm=T)[,2]})
+  trend.ann <- apply(vv.ann,2:3,function(v){lm(v~an)$coefficients[2]*10}) # unit/10 ans
+  trend.ann.rel <- trend.ann/vv.moy*100 # passage en %/10 ans
+  
+  # Saisonnier
+  if(!extr){
+    print("Calcul Saisonnier")
+    sais <- c("winter","spring","summer","autumn")
+    vv.moy.sais <- trend.sais <- trend.sais.rel <- list()
+    
+    for(i in 1:length(sais)){
+      print(paste0(i,"/",length(sais)))
+      vec.sais <- rep(NA,length(dates))
+      sea <- get.ind.season(sais = sais[i],start = start,end = end)
+      vec.sais[sea$pos.season] <- i
+      vv.moy.sais[[i]] <- apply(vv[,,sea$pos.season],1:2,mean,na.rm=T)
+      vv.sais <- apply(vv,1:2,function(v){aggregate(v,by=list(ann,vec.sais),mean,na.rm=T)[,3]})
+      trend.sais[[i]] <- apply(vv.sais,2:3,function(v){lm(v~an)$coefficients[2]*10})
+      trend.sais.rel[[i]] <- trend.sais[[i]]/vv.moy.sais[[i]]*100
+    }
+  }
+  
+  # Cartes
+  print("Cartes")
+  N <- 9
+  if(reg=="small"){xlim <- c(3,8);ylim <- c(43,47)}
+  if(reg=="medium"){xlim <- c(-5,10);ylim <- c(42,52)}
+  if(reg=="large"){xlim <- c(-10,18);ylim <- c(36,52)}
+  par(pty="s",mar=c(4,4,2,0.5))
+  
+  # Annuel
+  # Champs moyen
+  png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.vv/",var,"/mean_vv_annual",ifelse(!is.null(wp),paste0("_wp=",wp),""),ifelse(extr,"_extr",""),"_",start,"_",end,ifelse(reg!="large",paste0("_",reg),""),".png"),width = 8,height = 6,units = "in",res=600)
+  #breaks <- seq(0,30,length.out = N+1)
+  image.plot(lon,lat,vv.moy,xlim=xlim,ylim=c(36,52),
+             col=brewer.pal(n = N, name = "RdBu"),#breaks = breaks,
+             xlab="Longitude (°)",ylab="Latitude (°)",main="Yearly mean",legend.lab = "vv (Pa.s-1)",legend.line = 3)
+  data("wrld_simpl")
+  plot(wrld_simpl, add = TRUE)
+  if(type!="large") points(x = 5.73,y = 45.18,col = "red",pch=19)
+  graphics.off()
+  
+  # Tendance absolue
+  png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.vv/",var,"/trend_vv_annual",ifelse(!is.null(wp),paste0("_wp=",wp),""),ifelse(extr,"_extr",""),"_",start,"_",end,ifelse(reg!="large",paste0("_",reg),""),".png"),width = 8,height = 6,units = "in",res=600)
+  #breaks <- seq(0,0.45,length.out = N+1)
+  image.plot(lon,lat,trend.ann,xlim=xlim,ylim=c(36,52),
+             col=brewer.pal(n = N, name = "RdBu"),#breaks = breaks,
+             xlab="Longitude (°)",ylab="Latitude (°)",main="Yearly absolute trend",legend.lab = "Trend (Pa.s-1/10y)",legend.line = 3)
+  plot(wrld_simpl, add = TRUE)
+  if(type!="large") points(x = 5.73,y = 45.18,col = "red",pch=19)
+  graphics.off()
+  
+  # Saisonnier
+  if(!extr){
+    for(i in 1:length(sais)){
+      
+      print(paste0(i,"/",length(sais)))
+      
+      # Champs moyen
+      png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.vv/",var,"/mean_vv_",sais[i],ifelse(!is.null(wp),paste0("_wp=",wp),""),"_",start,"_",end,ifelse(reg!="large",paste0("_",reg),""),".png"),width = 8,height = 6,units = "in",res=600)
+      #breaks <- seq(0,30,length.out = N+1)
+      image.plot(lon,lat,vv.moy.sais[[i]],xlim=xlim,ylim=c(36,52),
+                 col=brewer.pal(n = N, name = "RdBu"),#breaks = breaks,
+                 xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(nam2str(sais[i])," mean"),legend.lab = "vv (Pa.s-1)",legend.line = 3)
+      data("wrld_simpl")
+      plot(wrld_simpl, add = TRUE)
+      if(type!="large") points(x = 5.73,y = 45.18,col = "red",pch=19)
+      graphics.off()
+      
+      # Tendance absolue
+      png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.vv/",var,"/trend_vv_",sais[i],ifelse(!is.null(wp),paste0("_wp=",wp),""),"_",start,"_",end,ifelse(reg!="large",paste0("_",reg),""),".png"),width = 8,height = 6,units = "in",res=600)
+      #breaks <- seq(0,0.45,length.out = N+1)
+      image.plot(lon,lat,trend.sais[[i]],xlim=xlim,ylim=c(36,52),
+                 col=brewer.pal(n = N, name = "RdBu"),#breaks = breaks,
+                 xlab="Longitude (°)",ylab="Latitude (°)",main=paste0(nam2str(sais[i])," absolute trend"),legend.lab = "Trend (Pa.s-1/10y)",legend.line = 3)
+      plot(wrld_simpl, add = TRUE)
+      if(type!="large") points(x = 5.73,y = 45.18,col = "red",pch=19)
+      graphics.off()
+    }
+  }
+}
+
+# Trace l'evolution du SPH a differentes altitudes en un point donne
+plot.trend.sph.point <- function(pt.lon=6,pt.lat=45,rean="ERA5",start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  ann <- substr(dates,1,4)
+  lev <- c("925","850","700","500")
+  
+  # Import des donnees de sph au point
+  sph <- matrix(data = NA,nrow = length(dates),ncol = length(lev))
+  for(i in 1:length(lev)){
+    sph[,i] <- getdata(k = 1,day0 = start,day1 = end,rean = rean,pt.lon = pt.lon,pt.lat = pt.lat,var = paste0("sph",lev[i]))
+  }
+  
+  # Traitement
+  # Annuel
+  print("Calcul Annuel")
+  sph.ann <- aggregate(sph,by=list(ann),mean,na.rm=T)
+  
+  # Max annuel de precip Atlantique
+  extr <- get.ind.max.flow(flow = 1,agreg = T,nbdays = 1,start = start,end = end,spazm = T,supseuil = F,nei = F)
+  plot(as.Date(dates[extr]),sph[extr,1]*1000,type="l",ylim=c(0,12))
+  grid()
+  for(i in 1:length(lev)){
+    lines(as.Date(dates[extr]),sph[extr,i]*1000,col=colo[i])
+    abline(lm(sph[extr,i]*1000~as.Date(dates[extr])),col=colo[i])
+  }
+  
+  # Saisonnier
+  #if(!extr){
+  #  print("Calcul Saisonnier")
+  #  sais <- c("winter","spring","summer","autumn")
+  #  sph.moy.sais <- trend.sais <- trend.sais.rel <- list()
+  #  
+  #  for(i in 1:length(sais)){
+  #    print(paste0(i,"/",length(sais)))
+  #    vec.sais <- rep(NA,length(dates))
+  #    sea <- get.ind.season(sais = sais[i],start = start,end = end)
+  #    vec.sais[sea$pos.season] <- i
+  #    sph.moy.sais[[i]] <- apply(sph[,,sea$pos.season],1:2,mean,na.rm=T)
+  #    sph.sais <- apply(sph,1:2,function(v){aggregate(v,by=list(ann,vec.sais),mean,na.rm=T)[,3]})
+  #    trend.sais[[i]] <- apply(sph.sais,2:3,function(v){lm(v~an)$coefficients[2]*10})
+  #    trend.sais.rel[[i]] <- trend.sais[[i]]/sph.moy.sais[[i]]*100
+  #  }
+  #}
+  
+  
+  # Graphiques
+  colo <- c("red","darkorange","darkgreen","darkblue")
+  
+  plot(as.numeric(sph.ann[,1]),sph.ann[,2]*1000,type="l",ylim=c(0.5,6.5))
+  grid()
+  for(i in 1:length(lev)){
+    lines(as.numeric(sph.ann[,1]),sph.ann[,i+1]*1000,col=colo[i])
+    reg <- lm(sph.ann[,i+1]*1000~as.numeric(sph.ann[,1]))
+    abline(reg,col=colo[i])
+    text(2010,tail(sph.ann[,i+1]*1000,1)*1.05,paste0(round(reg$coefficients[2]*10/mean(sph.ann[,i+1]*1000,na.rm=T)*100,4),"g/kg/10y"))
+    print(paste0("pvalue=",summary(reg)$coefficients[,4][2]))
+  }
+  
+  sph.ann <- t(sph.ann[,-1])
+  plot(sph.ann[,1]*1000,c(925,850,700,500),type="l",xlim=c(0.5,6.5),ylim = rev(range(c(925,850,700,500))),log="y")
+  for(i in 1:ncol(sph.ann)){
+    lines(sph.ann[,i]*1000,c(925,850,700,500))
   }
 }
 
@@ -595,6 +966,33 @@ run.past.trends <- function(type=1){
           print(wp[k])
           plot.trend.descr.extr(bv = bv[1],wp = wp[k],type = "wp",descr = descr[i],k = 1,dist = "TWS",rean = "ERA5",nbdays = nbdays[j],spazm = T,
                                 start = "1950-01-01",end = "2017-12-31",start.ana = "1950-01-01",end.ana = "2010-12-31",max.an = T)
+        }
+      }
+    }
+  }
+  
+  # map.trend.var.extr
+  if(type==3){
+    bv <- c("Isere","Isere-seul","Drac-seul")
+    wp <- c(1,2)
+    sais <- c("spring","autumn","winter")
+    var <- c("vv500","vv700","vv850","vv925","sph500","sph700","sph850","sph925","tcw")
+    reg <- c("small","large")
+    
+    for(i in 1:length(bv)){
+      print(bv[i])
+      for(j in 1:length(wp)){
+        print(wp[j])
+        for(k in 1:length(sais)){
+          print(sais[k])
+          for(l in 1:length(var)){
+            print(var[l])
+            for(m in 1:length(reg)){
+              print(reg[m])
+              map.trend.var.extr(var = var[l],sais = sais[k],bv = bv[i],wp = wp[j],rean = "ERA5",start = "1950-01-01",end = "2017-12-31",reg = reg[m])
+              gc()
+            }
+          }
         }
       }
     }

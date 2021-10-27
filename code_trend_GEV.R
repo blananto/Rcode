@@ -1,9 +1,6 @@
 library(ismev)
 library(evd)
 
-# Lancer le code ligne par ligne pour l'adapter
-# Verifier les indices d'hiver, pour voir si plus coherent de ne lancer le calcul que sur les hivers complets, comme pour lettre et article 2
-
 meanGEV.fct<-function(mu,sig,xi){mu+sig/xi*(gamma(1-xi)-1)}
 
 nbday<-1 #mettre nbday<-3 pour les precip sur 3j 
