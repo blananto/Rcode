@@ -162,8 +162,17 @@ compare.schaake <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean
 # Calcule les RL20 et mean max selon la GEV pour les scenarios analogues
 compute.gev.ana <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end){
 
+  # Dates utiles
   dates <- getdates(start,end)
-  year <- as.numeric(unique(substr(date,1,4)))
+  year <- as.numeric(unique(substr(dates,1,4)))
+  
+  start.end.rean <- get.start.end.rean(rean,period,"dist",k)
+  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2017-12-31")
+  dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
+  n <- length(dates.ana)
   
   # Import GEV
   load(file = get.path(fit_gev_ana = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,start = start,end = end))
@@ -199,10 +208,10 @@ compute.gev.ana <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean
 compute.gev.obs <- function(bv="Isere",nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31"){
   
   dates <- getdates(start,end)
-  year <- as.numeric(unique(substr(date,1,4)))
+  year <- as.numeric(unique(substr(dates,1,4)))
   
   # Import GEV
-  load(file = paste0(get.dirstr(k,rean,"past"),"fit.gev.obs/fit_gev_",bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
+  load(file = paste0("2_Travail/1_Past/Rresults/fit.gev.obs/fit_gev_",bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
   
   # Estimations RL20/mean et export
   meanGEV.fct<-function(mu,sig,xi){mu+sig/xi*(gamma(1-xi)-1)}
@@ -224,7 +233,7 @@ compute.gev.obs <- function(bv="Isere",nbdays=1,spazm=T,start="1950-01-01",end="
     val.gev[[i]] <- tab
   }
   
-  save(val.gev,file = paste0(get.dirstr(k,rean,"past"),"compute.gev.obs/compute_gev_",bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
+  save(val.gev,file = paste0("2_Travail/1_Past/Rresults/compute.gev.obs/compute_gev_",bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
 }
 
 # Convertit les TWS en integer 10^9 pour reduire la memoire utilisee
@@ -415,7 +424,7 @@ fit.gamma.random <- function(replic=1000,nbdays,nbana=0.2,nbmini=10,seuil=0,bv,s
 fit.gev <- function(precip,sais,start,end){
   
   dates <- getdates(start,end)
-  year <- as.numeric(unique(substr(date,1,4)))
+  year <- as.numeric(unique(substr(dates,1,4)))
   
   # Extraction du max saisonnier
   pos <- get.ind.season(sais = sais,start = start,end = end)
@@ -485,7 +494,7 @@ fit.gev.ana <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,per
   save(fit,file = get.path(fit_gev_ana = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,start = start,end = end))
 }
 
-# Calage loi gev sur les precip analogues, en parallele: ne marche pas
+# Calage loi gev sur les precip analogues, en parallele
 fit.gev.ana.par <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end){
   
   # Dates utiles
@@ -549,7 +558,7 @@ fit.gev.obs <- function(bv="Isere",nbdays=1,spazm=T,start="1950-01-01",end="2017
     print(sais[i])
     fit[[i]] <- fit.gev(precip = precip,sais = sais[i],start = start,end = end)
   }
-  save(fit,file = paste0(get.dirstr(k,rean,"past"),"fit.gev.obs/fit_gev_",bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
+  save(fit,file = paste0("2_Travail/1_Past/Rresults/fit.gev.obs/fit_gev_",bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
 }
 
 # Calage loi gaussienne inverse sur les distributions de precip reconstruite par analogie classique
@@ -1046,10 +1055,18 @@ plot.fit.precip <- function(k,dist,bv,spazm,nbdays,nbana,rean,period="past",gamm
 plot.gev <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end){
   
   # Import des GEV observees
-  load(file = paste0(get.dirstr(k,rean,"past"),"compute.gev.obs/compute_gev_",bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
+  load(file = paste0("2_Travail/1_Past/Rresults/compute.gev.obs/compute_gev_",bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
   gev.obs <- val.gev
   
   # Import des GEV analogues
+  start.end.rean <- get.start.end.rean(rean,period,"dist",k)
+  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2017-12-31")
+  dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
+  n <- length(dates.ana)
+  
   load(file = get.path(compute_gev_ana = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,start = start,end = end))
   gev.ana <- val.gev
   rm(val.gev)
@@ -1538,7 +1555,7 @@ run.analogs <- function(k = 1,dist = "TWS",start = "1851-01-01",end = "2011-12-3
   save_precip=F
   fit_law=F
   generate_precip=F
-  gev=F
+  gev=T
   graphics=T
   
   # Calcul des distances
@@ -1580,7 +1597,9 @@ run.analogs <- function(k = 1,dist = "TWS",start = "1851-01-01",end = "2011-12-3
   
   # Calculs GEV
   if(gev){
-    #fit.gev.ana(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = T,moments = moments,start = start,end = end)
+    #fit.gev.obs(bv = bv,nbdays = nbdays,spazm = spazm,start = start,end = end)
+    #fit.gev.ana.par(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = T,moments = moments,start = start,end = end)
+    #compute.gev.obs(bv = bv,nbdays = nbdays,spazm = spazm,start = start,end = end)
     compute.gev.ana(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = T,moments = moments,start = start,end = end)
     }
   

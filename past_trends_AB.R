@@ -104,52 +104,6 @@ get.nao <- function(start="1950",end="2019",sais="all",daily=F){
   nao
 }
 
-# Trace l'evolution des indicateurs aux dates des precipitations extremes pour l'annee et les 4 saisons, par BV ou par WP
-plot.trend.descr.extr <- function(bv="Isere-seul",wp=1,type="bv",descr,k,dist,rean,nbdays=3,spazm=T,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",max.an=F){
-  
-  # Refaire avec max.sais=max saisonnier de precipitations, pour etre raccord avec article de Juliette
-  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
-  
-  # Import de l'indicateur
-  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = 1,start = start,end = end,
-                        standardize = F,rean = rean,threeday = F,period = "past",start.ana = start.ana,
-                        end.ana = end.ana)
-  
-  # Dates de precipitations extremes
-  if(type=="bv"){
-    if(!max.an){
-      extr <- get.ind.extr(bv = bv,nbdays = nbdays,start = start,end = end,nei = T,spazm = spazm,seuil = "qua")
-    }else{
-      extr <- get.ind.max(type = "year",nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm)
-    } 
-  }
-  
-  if(type=="wp"){
-    extr <- get.ind.max.flow(flow = wp,agreg = T,nbdays = nbdays,start = start,end = end,spazm = spazm,supseuil = ifelse(max.an,F,T),nei = T)
-  }
-  
-  # Graphique
-  dat <- as.Date(dates)
-  main.type <- ifelse(type=="bv",bv,paste0("wp",wp))
-  sais <- c("year","winter","spring","summer","autumn")
-  
-  png(filename = paste0(get.dirstr(k,rean,period="past"),"plot.trend.descr.extr/plot_",main.type,ifelse(max.an,"_max.an",""),"_mean",nbdays,"day_",descr,"_",rean,"_",start,"_",end,".png"),width = 7,height = 7,units = "in",res=600)
-  par(mfrow=c(3,2),mar=c(2,4,2,0))
-  
-  for(i in 1:length(sais)){
-    sea <- unique(get.ind.season(sais = sais[i],start = start,end = end)$pos.season)
-    pos <- intersect(sea,extr)
-    plot(dat[pos],des[pos],pch=19,xlab="Year",ylab=nam2str(descr,whole=T),main=paste0(nam2str(main.type)," - ",nbdays,"-day - ",nam2str(sais[i])))
-    grid();par(new=T)
-    plot(dat[pos],des[pos],pch=19,xlab="",ylab="")
-    reg <- lm(des[pos]~dat[pos])
-    abline(reg,col="red")
-    text(x = quantile(as.numeric(dat[pos]),0.5),y=max(des[pos]),paste0("pvalue=",round(summary(reg)$coefficients[,4][2],3)),col="red",font=2)
-  }
-  
-  graphics.off()
-}
-
 # Trace l'evolution dans le temps de la latitude du jet saison et type de temps
 plot.trend.lat.jet <- function(gamme=c(5450,5550),wp="all",start="1900-01-01",end="2010-12-31",rean,liss=1){
   
@@ -937,46 +891,12 @@ run.past.trends <- function(type=1){
     }
   }
   
-  # plot.trend.descr.extr
-  if(type==2){
-    descr <- c("cel","sing05","rsing05","dP")
-    bv <- c("Isere-seul","Drac-seul","Isere")
-    wp <- c(1,2)
-    nbdays <- c(1,3)
-    
-    # par bv
-    for(i in 1:length(descr)){
-      print(descr[i])
-      for(j in 1:length(nbdays)){
-        print(nbdays[j])
-        for(k in 1:length(bv)){
-          print(bv[k])
-          plot.trend.descr.extr(bv = bv[k],wp = 1,type = "bv",descr = descr[i],k = 1,dist = "TWS",rean = "ERA5",nbdays = nbdays[j],spazm = T,
-                                start = "1950-01-01",end = "2017-12-31",start.ana = "1950-01-01",end.ana = "2010-12-31",max.an = T)
-        }
-      }
-    }
-    
-    # par wp
-    for(i in 1:length(descr)){
-      print(descr[i])
-      for(j in 1:length(nbdays)){
-        print(nbdays[j])
-        for(k in 1:length(wp)){
-          print(wp[k])
-          plot.trend.descr.extr(bv = bv[1],wp = wp[k],type = "wp",descr = descr[i],k = 1,dist = "TWS",rean = "ERA5",nbdays = nbdays[j],spazm = T,
-                                start = "1950-01-01",end = "2017-12-31",start.ana = "1950-01-01",end.ana = "2010-12-31",max.an = T)
-        }
-      }
-    }
-  }
-  
   # map.trend.var.extr
-  if(type==3){
+  if(type==2){
     bv <- c("Isere","Isere-seul","Drac-seul")
     wp <- c(1,2)
     sais <- c("spring","autumn","winter")
-    var <- c("vv500","vv700","vv850","vv925","sph500","sph700","sph850","sph925","tcw")
+    var <- c("t700","t850")#c("vv500","vv700","vv850","vv925","sph500","sph700","sph850","sph925","tcw")
     reg <- c("small","large")
     
     for(i in 1:length(bv)){

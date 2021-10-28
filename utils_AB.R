@@ -3127,6 +3127,7 @@ get.ind.max.sais <- function(sais="winter",wp=1,nbdays=3,start="1950-01-01", end
   pos.season <- tmp$pos.season
   n.season <- tmp$n.season
   l.season <- tmp$l.season
+  pos.NA <- tmp$pos.NA
   rm(tmp)
   
   precip <- precip[pos.season]
@@ -3250,12 +3251,14 @@ get.param.map <- function(field,var="vv700",type=c("Mean","Trend")){
   if(substr(var,1,2)=="vv" | type=="Trend"){
     N <- 10
     col <- brewer.pal(n = N, name = "RdBu")
+    if(substr(var,1,1)=="t"){col <- rev(col)}
     ran <- range(field)
     ran <- c(-max(abs(ran)),max(abs(ran)))
     breaks <- seq(ran[1],ran[2],length.out = N+1)
      }else{
       N <- 9
       col <- brewer.pal(n = N, name = "PuBu")
+      if(substr(var,1,1)=="t"){col <- rev(brewer.pal(n = N, name = "RdBu"))}
       ran <- range(field)
       breaks <- seq(ran[1],ran[2],length.out = N+1)
      }
@@ -3273,6 +3276,10 @@ get.param.map <- function(field,var="vv700",type=c("Mean","Trend")){
   
   if(substr(var,1,3)=="sph"){
     leg <- ifelse(type=="Mean",paste0("Specific Humidity ",substr(var,4,6)," hPa (g/kg)"),paste0("Specific Humidity ",substr(var,4,6)," hPa Trend (g/kg/10year)"))
+  }
+  
+  if(substr(var,1,1)=="t"){
+    leg <- ifelse(type=="Mean",paste0("Temperature ",substr(var,2,4)," hPa (°C)"),paste0("Temperature ",substr(var,2,4)," hPa Trend (°C/10year)"))
   }
   
   return(list(col=col,breaks=breaks,main=main,leg=leg))
@@ -3377,7 +3384,7 @@ get.start.end.rean <- function(rean,period="present",type="dist",k=1){
         if(rean=="20CR-m1"){start <- "1851-01-01";end <- "2010-12-31"}
         if(rean=="20CR-m2"){start <- "1851-01-01";end <- "2010-12-31"}
         if(rean=="ERA20C"){start <- "1900-01-01";end <- "2010-12-31"}
-        if(rean=="ERA5"){start <- "1950-01-01";"2021-07-17"} # 2010-12-31 pour results part 1 article 2. 2017-12-31 ou 2021-07-17 pour le reste
+        if(rean=="ERA5"){start <- "1950-01-01";end <- "2021-07-17"} # 2010-12-31 pour results part 1 article 2. 2017-12-31 ou 2021-07-17 pour le reste
         if(rean=="ERA40"){start <- "1957-09-01";end <- "2002-08-31"}
         if(rean=="JRA55"){start <- "1958-01-01";end <- "2010-12-31"}
         if(rean=="JRA55C"){start <- "1972-11-01";end <- "2010-12-30"}
@@ -3889,6 +3896,12 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
     
     if(rean == "ERA5" & substr(var,1,3) == "sph"){
       nc <-nc_open(paste0("2_Travail/Data/Reanalysis/ERA5/SPH/ERA5_SPH",substr(var,4,6),"_1950_2021_daily.nc"))
+      names(nc$var) <- var
+      nc$var[[1]]$name <- var
+    }
+    
+    if(rean == "ERA5" & substr(var,1,1) == "t"){
+      nc <-nc_open(paste0("2_Travail/Data/Reanalysis/ERA5/T/ERA5_T",substr(var,2,4),"_1950_2021_daily.nc"))
       names(nc$var) <- var
       nc$var[[1]]$name <- var
     }
@@ -6418,6 +6431,12 @@ reshape.ERA5.conc <- function(var="VV", z = "500"){
     var.name <- "z"
     var.longname <- "Geopotential Height"
     var.unit <- "m"
+  }
+  
+  if(var=="T"){
+    var.name <- "t"
+    var.longname <- "Temperature"
+    var.unit <- "°C"
   }
   
   # Import reanalyse brute
