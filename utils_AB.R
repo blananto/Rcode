@@ -3266,12 +3266,15 @@ get.param.map <- function(field,var="vv700",type=c("Mean","Trend")){
   # Legende et titre
   main <- type
   
-  if(substr(var,1,2)=="vv"){
-  leg <- ifelse(type=="Mean",paste0("Vertical velocity ",substr(var,3,5)," hPa (Pa/s)"),paste0("Vertical velocity ",substr(var,3,5)," hPa Trend (Pa/s/10year)"))
+  if(var=="tcw"){
+    leg <- ifelse(type=="Mean","Total Column Water (mm)","Total Column Water Trend (mm/10year)")
+  }
+  if(var=="pwat"){
+    leg <- ifelse(type=="Mean","Precipitable Water (mm)","Precipitable Water Trend (mm/10year)")
   }
   
-  if(substr(var,1,3)=="tcw"){
-    leg <- ifelse(type=="Mean","Total Column Water (mm)","Total Column Water Trend (mm/10year)")
+  if(substr(var,1,2)=="vv"){
+  leg <- ifelse(type=="Mean",paste0("Vertical velocity ",substr(var,3,5)," hPa (Pa/s)"),paste0("Vertical velocity ",substr(var,3,5)," hPa Trend (Pa/s/10year)"))
   }
   
   if(substr(var,1,3)=="sph"){
@@ -3354,7 +3357,7 @@ get.region <- function(reg="large"){
 }
 
 # Renvoie les dates de debut et fin de periode de calcul de dist ou criteria par reanalyse
-get.start.end.rean <- function(rean,period="present",type="dist",k=1){
+get.start.end.rean <- function(rean,period="present",type="dist",k=1,var=NULL){
   
   # Reanalyses utilisees pour etude Present
   if(period=="present"){
@@ -3366,21 +3369,27 @@ get.start.end.rean <- function(rean,period="present",type="dist",k=1){
   }
     
   # Reanalyses utilisees pour etude Passe
-    if(period=="past"){
-      if(type=="dist"){
-        if(rean=="20CR") {start <- end <- NULL}
-        if(rean=="20CR-m0"){start <- "1851-01-01";end <- "2011-12-31"}
-        if(rean=="20CR-m1"){start <- "1851-01-01";end <- ifelse(k==1,"2014-12-31","2011-12-31")}
-        if(rean=="20CR-m2"){start <- "1851-01-01";end <- "2011-12-31"}
-        if(rean=="ERA20C"){start <- "1900-01-01";end <- "2010-12-31"}
-        if(rean=="ERA5"){start <- "1950-01-01";end <- ifelse(k==2,"2021-07-31","2021-07-17")} #end <- "2017-12-31"}
-        if(rean=="ERA40"){start <- "1957-09-01";end <- "2002-08-31"}
-        if(rean=="JRA55"){start <- "1958-01-01";end <- "2010-12-31"}
-        if(rean=="JRA55C"){start <- "1972-11-01";end <- "2012-12-31"}
-        if(rean=="NCEP"){start <- "1950-01-01";end <- "2010-12-31"}
+  if(period=="past"){
+    if(type=="dist"){
+      if(rean=="20CR") {start <- end <- NULL}
+      if(rean=="20CR-m0"){start <- "1851-01-01";end <- "2011-12-31"}
+      if(rean=="20CR-m1"){start <- "1851-01-01";end <- ifelse(k==1,"2014-12-31","2011-12-31")}
+      if(rean=="20CR-m2"){start <- "1851-01-01";end <- "2011-12-31"}
+      if(rean=="ERA20C"){start <- "1900-01-01";end <- "2010-12-31"}
+      if(rean=="ERA5"){start <- "1950-01-01";end <- "2021-07-17"
+        if(k==2) end <- "2021-07-31" # pour HGT1000
+        if(!is.null(var)){
+        if(var=="tcw" | substr(var,2,nchar(var))=="wind") end <- "2019-12-31"
+        if(var=="pwat") end <- "2021-02-28"
+        }
       }
-      if(type=="criteria"){
-        if(rean=="20CR-m0"){start <- "1851-01-01";end <- "2010-12-31"}
+      if(rean=="ERA40"){start <- "1957-09-01";end <- "2002-08-31"}
+      if(rean=="JRA55"){start <- "1958-01-01";end <- "2010-12-31"}
+      if(rean=="JRA55C"){start <- "1972-11-01";end <- "2012-12-31"}
+      if(rean=="NCEP"){start <- "1950-01-01";end <- "2010-12-31"}
+    }
+    if(type=="criteria"){
+      if(rean=="20CR-m0"){start <- "1851-01-01";end <- "2010-12-31"}
         if(rean=="20CR-m1"){start <- "1851-01-01";end <- "2010-12-31"}
         if(rean=="20CR-m2"){start <- "1851-01-01";end <- "2010-12-31"}
         if(rean=="ERA20C"){start <- "1900-01-01";end <- "2010-12-31"}
@@ -3874,6 +3883,12 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
       nc$var[[2]]$name <- var
     }
     
+    if(rean == "ERA5" & var == "pwat"){
+      nc<-nc_open("2_Travail/Data/Reanalysis/ERA5/PWAT/ERA5_PWAT_1950-01-01_2021-02-28_daily.nc")
+      names(nc$var)[2] <- var
+      nc$var[[2]]$name <- var
+    }
+    
     if(rean == "ERA5" & var == "uwind"){
       nc <-nc_open("2_Travail/Data/Reanalysis/ERA5/WIND/ERA5_UWIND_1950_2019_daily.nc")
       names(nc$dim) <- c("lon","lat","time","bnds")
@@ -3900,7 +3915,7 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
       nc$var[[1]]$name <- var
     }
     
-    if(rean == "ERA5" & substr(var,1,1) == "t"){
+    if(rean == "ERA5" & substr(var,1,1) == "t" & var!="tcw"){
       nc <-nc_open(paste0("2_Travail/Data/Reanalysis/ERA5/T/ERA5_T",substr(var,2,4),"_1950_2021_daily.nc"))
       names(nc$var) <- var
       nc$var[[1]]$name <- var

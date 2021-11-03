@@ -896,7 +896,7 @@ run.past.trends <- function(type=1){
     bv <- c("Isere","Isere-seul","Drac-seul")
     wp <- c(1,2)
     sais <- c("spring","autumn","winter")
-    var <- c("t700","t850")#c("vv500","vv700","vv850","vv925","sph500","sph700","sph850","sph925","tcw")
+    var <- "pwat" #c("vv500","vv700","vv850","vv925","sph500","sph700","sph850","sph925","tcw","t700","t850")
     reg <- c("small","large")
     
     for(i in 1:length(bv)){
