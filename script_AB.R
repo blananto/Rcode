@@ -1,13 +1,4 @@
 #setwd("C:/Users/blananto/Documents")
-setwd("../../")
-
-# Parametres ----
-rean     <- "ERA5"
-k        <- 1
-dist     <- "TWS"
-nbdays   <- 3
-start    <- "1950-01-01"
-end      <- "2017-12-31"
 
 # Script pour lancer de vieilles fonctions ----
 # member   <- 1

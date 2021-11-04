@@ -39,6 +39,16 @@ library("ks") # kde.test
 library("ismev") # gev
 library("evd") # gev
 
+#setwd("../../")
+#
+## Parametres ----
+#rean     <- "ERA5"
+#k        <- 1
+#dist     <- "TWS"
+#nbdays   <- 3
+#start    <- "1950-01-01"
+#end      <- "2017-12-31"
+
 # Fonctions graphiques
 addcircle<-function(radius){
   usr<-par("usr")
