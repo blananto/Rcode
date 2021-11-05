@@ -321,6 +321,43 @@ compute.gev.obs.all <- function(nbdays=1,start="1950-01-01",end="2017-12-31"){
   save(val.gev,file = paste0("2_Travail/1_Past/Rresults/compute.gev.obs/compute_gev_all_mean",nbdays,"day_",start,"_",end,".Rdata"))
 }
 
+# Calcule les RL20 et mean max selon la GEV pour la reanalyse
+compute.gev.rean <- function(rean="ERA5",nbdays=1,start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  year <- as.numeric(unique(substr(dates,1,4)))
+  
+  # Import GEV
+  load(file = paste0(get.dirstr(rean = rean,period = "past"),"fit.gev.rean/fit_gev_",rean,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  
+  # Estimations RL20/mean et export
+  meanGEV.fct<-function(mu,sig,xi){mu+sig/xi*(gamma(1-xi)-1)}
+  sais <- c("winter","spring","summer","autumn")
+  val.gev <- vector(mode="list",length=length(fit))
+  
+  for(i in 1:length(fit)){
+    print(paste0(i,"/",length(fit)))
+    if(!is.null(fit[[i]][[1]])){
+      for(j in 1:length(sais)){
+        print(sais[j])
+        tab <- matrix(data = NA,nrow = 2,ncol = 4)
+        colnames(tab) <- c("Year","RL20","Mean","pval")
+        tab[,1] <- c(year[1],year[length(year)])
+        
+        ny <- nrow(fit[[i]][[j]]$fitbest$vals)
+        tab[1,2] <- qgev(1-1/20,fit[[i]][[j]]$fitbest$vals[1,1],fit[[i]][[j]]$fitbest$vals[1,2],fit[[i]][[j]]$fitbest$vals[1,3])
+        tab[2,2] <- qgev(1-1/20,fit[[i]][[j]]$fitbest$vals[ny,1],fit[[i]][[j]]$fitbest$vals[ny,2],fit[[i]][[j]]$fitbest$vals[ny,3])
+        tab[1,3] <- meanGEV.fct(fit[[i]][[j]]$fitbest$vals[1,1],fit[[i]][[j]]$fitbest$vals[1,2],fit[[i]][[j]]$fitbest$vals[1,3])
+        tab[2,3] <- meanGEV.fct(fit[[i]][[j]]$fitbest$vals[ny,1],fit[[i]][[j]]$fitbest$vals[ny,2],fit[[i]][[j]]$fitbest$vals[ny,3])
+        tab[1,4] <- fit[[i]][[j]]$pval
+        val.gev[[i]][[j]] <- tab
+      }
+      names(val.gev[[i]]) <- sais
+    }
+  }
+  save(val.gev,file = paste0(get.dirstr(rean = rean,period = "past"),"compute.gev.rean/compute_gev_",rean,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+}
+
 # Convertit les TWS en integer 10^9 pour reduire la memoire utilisee
 convert_dist_past <- function(k,dist,rean){
   
@@ -786,6 +823,41 @@ fit.gev.obs.all <- function(nbdays=1,start="1950-01-01",end="2017-12-31"){
   save(fit,file = paste0("2_Travail/1_Past/Rresults/fit.gev.obs/fit_gev_all_mean",nbdays,"day_",start,"_",end,".Rdata"))
 }
 
+# # Calage loi gev sur les precip de la reanalyse
+fit.gev.rean <- function(rean="ERA5",nbdays=1,start="1950-01-01",end="2017-12-31"){
+  
+  # Import des precipitations
+  precip <- getdata(k = 1,day0 = start,day1 = end,rean = rean,all = T,var = "precip")
+  dim(precip) <- c(dim(precip)[1]*dim(precip)[2],dim(precip)[3])
+  precip <- t(precip)
+  if(nbdays>1){precip <- apply(precip,2,function(v){rollapply(v,nbdays,mean)})}
+  
+  # Calcul des GEV
+  sais <- c("winter","spring","summer","autumn")
+  ncores <- 10
+  
+  outfile <- paste0(get.dirstr(rean = rean,period = "past"),"fit.gev.rean/calcul.txt")
+  print(paste0("Logfile for // loop : ",outfile))
+  cl <- makeCluster(ncores, outfile=outfile) 
+  registerDoParallel(cl)
+  
+  fit <- foreach (i=1:ncol(precip),.packages = c("ismev","stats")) %dopar%{
+    
+    source(paste0("2_Travail/1_Past/",rean,"/fit.gev.ana/utils_fit_gev_ana.R"), encoding = 'UTF-8')
+    if(i%%10==0) print(paste0(i,"/",ncol(precip)))
+    fit.i <- vector(mode="list",length = length(sais))
+    names(fit.i) <- sais
+    if(!all(is.na(precip[,i]))){ # pas de gev pour les points de grille sur la mer (NA)
+      for(j in 1:length(sais)){
+        fit.i[[j]] <- fit.gev(precip = precip[,i],sais = sais[j],start = start,end = end)
+      }
+    }
+    fit.i
+  }
+  stopCluster(cl)
+  save(fit,file = paste0(get.dirstr(rean = rean,period = "past"),"fit.gev.rean/fit_gev_",rean,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+}
+
 # Calage loi gaussienne inverse sur les distributions de precip reconstruite par analogie classique
 fit.invgauss <- function(k,dist,nbdays,nbana=0.2,nbmini=10,seuil=0,bv,spazm=T,rean,period="past",season=F,dP=F,moments=T){
   
@@ -1063,13 +1135,41 @@ get.lon.lat.var.bv <- function(bv){
   }
   
   if(bv=="Isere-seul"){
-    lim.lon <- c(4,7)# c(6.25,6.5) #c(4.5,7)
-    lim.lat <- c(43,46.5) #c(45.25,45.5) #c(44.5,46.5)
+    lim.lon <- c(6.25,6.5) #c(4.5,7)
+    lim.lat <- c(45.25,45.5) #c(44.5,46.5)
   }
   
   if(bv=="Drac-seul"){
-    lim.lon <- c(4,7)#c(6,6.25) #c(4.5,7)
-    lim.lat <- c(43,46.5)#lim.lat <- c(44.75,45) #c(44.5,46.5)
+    lim.lon <- c(6,6.25) #c(4.5,7)
+    lim.lat <- c(44.75,45) #c(44.5,46.5)
+  }
+  
+  if(bv=="allbv.indiv"){
+    
+    # Import
+    load("2_Travail/Data/Carto/SecteurHydro/SecteurHydro_lonlat.Rdata")
+    bv.list <- bv.list.lonlat
+    
+    tmp <- getdata(k = 1,day0 = "1950-01-01",day1 = "1950-01-01",rean = "ERA5",var="topo",return.lonlat = T)
+    lon <- tmp$lon;lat <- tmp$lat;rm(tmp)
+    
+    # Traitement: tous les pts de grille dans les limites du BV
+    lim.lon <- lim.lat <- matrix(data = NA,nrow = length(bv.list),ncol = 2)
+    
+    for(i in 1:length(bv.list)){
+      
+      # Traitement des BVs separes
+      if(length(bv.list[[i]])>1){
+        bv.list[[i]] <- do.call(rbind,bv.list[[i]])
+      }else{
+        bv.list[[i]] <- bv.list[[i]][[1]]
+      }
+      
+      # limites
+      lim <- apply(bv.list[[i]],2,range)
+      lim.lon[i,] <- c(lon[which.min(abs(lon-lim[1,1]))],lon[which.min(abs(lon-lim[2,1]))])
+      lim.lat[i,] <- c(lat[which.min(abs(lat-lim[1,2]))],lat[which.min(abs(lat-lim[2,2]))])
+    }
   }
   
   list(lim.lon=lim.lon,lim.lat=lim.lat)
@@ -1204,6 +1304,64 @@ map.trend.gev.obs.ana <- function(mod="rl20",nbdays=1,start="1950-01-01",end="20
   }
   
   graphics.off()
+}
+
+# Carte des tendances gev sur la reanalyse
+map.trend.gev.rean <- function(mod="rl20",rean="ERA5",nbdays=1,start="1950-01-01",end="2017-12-31",save=F){
+  
+  # Import des tendances gev
+  load(paste0(get.dirstr(rean = rean,period = "past"),"compute.gev.rean/compute_gev_",rean,"_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  
+  # Import des donnees pour lon et lat
+  data <- getdata(k = 1,day0 = start,day1 = end,rean = rean,all = T,var = "precip",return.lonlat = T)
+  lon <- data$lon;lat <- data$lat;rm(data)
+  
+  # Import des BVs a ajouter sur la carte
+  load("2_Travail/Data/Carto/SecteurHydro/SecteurHydro_lonlat.Rdata")
+  
+  # Traitement pour vecteur trend RL20 ou trend mean
+  sais <- c("winter","spring","summer","autumn")
+  colu <- ifelse(mod=="rl20",2,3)
+  res <- vector(mode = "list",length = length(sais))
+  
+  for(i in 1:length(sais)){
+    tmp <- unname(unlist(lapply(val.gev,function(v){if(!is.null(v)){x <- v[[i]];(x[2,colu]-x[1,colu])/x[1,colu]*100}else{NA}})))
+    dim(tmp) <- c(length(lon),length(lat))
+    res[[i]] <- tmp
+  }
+  
+  # Cartes
+  N <- 10
+  colo<-colorRampPalette(c("darkred","white","darkblue"))(N)
+  breaks <- seq(-100,100,length.out = N+1)
+  leg <- seq(-100,100,20)
+  tmp <- get.region(reg="small")
+  xlim <- tmp$xlim;ylim <- tmp$ylim;rm(tmp)
+  par(mar=c(0,0,2,1))
+  
+  if(save){
+    png(filename = paste0(get.dirstr(rean = rean,period = "past"),"map.trend.gev.rean/map_trend_gev_",rean,"_",mod,"_mean",nbdays,"day_",start,"_",end,".png"),width = 7,height = 7,units = "in",res = 600)
+    par(mfrow=c(2,2),mar=c(0,0,2,1))
+  }
+  
+  for(i in 1:length(sais)){
+    
+    res[[i]] <- apply(res[[i]],2,function(v){v[v>100]<-100;v}) # on force a 100% les plus fortes augmentation pour garder meme palette de couleur
+    
+    # Carte
+    image.plot(x=lon,y=lat,z=res[[i]],xlim=xlim,ylim=ylim,breaks=breaks,col=colo,xaxt="n",yaxt="n",
+               main=nam2str(sais[i]),legend.line = 3,legend.mar = 12,lab.breaks = leg,legend.cex = 0.5)
+    box()
+    
+    # Ajout des BVs
+    for (i in 1:length(bv.list.lonlat)){
+      for(j in 1:length(bv.list.lonlat[[i]])){
+        par(new=F)
+        polygon(bv.list.lonlat[[i]][[j]])
+      }
+    }
+  }
+  if(save) graphics.off()
 }
 
 # Carte des BV moyens du sud-est de la France, colories par un vecteur (moyenne de precip, tendance d'extreme...)
@@ -2668,7 +2826,28 @@ save.precip.ana.twostage.all <- function(k,dist1="TWS",var="vv700",nbdays,nbana1
     nei[[i]] <- nei[[i]][ind]
   }
   
-  # Les precipitations analogues changents
+  # Fenetre propores aux BVs: les dates analogues changent pour chaque BV
+  print("Indices analogues")
+  lim <- get.lon.lat.var.bv(bv = "allbv.indiv")
+  data <- getdata(k = 1,day0 = start.end.rean[1],day1 = end.var,rean = rean,var = var,return.lonlat = T)
+  lon <- data$lon;lat <- data$lat;data <- data$data
+  
+  for(i in 1:ncol(precip)){
+    print(paste0(i,"/",ncol(precip)))
+    data.i <- data[which(lon==lim.lon[i,1]):which(lon==lim.lon[i,2]),which(lat==lim.lat[i,1]):which(lat==lim.lat[i,2]),]
+    
+    for(j in 1:length(nei)){
+      if(j%%50==0) print(paste0(j,"/",length(nei)))
+      data.j <- array(data = data[,,j],dim = c(dim(data[,,j]),nbnei1))
+      data.jj <- data[,,nei[[j]]]
+      dist <- apply(data.j-data.jj,3,function(v) sqrt(mean(v^2)))
+      ind <- sort(dist,index.return=T)$ix[1:nbnei2]
+      if(shif[1]!=1) ind <- ind-shif[1]+1 # on se remet dans le referentiel de l'archive analogue pour precipitations
+      nei[[i]] <- nei[[i]][ind]
+    }
+  }
+  
+  # Les precipitations analogues changent pas definition pour chaque BV
   print("Precipitations analogues")
   precip.ana <- vector("list",length=ncol(precip))
   

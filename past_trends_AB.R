@@ -572,6 +572,7 @@ map.trend.var.extr <- function(var="vv700",sais="winter",bv="Isere",wp=1,rean="E
   # Region
   tmp <- get.region(reg = reg)
   xlim <- tmp$xlim; ylim <- tmp$ylim; rm(tmp)
+  if(reg=="small") load("2_Travail/Data/Carto/SecteurHydro/SecteurHydro_lonlat.Rdata")
   
   # Import
   tmp <- getdata(k = 1,day0 = start,day1 = end,rean = rean,lim.lon = xlim,lim.lat = ylim,var = var,return.lonlat = T)
@@ -588,22 +589,40 @@ map.trend.var.extr <- function(var="vv700",sais="winter",bv="Isere",wp=1,rean="E
   data.trend <- apply(data,1:2,function(v){lm(v~as.numeric(ann))$coefficients[2]*10}) # unit/10 ans
   
   # Carte moyenne et tendance
-  png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.var.extr/map_extr_",var,"_",sais,"_wp",wp,"_",bv,"_",start,"_",end,"_",reg,".png"),width = 14,height = 6,units = "in",res=600)
+  png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.var.extr/map_extr_",var,"_",sais,"_wp",wp,"_",bv,"_",start,"_",end,"_",reg,".png"),width = ifelse(reg!="small",14,12),height = 6,units = "in",res=600)
   par(mfrow=c(1,2),mar=c(4,4,2,4))
   
   param <- get.param.map(field = data.moy,var = var,type = "Mean")
   image.plot(lon,lat,data.moy,xlim=xlim,ylim=ylim,breaks=param$breaks,col=param$col,
              xlab="Longitude (°)",ylab="Latitude (°)",main=param$main,legend.lab = param$leg,legend.line = 3,legend.mar = 12)
-  data("wrld_simpl")
-  plot(wrld_simpl, add = TRUE)
   points(x = 5.73,y = 45.18,pch=19,cex=1.5)
+  if(reg!="small"){
+    data("wrld_simpl")
+    plot(wrld_simpl, add = TRUE)
+  }else{
+    for (i in 1:length(bv.list.lonlat)) {
+      for(j in 1:length(bv.list.lonlat[[i]])){
+        par(new=F)
+        polygon(bv.list.lonlat[[i]][[j]])
+      }
+    }
+  }
   
   param <- get.param.map(field = data.trend,var = var,type = "Trend")
   image.plot(lon,lat,data.trend,xlim=xlim,ylim=ylim,breaks=param$breaks,col=param$col,
              xlab="Longitude (°)",ylab="Latitude (°)",main=param$main,legend.lab = param$leg,legend.line = 3,legend.mar = 12)
-  data("wrld_simpl")
-  plot(wrld_simpl, add = TRUE)
   points(x = 5.73,y = 45.18,pch=19,cex=1.5)
+  if(reg!="small"){
+    data("wrld_simpl")
+    plot(wrld_simpl, add = TRUE)
+  }else{
+    for (i in 1:length(bv.list.lonlat)) {
+      for(j in 1:length(bv.list.lonlat[[i]])){
+        par(new=F)
+        polygon(bv.list.lonlat[[i]][[j]])
+      }
+    }
+  }
   graphics.off()
 }
 
@@ -893,11 +912,11 @@ run.past.trends <- function(type=1){
   
   # map.trend.var.extr
   if(type==2){
-    bv <- c("Isere","Isere-seul","Drac-seul")
-    wp <- c(1,2)
-    sais <- c("spring","autumn","winter")
-    var <- "pwat" #c("vv500","vv700","vv850","vv925","sph500","sph700","sph850","sph925","tcw","t700","t850")
-    reg <- c("small","large")
+    bv <- "Isere-seul"#c("Isere","Isere-seul","Drac-seul")
+    wp <- c(1)#,2)
+    sais <- "winter"#c("spring","autumn","winter")
+    var <- "vv700"#c("rh700","rh850","vv500","vv700","vv850","vv925","sph500","sph700","sph850","sph925","tcw","t700","t850")
+    reg <- c("small")#,"large")
     
     for(i in 1:length(bv)){
       print(bv[i])

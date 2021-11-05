@@ -41,7 +41,7 @@ library("evd") # gev
 
 #setwd("../../")
 #
-## Parametres ----
+## Parametres
 #rean     <- "ERA5"
 #k        <- 1
 #dist     <- "TWS"
@@ -2430,6 +2430,34 @@ compute_D500_1000<-function(start="1950-01-01",end="2011-12-31",rean){
   
 }
 
+# Conversion des coord des BVs de LII vers degres lonlat
+convert.lII.lonlat <- function(){
+  
+  # Import des BVs d'interet
+  load("2_Travail/Data/Carto/SecteurHydro/SecteurHydro_LII.Rdata")
+  load(file="2_Travail/Data/Carto/SecteurHydro/idBV_alps_SecteurHydro.Rdata") #idx.list
+  id2plot<-which(unlist(lapply(idx.list,length))>0)
+  bv.list <- bv.list[id2plot]
+  
+  # Conversion de Lambert II vers lon/lat
+  bv.list.lonlat <- bv.list
+  
+  for(i in 1:length(bv.list)){
+    print(paste0(i,"/",length(bv.list)))
+    for(j in 1:length(bv.list[[i]])){
+      
+      tmp <- bv.list[[i]][[j]]*1000
+      coordinates(tmp) <- ~ x + y
+      proj4string(tmp) <- CRS("+init=epsg:27572")
+      tmp <- spTransform(tmp, CRS("+init=epsg:4326"))
+      bv.list.lonlat[[i]][[j]] <- as.data.frame(tmp)
+    }
+  }
+  
+  # Export
+  save(bv.list.lonlat,file = "2_Travail/Data/Carto/SecteurHydro/SecteurHydro_lonlat.Rdata")
+}
+
 # Trouve le jour de NetCDF associe a la date
 date_to_number<-function(nc,day,rean,climat=NULL){
   which(getdays(nc,rean,climat)==day)
@@ -3262,14 +3290,15 @@ get.param.map <- function(field,var="vv700",type=c("Mean","Trend")){
     N <- 10
     col <- brewer.pal(n = N, name = "RdBu")
     if(substr(var,1,1)=="t"){col <- rev(col)}
-    ran <- range(field)
+    ran <- range(field,na.rm=T)
     ran <- c(-max(abs(ran)),max(abs(ran)))
     breaks <- seq(ran[1],ran[2],length.out = N+1)
      }else{
       N <- 9
       col <- brewer.pal(n = N, name = "PuBu")
       if(substr(var,1,1)=="t"){col <- rev(brewer.pal(n = N, name = "RdBu"))}
-      ran <- range(field)
+      ran <- range(field,na.rm=T)
+      if(substr(var,1,2)=="rh"){ran <- c(0,100)}
       breaks <- seq(ran[1],ran[2],length.out = N+1)
      }
   
@@ -3293,6 +3322,10 @@ get.param.map <- function(field,var="vv700",type=c("Mean","Trend")){
   
   if(substr(var,1,1)=="t"){
     leg <- ifelse(type=="Mean",paste0("Temperature ",substr(var,2,4)," hPa (°C)"),paste0("Temperature ",substr(var,2,4)," hPa Trend (°C/10year)"))
+  }
+  
+  if(substr(var,1,2)=="rh"){
+    leg <- ifelse(type=="Mean",paste0("Relative Humidity ",substr(var,3,5)," hPa (%)"),paste0("Relative Humidity ",substr(var,3,5)," hPa Trend (%/10year)"))
   }
   
   return(list(col=col,breaks=breaks,main=main,leg=leg))
@@ -3360,7 +3393,7 @@ get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm
 
 # Renvoie les limites de lon et lat pour carte
 get.region <- function(reg="large"){
-  if(reg=="small"){xlim <- c(3,8);ylim <- c(43,47)}
+  if(reg=="small"){xlim <- c(4.25,7.75);ylim <- c(42.75,46.5)}
   if(reg=="medium"){xlim <- c(-5,10);ylim <- c(42,52)}
   if(reg=="large"){xlim <- c(-10,18);ylim <- c(36,52)}
   list(xlim=xlim,ylim=ylim)
@@ -3925,10 +3958,23 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
       nc$var[[1]]$name <- var
     }
     
-    if(rean == "ERA5" & substr(var,1,1) == "t" & var!="tcw"){
+    if(rean == "ERA5" & substr(var,1,1) == "t" & var!="tcw" & var!="topo"){
       nc <-nc_open(paste0("2_Travail/Data/Reanalysis/ERA5/T/ERA5_T",substr(var,2,4),"_1950_2021_daily.nc"))
       names(nc$var) <- var
       nc$var[[1]]$name <- var
+    }
+    
+    if(rean == "ERA5" & substr(var,1,2) == "rh"){
+      nc <-nc_open(paste0("2_Travail/Data/Reanalysis/ERA5/RH/ERA5_RH",substr(var,3,5),"_1950_2021_daily.nc"))
+      names(nc$var) <- var
+      nc$var[[1]]$name <- var
+    }
+    
+    if(rean == "ERA5" & var == "precip"){
+      nc <-nc_open(paste0("2_Travail/Data/Reanalysis/ERA5/PRECIP/ERA5_PRECIP_1950_2020_daily.nc"))
+      names(nc$var) <- var
+      nc$var[[1]]$name <- var
+      nc$dim$time$vals <- c(nc$dim$time$vals[1]-24,nc$dim$time$vals[-nc$dim$time$len]) # on decale d'un jour vers l'avant car cumul 0h=cumul sur le jour precedent
     }
     
     if(rean == "ERA5" & var == "topo"){
@@ -6436,7 +6482,7 @@ reshape.ERA5.conc <- function(var="VV", z = "500"){
   # ERAT (expver=5) de 2021-05-01 à 2021-07-17
   
   dates.1 <- getdates("1950-01-01","1978-12-31")
-  dates.2 <- getdates("1979-01-01","2021-10-20")
+  dates.2 <- getdates("1979-01-01","2021-10-30")
   if(var=="VV" & z=="850") dates.2 <- dates.2[-length(dates.2)]
   dates.all <- c(dates.1,dates.2)
   
@@ -6464,15 +6510,21 @@ reshape.ERA5.conc <- function(var="VV", z = "500"){
     var.unit <- "°C"
   }
   
+  if(var=="RH"){
+    var.name <- "r"
+    var.longname <- "Relative Humidity"
+    var.unit <- "%"
+  }
+  
   # Import reanalyse brute
   print("Import")
-  nc <- nc_open(filename = paste0("/ERA5_",var,z,"_1950_1978_daily.nc")) #"2_Travail/Data/Reanalysis/ERA5/",var,
+  nc <- nc_open(filename = paste0("2_Travail/Data/Reanalysis/ERA5/",var,"/ERA5_",var,z,"_1950_1978_daily.nc"))
   arr.1 <- ncvar_get(nc = nc,varid = var.name,start = c(1,1,1),count=c(length(nc$dim$lon$vals),length(nc$dim$lat$vals),length(dates.1)))
   dim(arr.1)
   dim.time.1 <- nc$dim$time$vals
   nc_close(nc)
   
-  nc <- nc_open(filename = paste0("/ERA5_",var,z,"_1979_2021_daily.nc")) # "2_Travail/Data/Reanalysis/ERA5/",var,
+  nc <- nc_open(filename = paste0("2_Travail/Data/Reanalysis/ERA5/",var,"/ERA5_",var,z,"_1979_2021_daily.nc"))
   arr.2 <- ncvar_get(nc = nc,varid = var.name,start = c(1,1,1,1),count=c(length(nc$dim$lon$vals),length(nc$dim$lat$vals),1,length(dates.2)))
   dim(arr.2)
   nc_close(nc)
@@ -6484,7 +6536,7 @@ reshape.ERA5.conc <- function(var="VV", z = "500"){
   print("Export")
   dim.time <- ncdim_def(name = "time", units = nc$dim$time$units, vals = c(dim.time.1,nc$dim$time$vals), calendar = "gregorian")
   res.form   <- ncvar_def(name = var.name, units = var.unit, dim = list(nc$dim$lon,nc$dim$lat,dim.time),prec = "float",longname = var.longname)
-  res.create <- nc_create(filename = paste0("/ERA5_",var,z,"_1950_2021_daily.nc"), vars = res.form)
+  res.create <- nc_create(filename = paste0("2_Travail/Data/Reanalysis/ERA5/",var,"/ERA5_",var,z,"_1950_2021_daily.nc"), vars = res.form)
   ncvar_put(nc = res.create, varid = res.form,vals = arr.final)
 }
 
