@@ -26,7 +26,7 @@ library("grid") # combine plot and ggplot
 library("gridBase") # combine plot and ggplot
 library("gridExtra") # several ggplot on the same page
 library("corrplot") # colorlegend
-library("raster") # brick
+library("raster") # brick et 
 library("foreach") # Parallel for loop (need every step to be independant)
 library("parallel") # check number of cores
 library("doParallel") # Parallelization of calculation
@@ -3419,11 +3419,11 @@ get.start.end.rean <- function(rean,period="present",type="dist",k=1,var=NULL){
       if(rean=="20CR-m1"){start <- "1851-01-01";end <- ifelse(k==1,"2014-12-31","2011-12-31")}
       if(rean=="20CR-m2"){start <- "1851-01-01";end <- "2011-12-31"}
       if(rean=="ERA20C"){start <- "1900-01-01";end <- "2010-12-31"}
-      if(rean=="ERA5"){start <- "1950-01-01";end <- "2021-07-17"
+      if(rean=="ERA5"){start <- "1950-01-01";end <- "2017-12-31"#"2021-07-17"
         if(k==2) end <- "2021-07-31" # pour HGT1000
         if(!is.null(var)){
-        if(var=="tcw" | substr(var,2,nchar(var))=="wind") end <- "2019-12-31"
-        if(var=="pwat") end <- "2021-02-28"
+        if(var=="tcw" | substr(var,2,nchar(var))=="wind") end <- "2017-12-31"#"2019-12-31"
+        if(var=="pwat") end <- "2017-12-31"#"2021-02-28"
         }
       }
       if(rean=="ERA40"){start <- "1957-09-01";end <- "2002-08-31"}
@@ -3737,6 +3737,12 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F,entites=F,
              legend.line=-2.3, cex.axis=1.3, cex.lab=1.3)
   #gray(seq(0.1,0.99,length=100))
   
+  # Frontieres climato crsm (Auer, 2005)
+  if(crsm){
+    ligne=read.csv("2_Travail/Data/Carto/Shape_CRSM.csv")
+    lines(ligne[ligne[,1]==1,4],ligne[ligne[,1]==1,5],lwd=3,lty=1,col="purple")
+  }
+  
   # Rivieres
   riv<-readOGR("2_Travail/Data/Carto/Principales/Principales/riviere2_3.shp")
   id<-c(552,554,553,381)#isere,Drac,Arc,Romanche
@@ -3806,12 +3812,6 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F,entites=F,
       #arrows(coord.seg[[i]][1],coord.seg[[i]][2],coord.seg[[i]][3],coord.seg[[i]][4],
       #        col="black",lwd=3,length=0.1)
     }
-  }
-  
-  # Frontieres climato crsm (Auer, 2005)
-  if(crsm){
-    ligne=read.csv("2_Travail/Data/Carto/Shape_CRSM.csv")
-    lines(ligne[ligne[,1]==1,4],ligne[ligne[,1]==1,5],lwd=3,lty=2,col="purple")
   }
   
   # Calcul surfaces

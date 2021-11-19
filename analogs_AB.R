@@ -159,6 +159,177 @@ compare.schaake <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean
   graphics.off()
 }
 
+# Calcul du CRPS selon l'analogie pour tous les BVs
+compute.crps.ana.all <- function(k=3,nbana=0.5,var2="vv700",rean="ERA5",period="past",start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  N <- length(dates)
+  
+  # Import des precipitations
+  load("2_Travail/Data/Precip/SPAZM/dailyspazmSecteurHydro_1950-2017.Rdata")
+  precip <- matdaily;rm(matdaily)
+  
+  # Calcul si un seul niveau d'analogie
+  if(is.null(var2)){
+    # Import des analogues selon geopotentiel
+    start.end.rean <- get.start.end.rean(rean,period,"dist",k)
+    load(get.path(save_ana = T,short = T,k = k,rean = rean,period = period,season = T,dP = F,dist = "TWS",nbdays = 1,start.rean = start,end.rean = start.end.rean[2],start.ana = start,end.ana = end))
+    nbnei <- round(nbana*0.01*N,0)
+    nei <- lapply(nei,function(v){v[1:nbnei]})
+    
+    # Calcul
+    crps.ana <- precip
+    ncores <- 10
+    outfile <- paste0("2_Travail/1_Past/ERA5/compute.crps.ana/calcul.txt")
+    print(paste0("Logfile for // loop : ",outfile))
+    cl <- makeCluster(ncores, outfile=outfile) 
+    registerDoParallel(cl)
+    
+    for(i in 1:ncol(precip)){
+      print(paste0(i,"/",ncol(precip)))
+      crps.ana.i <- foreach(j=1:N,.combine = "c",.packages = "scoringRules") %dopar%{
+        crps_sample(y = precip[j,i],dat = precip[nei[[j]],i])
+      }
+      crps.ana[,i] <- crps.ana.i
+      gc()
+    }
+    stopCluster(cl)
+    
+    # Export
+    save(crps.ana,file = get.path(compute_crps_ana_all = T,period = period,nbana = nbana,rean = rean,k = k,var2 = var2,start = start,end = end))
+  }else{
+    # Calcul si deux niveaux d'analogie
+    print("Import analogues var2")
+    load(get.path(save_ana = T,k = k,rean = rean,period = period,season = T,dP = F,dist = "TWS",nbdays = 1,start.rean = start,end.rean = end,start.ana = start,end.ana = end,nbana = nbana,var2 = var2,short = T,var2.indiv = T))
+    nbana <- c(1,0.5,0.2,0.1,0.05)
+    nbana2 <- c(0.5,0.2,0.1,0.05,0.025)
+    nbnei2 <-  round(nbana2*0.01*N,0)
+    crps.ana <- vector(mode = "list",length = length(nbana))
+    names(crps.ana) <- nbana
+    
+    #ncores <- 10
+    #outfile <- paste0("2_Travail/1_Past/ERA5/compute.crps.ana/calcul.txt")
+    #print(paste0("Logfile for // loop : ",outfile))
+    #cl <- makeCluster(ncores, outfile=outfile) 
+    #registerDoParallel(cl)
+    
+    for(g in 1:length(nbana)){ # pour chaque rayon analogie 1ere etape
+      pos.g <- which(nbana2<nbana[g])
+      nbana2.g <- nbana2[pos.g]
+      crps.ana[[g]] <- vector(mode = 'list',length = length(pos.g))
+      names(crps.ana[[g]]) <- nbana2[pos.g]
+      
+      for(h in 1:length(pos.g)){ # pour chaque rayon analogie 2e etape
+        print(paste0("Rayon 1st step: ",nbana[g]))
+        print(paste0("Rayon 2nd step: ",nbana2[pos.g[h]]))
+        nei.bv.gh <- lapply(nei.bv,function(v){lapply(v,function(w){w[[g]][1:nbnei2[pos.g[h]]]})}) # les analogues d'interet pour ces rayons
+        crps.ana.gh <- precip # car memes dimensions
+        
+        for(i in 1:ncol(precip)){ # pour chaque BV
+          print(paste0(i,"/",ncol(precip)))
+          
+          #crps.ana.i <- foreach(j=1:N,.combine = "c",.packages = "scoringRules") %dopar%{ # ca ne vaut pas le coup de paralleliser, l'import des analogues sur tous les coeurs prend trop de temps
+          for(j in 1:N){
+            if(j%%5000==0){print(paste0(j,"/",N))}
+            crps.ana.gh[j,i] <- crps_sample(y = precip[j,i],dat = precip[na.omit(nei.bv.gh[[i]][[j]]),i])
+          }
+          gc()
+        }
+        crps.ana[[g]][[h]] <- crps.ana.gh
+      }
+    }
+    #stopCluster(cl)
+    
+    # Export
+    save(crps.ana,file = get.path(compute_crps_ana_all = T,period = period,nbana = paste(nbana,collapse="_"),rean = rean,k = k,var2 = var2,nbana2 = paste(nbana2,collapse="_"),start = start,end = end))
+  }
+}
+
+# Calcul du CRPS climatologique pour tous les BVs
+compute.crps.climato.all <- function(start="1950-01-01",end="2017-12-31"){
+  
+  # Import des precipitations
+  load("2_Travail/Data/Precip/SPAZM/dailyspazmSecteurHydro_1950-2017.Rdata")
+  precip <- matdaily;rm(matdaily)
+  
+  # Calcul
+  crps.climato <- precip
+  
+  ncores <- 10
+  outfile <- paste0("2_Travail/1_Past/Rresults/compute.crps.climato/calcul.txt")
+  print(paste0("Logfile for // loop : ",outfile))
+  cl <- makeCluster(ncores, outfile=outfile) 
+  registerDoParallel(cl)
+  
+  for(i in 1:ncol(precip)){
+    print(paste0(i,"/",ncol(precip)))
+    crps.climato.i <- foreach(j=1:nrow(precip),.combine = "c",.packages = "scoringRules") %dopar%{
+      crps_sample(y = precip[j,i],dat = precip[,i])
+    }
+    crps.climato[,i] <- crps.climato.i
+    gc()
+  }
+  stopCluster(cl)
+  
+  # Export
+  save(crps.climato,file = paste0("2_Travail/1_Past/Rresults/compute.crps.climato/crps_climato_all_",start,"_",end,".Rdata"))
+}
+
+# Calcul des RMSE pour une variable "thermodynamique" pour toutes les dates eligibles a l'analogie (+/-30j) et tous les BVs
+compute.dist.var2.all <- function(var2="vv700",rean="ERA5",period="past",start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  
+  # Import
+  print("Import")
+  lim <- get.lon.lat.var.bv(bv = "allbv.indiv")
+  lim.lon <- lim$lim.lon;lim.lat <- lim$lim.lat;rm(lim)
+  nbv <- nrow(lim.lon)
+  data <- getdata(k = 1,day0 = start,day1 = end,rean = rean,var = var2,return.lonlat = T)
+  lon <- data$lon;lat <- data$lat;data <- data$data;gc()
+  N <- dim(data)[3]
+  
+  # Calcul
+  dist.list <- vector("list",length=nbv)
+  
+  ncores <- 10
+  outfile <- paste0(get.dirstr(rean = rean,period = period),"compute_dist/calcul.txt")
+  print(paste0("Logfile for // loop : ",outfile))
+  cl <- makeCluster(ncores, outfile=outfile) 
+  registerDoParallel(cl)
+  
+  for(i in 1:nbv){
+    
+    print(paste0(i,"/",nbv))
+    data.i <- data[which(lon==lim.lon[i,1]):which(lon==lim.lon[i,2]),which(lat==lim.lat[i,1]):which(lat==lim.lat[i,2]),]
+    if(lim.lon[i,1]==lim.lon[i,2]){dim(data.i) <- c(1,dim(data.i)[1],dim(data.i)[2])} # on force le format array
+    if(lim.lat[i,1]==lim.lat[i,2]){dim(data.i) <- c(dim(data.i)[1],1,dim(data.i)[2])} # on force le format array
+    
+    nei.bv.i <- foreach (j=1:(N-1)) %dopar%{
+      
+      if (j%%50==0) print(paste0(j,"/",N-1))
+      k<-(j+1):N
+      di <- rep(NA,length(k))
+      source(paste0("2_Travail/1_Past/",rean,"/compute_dist/utils_compute_dist.R"), encoding = 'UTF-8')
+      ind.i <- get.ind.season.ana(dat = dates[j],dates = dates) # candidats potentiels a l'analogie avec selection saisonniere
+      pos.i <- intersect(k,ind.i)
+      
+      datk<-array(data.i[,,pos.i],c(dim(data.i)[1:2],length(pos.i))) # on force en array dans le cas de lim.lat unique
+      if (is.matrix(datk)) datk<-array(datk,c(dim(datk),1)) # si derniere date, on force le format de la matrice en array
+      datj<-array(data.i[,,j],dim(datk)) # on repete le geopotentiel du jour le meme nombre de fois que le nombre de dates ulterieures
+      di[match(pos.i,k)] <- apply(datk-datj,3,function(v) sqrt(mean(v^2))) # difference d'altitude au carre entre chaque point des deux jours, puis moyenne de ces differences et racine carree
+      di
+    }
+    dist.list[[i]] <- lapply(nei.bv.i,function(v){as.integer(v*(10^7))})
+    gc()
+  }
+  
+  stopCluster(cl)
+  
+  # Export
+  save(dist.list,file = paste0(get.dirstr(rean = rean,period = period),"compute_dist/RMSE_",rean,"_",var2,"_",start,"_",end,".Rdata"))
+}
+
 # Calcule les RL20 et mean max selon la GEV pour les scenarios analogues
 compute.gev.ana <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end,var2=NULL,nbana2=NULL){
 
@@ -205,7 +376,7 @@ compute.gev.ana <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean
 }
 
 # Calcule les RL20 et mean max selon la GEV pour les scenarios analogues, pour tous les BVs
-compute.gev.ana.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end,var2=NULL,nbana2=NULL){
+compute.gev.ana.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end,var2=NULL,nbana2=NULL,var2.indiv=F,dat.max=F,one.gev=F){
   
   # Dates utiles
   dates <- getdates(start,end)
@@ -220,7 +391,8 @@ compute.gev.ana.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period
   n <- length(dates.ana)
   
   # Import GEV
-  load(file = get.path(fit_gev_ana_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,start = start,end = end))
+  print(get.path(fit_gev_ana_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,one.gev = one.gev,start = start,end = end))
+  load(file = get.path(fit_gev_ana_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,one.gev = one.gev,start = start,end = end))
   
   # Estimations RL20/mean et export
   meanGEV.fct<-function(mu,sig,xi){mu+sig/xi*(gamma(1-xi)-1)}
@@ -229,6 +401,7 @@ compute.gev.ana.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period
   
   for(i in 1:length(fit)){
     print(paste0(i,"/",length(fit)))
+    if(!one.gev){
     val.gev[[i]] <- vector(mode="list",length=length(fit[[1]]))
     
     for(j in 1:length(fit[[1]])){
@@ -250,8 +423,70 @@ compute.gev.ana.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period
       }
       names(val.gev[[i]][[j]]) <- sais
     }
+    }else{
+      val.gev[[i]] <- vector(mode="list",length=length(sais))
+      for(l in 1:length(sais)){
+        tab <- matrix(data = NA,nrow = 2,ncol = 4)
+        colnames(tab) <- c("Year","RL20","Mean","pval")
+        tab[,1] <- c(year[1],year[length(year)])
+        
+        ny <- nrow(fit[[i]][[l]]$fitbest$vals)
+        tab[1,2] <- qgev(1-1/20,fit[[i]][[l]]$fitbest$vals[1,1],fit[[i]][[l]]$fitbest$vals[1,2],fit[[i]][[l]]$fitbest$vals[1,3])
+        tab[2,2] <- qgev(1-1/20,fit[[i]][[l]]$fitbest$vals[ny,1],fit[[i]][[l]]$fitbest$vals[ny,2],fit[[i]][[l]]$fitbest$vals[ny,3])
+        tab[1,3] <- meanGEV.fct(fit[[i]][[l]]$fitbest$vals[1,1],fit[[i]][[l]]$fitbest$vals[1,2],fit[[i]][[l]]$fitbest$vals[1,3])
+        tab[2,3] <- meanGEV.fct(fit[[i]][[l]]$fitbest$vals[ny,1],fit[[i]][[l]]$fitbest$vals[ny,2],fit[[i]][[l]]$fitbest$vals[ny,3])
+        tab[1,4] <- fit[[i]][[l]]$pval
+        val.gev[[i]][[l]] <- tab
+      }
+      names(val.gev[[i]]) <- sais
+    }
   }
-  save(val.gev,file = get.path(compute_gev_ana_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,start = start,end = end))
+  save(val.gev,file = get.path(compute_gev_ana_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,one.gev = one.gev,start = start,end = end))
+}
+
+# Calcule les RL20 et mean max selon la GEV pour les scenarios analogues, pour tous les BVs
+compute.gev.ana.all.med <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end,var2=NULL,nbana2=NULL,var2.indiv=F,dat.max=F){
+  
+  # Dates utiles
+  dates <- getdates(start,end)
+  year <- as.numeric(unique(substr(dates,1,4)))
+  
+  start.end.rean <- get.start.end.rean(rean,period,"dist",k,var = var2)
+  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2017-12-31")
+  dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
+  n <- length(dates.ana)
+  
+  # Import GEV
+  load(file = get.path(fit_gev_ana_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,med = T,start = start,end = end))
+  
+  # Estimations RL20/mean et export
+  meanGEV.fct<-function(mu,sig,xi){mu+sig/xi*(gamma(1-xi)-1)}
+  sais <- c("winter","spring","summer","autumn")
+  val.gev <- vector(mode="list",length=length(fit))
+  
+  for(i in 1:length(fit)){
+    print(paste0(i,"/",length(fit)))
+    val.gev[[i]] <- vector(mode="list",length=length(sais))
+      
+      for(j in 1:length(sais)){
+        tab <- matrix(data = NA,nrow = 2,ncol = 4)
+        colnames(tab) <- c("Year","RL20","Mean","pval")
+        tab[,1] <- c(year[1],year[length(year)])
+        
+        ny <- nrow(fit[[i]][[j]]$fitbest$vals)
+        tab[1,2] <- qgev(1-1/20,fit[[i]][[j]]$fitbest$vals[1,1],fit[[i]][[j]]$fitbest$vals[1,2],fit[[i]][[j]]$fitbest$vals[1,3])
+        tab[2,2] <- qgev(1-1/20,fit[[i]][[j]]$fitbest$vals[ny,1],fit[[i]][[j]]$fitbest$vals[ny,2],fit[[i]][[j]]$fitbest$vals[ny,3])
+        tab[1,3] <- meanGEV.fct(fit[[i]][[j]]$fitbest$vals[1,1],fit[[i]][[j]]$fitbest$vals[1,2],fit[[i]][[j]]$fitbest$vals[1,3])
+        tab[2,3] <- meanGEV.fct(fit[[i]][[j]]$fitbest$vals[ny,1],fit[[i]][[j]]$fitbest$vals[ny,2],fit[[i]][[j]]$fitbest$vals[ny,3])
+        tab[1,4] <- fit[[i]][[j]]$pval
+        val.gev[[i]][[j]] <- tab
+      }
+      names(val.gev[[i]]) <- sais
+    }
+  save(val.gev,file = get.path(compute_gev_ana_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,med = T,start = start,end = end))
 }
 
 # Calcule les RL20 et mean max selon la GEV pour l'observe
@@ -471,7 +706,7 @@ fit.gamma <- function(k,dist,nbdays,nbana=0.2,nbmini=10,seuil=0,bv,spazm=T,rean,
 }
 
 # Calage loi gamma sur les distributions de precip reconstruite par analogie classique, pour tous les BVs
-fit.gamma.all <- function(k,dist,nbdays,nbana=0.2,nbmini=10,seuil=0,rean,period="past",season=F,dP=F,moments=F,var2=NULL,nbana2=NULL){
+fit.gamma.all <- function(k,dist,nbdays,nbana=0.2,nbmini=10,seuil=0,rean,period="past",season=F,dP=F,moments=F,var2=NULL,nbana2=NULL,var2.indiv=F){
   
   # Dates utiles
   start.end.rean <- get.start.end.rean(rean,period,"dist",k,var = var2)
@@ -480,7 +715,7 @@ fit.gamma.all <- function(k,dist,nbdays,nbana=0.2,nbmini=10,seuil=0,rean,period=
   start.end.ana <- c("1950-01-01","2017-12-31")
   
   # Import des precip
-  load(get.path(save_precip_ana_all = T,k = k,rean = rean,period = period,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2))
+ load(get.path(save_precip_ana_all = T,k = k,rean = rean,period = period,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
   
   # Fonction pour maximum de vraisemblance
   if(!moments) nloglik.fct<-function(param,x){
@@ -516,7 +751,7 @@ fit.gamma.all <- function(k,dist,nbdays,nbana=0.2,nbmini=10,seuil=0,rean,period=
       }
     }
   }
-  save(fit,file = get.path(fit_gamma_all = T,k = k,rean = rean,period = period,moments = moments,season = season,dP = dP,nbdays = nbdays,nbana = nbana,seuil = seuil,dist = dist,var2 = var2,nbana2 = nbana2,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]))
+  save(fit,file = get.path(fit_gamma_all = T,k = k,rean = rean,period = period,moments = moments,season = season,dP = dP,nbdays = nbdays,nbana = nbana,seuil = seuil,dist = dist,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]))
 }
 
 # Calage loi gamma sur les distributions de precip reconstruite par tirage aleatoire (tirage saisonnier possible)
@@ -639,6 +874,55 @@ fit.gev <- function(precip,sais,start,end){
   list(fit0=fit0,fitbest=fitbest,pval=pval) # modele stationnaire, meilleur modele non stationnaire, pvalue
 }
 
+# Calage loi gev sur plusieurs series de precipitation, pour une saison
+fit.gev_mat <- function(precip.mat,sais,start,end){
+  
+  dates <- getdates(start,end)
+  year <- as.numeric(unique(substr(dates,1,4)))
+  
+  # Extraction du max saisonnier
+  pos <- get.ind.season(sais = sais,start = start,end = end)
+  precip.tmp <- precip.mat[pos$pos.season,]
+  precip.tmp[pos$pos.NA,] <- NA
+  dim(precip.tmp) <- c(pos$l.season,pos$n.season*ncol(precip.mat))
+  max.vec <- apply(precip.tmp,2,max,na.rm=T)
+  
+  # Covariable
+  if(sais=="winter") year <- year[-1]
+  covar<-(year-year[1])/(year[length(year)]-year[1])
+  covar <- rep(covar,ncol(precip.mat))
+  
+  # Calage GEV
+  fit0<-gev.fit(max.vec,show=F) # modele stationnaire
+  fit1<-gev.fit(max.vec,as.matrix(covar),mul=1,show=F) # modele non stationnaire, location varie
+  fit2<-gev.fit(max.vec,as.matrix(covar),sigl=1,show=F) # modele non stationnaire, scale varie
+  fit3<-try(gev.fit(max.vec,as.matrix(covar),mul=1,sigl=1,show=F),silent=T) # modele non stationnaire, location et scale varient
+  # Probleme avec fit3 si max.vec contient de tres grandes valeurs et de petites valeurs
+  # Diviser par 1000 permet l'optimisation et le fit
+  
+  covar<-(year-1985)/(year[length(year)]-year[1]);covar[covar<0]<-0 # a partir d'une certaine date
+  fit4<-gev.fit(max.vec,as.matrix(covar),mul=1,show=F) # modele non stationnaire, location varie
+  fit5<-gev.fit(max.vec,as.matrix(covar),sigl=1,show=F) # modele non stationnaire, scale varie
+  fit6<-gev.fit(max.vec,as.matrix(covar),mul=1,sigl=1,show=F) # modele non stationnaire, location et scale varient
+  
+  pval1<-1-pchisq(2*(fit0$nllh-fit1$nllh),df=1)
+  pval2<-1-pchisq(2*(fit0$nllh-fit2$nllh),df=1)
+  pval3<-ifelse(length(fit3)==10,1-pchisq(2*(fit0$nllh-fit3$nllh),df=2),1)
+  pval4<-1-pchisq(2*(fit0$nllh-fit4$nllh),df=1)
+  pval5<-1-pchisq(2*(fit0$nllh-fit5$nllh),df=1)
+  pval6<-1-pchisq(2*(fit0$nllh-fit6$nllh),df=2)
+  
+  idx.min<-which.min(c(pval1,pval2,pval3,pval4,pval5,pval6))
+  if (idx.min==1) {fitbest <- fit1; pval <- pval1}
+  if (idx.min==2) {fitbest <- fit2; pval <- pval2}
+  if (idx.min==3) {fitbest <- fit3; pval <- pval3}
+  if (idx.min==4) {fitbest <- fit4; pval <- pval4}
+  if (idx.min==5) {fitbest <- fit5; pval <- pval5}
+  if (idx.min==6) {fitbest <- fit6; pval <- pval6}
+  
+  list(fit0=fit0,fitbest=fitbest,pval=pval) # modele stationnaire, meilleur modele non stationnaire, pvalue
+}
+
 # Calage loi gev sur les precip analogues
 fit.gev.ana <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end){
   
@@ -728,7 +1012,7 @@ fit.gev.ana.par <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean
 }
 
 # Calage loi gev sur les precip analogues, en parallele, pour tous les BVs
-fit.gev.ana.par.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end,var2=NULL,nbana2=NULL){
+fit.gev.ana.par.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end,var2=NULL,nbana2=NULL,var2.indiv=F,dat.max=F,one.gev=F){
   
   # Dates utiles
   dates <- getdates(start,end)
@@ -742,10 +1026,19 @@ fit.gev.ana.par.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period
   n <- length(dates.ana)
   
   # Import des precipitations
+  if(dat.max){
+    load("2_Travail/Data/Precip/SPAZM/dailyspazmSecteurHydro_1950-2017.Rdata")
+    precip <- matdaily;rm(matdaily)
+  }
+  
   if(schaake){
-    load(get.path(reordering_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2))
+   print(get.path(reordering_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
+
+    load(get.path(reordering_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
   }else{
-    load(get.path(generate_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2))
+    print(get.path(generate_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
+    
+    load(get.path(generate_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
     precip.ana.final <- lapply(precip.ana.sample,function(v){do.call(rbind,v)})
   }
   
@@ -757,30 +1050,115 @@ fit.gev.ana.par.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period
   ncores <- 6
   fit <- vector(mode = "list",length = length(precip.ana.final))
   
+  if(!one.gev){
   print(paste0("Parallelisation sur ",ncores, " coeurs"))
   cl <- makeCluster(ncores)
   registerDoParallel(cl)
+  }
   
   for(i in 1:length(precip.ana.final)){
     print(paste0(i,"/",length(precip.ana.final)))
-    
+    if(dat.max) precip.ana.final[[i]][!((1:nrow(precip.ana.final[[i]])) %in% get.ind.max.allseason(precip = precip[,i],start = start,end = end)),] <- 0
+    if(!one.gev){
     fit.j <- foreach (j=1:ncol(precip.ana.final[[i]]),.packages = c("ismev","stats")) %dopar%{
-
+    
+      #for(j in 1:ncol(precip.ana.final[[i]])){
+      #print(j)
       source(paste0("2_Travail/1_Past/",rean,"/fit.gev.ana/utils_fit_gev_ana.R"), encoding = 'UTF-8')
       
       fit.j <- vector(mode="list",length = length(sais))
-      for(k in 1:length(sais)){
-        fit.j[[k]] <- fit.gev(precip = precip.ana.final[[i]][,j],sais = sais[k],start = start,end = end)
+      for(l in 1:length(sais)){
+        print(l)
+        fit.j[[l]] <- fit.gev(precip = precip.ana.final[[i]][,j],sais = sais[l],start = start,end = end)
       }
       names(fit.j) <- sais
       fit.j
     }
+    }else{ # si une seule gev pour tous les scenarios
+      fit.j <- vector(mode="list",length = length(sais))
+      
+      for(l in 1:length(sais)){
+        print(l)
+        fit.j[[l]] <- fit.gev_mat(precip = precip.ana.final[[i]],sais = sais[l],start = start,end = end)
+      }
+      names(fit.j) <- sais
+    }
     fit[[i]] <- fit.j
+  }
+  
+  if(!one.gev){stopCluster(cl)}
+  
+  save(fit,file = get.path(fit_gev_ana_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,one.gev = one.gev,start = start,end = end))
+}
+
+# Calage loi gev sur la mediane des max analogues
+fit.gev.ana.par.all.med <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end,var2=NULL,nbana2=NULL,var2.indiv=F,dat.max=F){
+  
+  # Dates utiles
+  dates <- getdates(start,end)
+  
+  start.end.rean <- get.start.end.rean(rean,period,"dist",k,var = var2)
+  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2017-12-31")
+  dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
+  n <- length(dates.ana)
+  
+  # Import des precipitations
+  if(dat.max){
+    load("2_Travail/Data/Precip/SPAZM/dailyspazmSecteurHydro_1950-2017.Rdata")
+    precip <- matdaily;rm(matdaily)
+  }
+  
+  if(schaake){
+    load(get.path(reordering_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
+  }else{
+    load(get.path(generate_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
+    precip.ana.final <- lapply(precip.ana.sample,function(v){do.call(rbind,v)})
+  }
+  
+  pos <- match(dates,dates.rean)
+  precip.ana.final <- lapply(precip.ana.final,function(v){v[pos,]})
+  
+  # Traitement mediane des max de l'ensemble et fit
+  sais <- c("winter","spring","summer","autumn")
+  ncores <- 10
+  fit <- vector(mode = "list",length = length(precip.ana.final))
+  
+  outfile <- paste0(get.dirstr(rean = rean,period = "past"),"fit.gev.ana/calcul.txt")
+  print(paste0("Logfile for // loop : ",outfile))
+  cl <- makeCluster(ncores, outfile=outfile) 
+  registerDoParallel(cl)
+  
+  fit <- foreach (i=1:length(precip.ana.final),.packages = c("ismev","stats")) %dopar%{
+    
+    print(paste0(i,"/",length(precip.ana.final)))
+    
+    # Source
+    source(paste0("2_Travail/1_Past/",rean,"/fit.gev.ana/utils_fit_gev_ana_med.R"), encoding = 'UTF-8')
+    
+    # Traitement
+    precip.i <- precip.ana.final[[i]]
+    precip.i.max <- apply(precip.i,2,function(v){v[get.ind.max.allseason(precip = v,start = start,end = end)]})
+    precip.i.max <- apply(precip.i.max,1,median)
+    precip.ii <- rep(0,nrow(precip.i))
+    precip.ii[get.ind.max.allseason(precip = precip.i[,1],start = start,end = end)] <- precip.i.max
+    
+    # Fit
+    fit.j <- vector(mode="list",length = length(sais))
+    
+    for(j in 1:length(sais)){
+      print(sais[j])
+      fit.j[[j]] <- fit.gev(precip = precip.ii,sais = sais[j],start = start,end = end)
+    }
+    names(fit.j) <- sais
+    fit.j
   }
   
   stopCluster(cl)
   
-  save(fit,file = get.path(fit_gev_ana_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,start = start,end = end))
+  save(fit,file = get.path(fit_gev_ana_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,med = T,start = start,end = end))
 }
 
 # Calage loi gev sur les precip observees
@@ -998,7 +1376,7 @@ generate.precip <- function(n=45,type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T
 }
 
 # Genere les precip par analogie par tirage aleatoire dans les analogues ou dans les loi, pour tous les BVs
-generate.precip.all <- function(n=45,type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,season=F,dP=F,rgamma=F,moments=F,var2=NULL,nbana2=NULL){
+generate.precip.all <- function(n=45,type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,season=F,dP=F,rgamma=F,moments=F,var2=NULL,nbana2=NULL,var2.indiv=F){
   
   # On se limite a 45 series generees car 45 analogues uniquement pour nbana=0.2
   
@@ -1009,7 +1387,7 @@ generate.precip.all <- function(n=45,type="empir",k,dist,nbdays,nbana=0.2,rean,p
   start.end.ana <- c("1950-01-01","2017-12-31")
   
   # Import des precip analogues
-  load(get.path(save_precip_ana_all = T,k = k,rean = rean,period = period,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2))
+  load(get.path(save_precip_ana_all = T,k = k,rean = rean,period = period,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
   if(length(precip.ana[[1]][[1]])>n){
     precip.ana <- lapply(precip.ana,function(v){lapply(v,function(w){w[1:n]})})
   }
@@ -1021,7 +1399,7 @@ generate.precip.all <- function(n=45,type="empir",k,dist,nbdays,nbana=0.2,rean,p
   if(type=="gamma"){
     
     # Import des parametres de la loi gamma
-    load(get.path(fit_gamma_all = T,k = k,rean = rean,period = period,moments = moments,season = season,dP = dP,nbdays = nbdays,nbana = nbana,seuil = seuil,dist = dist,var2 = var2,nbana2 = nbana2,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]))
+    load(get.path(fit_gamma_all = T,k = k,rean = rean,period = period,moments = moments,season = season,dP = dP,nbdays = nbdays,nbana = nbana,seuil = seuil,dist = dist,var2 = var2,nbana2 = nbana2,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],var2.indiv = var2.indiv))
     
     # Traitement
     for(i in 1:length(fit)){
@@ -1052,7 +1430,7 @@ generate.precip.all <- function(n=45,type="empir",k,dist,nbdays,nbana=0.2,rean,p
   }
   
   # Sortie
-  save(precip.ana.sample,file = get.path(generate_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2))
+  save(precip.ana.sample,file = get.path(generate_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
 }
 
 # Genere les precip par analogie par tirage aleatoire dans les analogues ou dans les loi
@@ -1113,6 +1491,39 @@ generate.precip.random <- function(n=45,nbdays,nbana=0.2,bv,spazm=T,rean,period=
   # Sortie
   precip.ana.sample <- precip.random
   save(precip.ana.sample,file = get.path(generate_precip_random = T,rean = rean,period = period,moments = moments,bv = bv,season = season,spazm = spazm,nbdays = nbdays,nbana = nbana,seuil = seuil,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]))
+}
+
+# Renvoie les indices des max saisonniers de precipitations dans l'observe
+get.ind.max.allseason <- function(precip,start,end){
+  
+  dates <- getdates(start,end)
+  sais <- c("winter","spring","summer","autumn")
+  dat.max <- NULL
+  
+  for(i in 1:length(sais)){
+    
+    year <- unique(substr(dates,1,4))
+    if(sais[i] == "winter") year <- year[-1] # car pas de premiere saison hiver
+    
+    # Traitement precip obs
+    pos <- get.ind.season(sais = sais[i],start = start,end = end)
+    precip.i <- precip[pos$pos.season]
+    precip.i[pos$pos.NA] <- NA
+    dim(precip.i) <- c(pos$l.season,pos$n.season)
+    dat.extr <- apply(precip.i,2,which.max)
+    
+    # Dates
+    dates.i <- dates[pos$pos.season]
+    dates.i[pos$pos.NA] <- NA
+    dim(dates.i) <- c(pos$l.season,pos$n.season)
+    
+    # Dates max
+    for(j in 1:length(dat.extr)){
+      dat.extr[j] <- which(dates==dates.i[dat.extr[j],j])
+    }
+    dat.max <- sort(c(dat.max,dat.extr))
+  }
+  dat.max
 }
 
 # Renvoie les indices associes a une saison pour l'analogie saisoniere
@@ -1176,45 +1587,51 @@ get.lon.lat.var.bv <- function(bv){
 }
 
 # Renvoie le chemin vers un fichier
-get.path <- function(k=NULL,rean=NULL,period=NULL,season=NULL,dP=NULL,dist=NULL,nbdays=NULL,start.rean=NULL,end.rean=NULL,start.ana=NULL,end.ana=NULL,bv=NULL,spazm=NULL,nbana=NULL,seuil=NULL,moments=NULL,type=NULL,rgamma=NULL,q.threshold=NULL,schaake=NULL,random=NULL,short=NULL,gamma=F,exp=F,invgauss,start=NULL,end=NULL,var2=NULL,nbana2=NULL,mod=NULL,
-                     save_ana=F,save_precip_ana=F,save_precip_ana_all=F,fit_gamma=F,fit_gamma_all=F,fit_exp=F,fit_gamma_random=F,fit_invgauss=F,generate_precip=F,generate_precip_all=F,generate_precip_random=F,reordering_precip=F,reordering_precip_all=F,plot_fit_precip=F,plot_param_ana=F,plot_precip_ana=F,plot_precip_ana_day=F,plot_cum_ana_sais=F,plot_max_ana_sais=F,plot_distrib_ana_sais=F,fit_gev_ana=F,fit_gev_ana_all=F,compute_gev_ana=F,compute_gev_ana_all=F,plot_gev=F,map_trend_gev_obs_ana=F){
+get.path <- function(k=NULL,rean=NULL,period=NULL,season=NULL,dP=NULL,dist=NULL,nbdays=NULL,start.rean=NULL,end.rean=NULL,start.ana=NULL,end.ana=NULL,bv=NULL,spazm=NULL,nbana=NULL,seuil=NULL,moments=NULL,type=NULL,rgamma=NULL,q.threshold=NULL,schaake=NULL,random=NULL,short=NULL,gamma=F,exp=F,invgauss,start=NULL,end=NULL,var2=NULL,nbana2=NULL,mod=NULL,var2.indiv=NULL,dat.max=NULL,fun=NULL,probs=NULL,med=NULL,one.gev=NULL,
+                     save_ana=F,save_precip_ana=F,save_precip_ana_all=F,fit_gamma=F,fit_gamma_all=F,fit_exp=F,fit_gamma_random=F,fit_invgauss=F,generate_precip=F,generate_precip_all=F,generate_precip_random=F,reordering_precip=F,reordering_precip_all=F,plot_fit_precip=F,plot_param_ana=F,plot_precip_ana=F,plot_precip_ana_day=F,plot_cum_ana_sais=F,plot_cum_ana_sais_all=F,plot_max_ana_sais=F,plot_max_ana_sais_all=F,
+                     plot_distrib_ana_sais=F,fit_gev_ana=F,fit_gev_ana_all=F,compute_gev_ana=F,compute_gev_ana_all=F,plot_gev=F,map_trend_gev_obs_ana=F,map_trend_cum_obs_ana=F,plot_dates_max_ana=F,compute_crps_ana_all=F){
   
-  if(save_ana){path <- paste0(get.dirstr(k,rean,period),"save.ana/ana_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),dist,"_",rean,"_k",k,ifelse(!is.null(var2),paste0("_",var2),""),"_mean",nbdays,"day_",start.rean,"_",end.rean,"_ana_",ifelse(short,start.ana,start.rean),"_",ifelse(short,end.ana,end.rean),".Rdata")}
+  if(save_ana){path <- paste0(get.dirstr(k,rean,period),"save.ana/ana_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),dist,"_",rean,"_k",k,ifelse(!is.null(var2),paste0("_",var2,ifelse(var2.indiv,"_indivbv","")),""),"_mean",nbdays,"day_",start.rean,"_",end.rean,"_ana_",ifelse(short,start.ana,start.rean),"_",ifelse(short,end.ana,end.rean),".Rdata")}
   if(save_precip_ana){path <- paste0(get.dirstr(k,rean,period),"save.precip.ana/precip_ana_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
-  if(save_precip_ana_all){path <- paste0(get.dirstr(k,rean,period),"save.precip.ana/precip_ana_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),"allbv_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
+  if(save_precip_ana_all){path <- paste0(get.dirstr(k,rean,period),"save.precip.ana/precip_ana_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),"allbv_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(fit_gamma){path <- paste0(get.dirstr(k,rean,period),"fit.gamma/fit_gamma_",ifelse(moments,"moments_",""),bv,"_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_seuil",seuil,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
-  if(fit_gamma_all){path <- paste0(get.dirstr(k,rean,period),"fit.gamma/fit_gamma_",ifelse(moments,"moments_",""),"allbv_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),"mean",nbdays,"day_nbana",nbana,"_seuil",seuil,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
+  if(fit_gamma_all){path <- paste0(get.dirstr(k,rean,period),"fit.gamma/fit_gamma_",ifelse(moments,"moments_",""),"allbv_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),"mean",nbdays,"day_nbana",nbana,"_seuil",seuil,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(fit_exp){path <- paste0(get.dirstr(k,rean,period),"fit.exp/fit_exp_",ifelse(moments,"moments_",""),bv,"_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_seuil",seuil,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(fit_gamma_random){path <- paste0(get.dirstr(k,rean,period),"fit.gamma.random/fit_gamma_",ifelse(moments,"moments_",""),bv,ifelse(season,"_season",""),"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_seuil",seuil,"_",rean,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(fit_invgauss){path <- paste0(get.dirstr(k,rean,period),"fit.invgauss/fit_invgauss_",ifelse(moments,"moments_",""),bv,"_",ifelse(season,"season_",""),ifelse(dP,"dP_",""),ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_seuil",seuil,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(generate_precip){path <- paste0(get.dirstr(k,rean,period),"generate.precip/precip_",type,ifelse(type!="empir" & moments,"_moments",""),"_",ifelse(type!="empir" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type!="empir",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
-  if(generate_precip_all){path <- paste0(get.dirstr(k,rean,period),"generate.precip/precip_",type,ifelse(type!="empir" & moments,"_moments",""),"_",ifelse(type!="empir" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type!="empir",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),"allbv_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
+  if(generate_precip_all){path <- paste0(get.dirstr(k,rean,period),"generate.precip/precip_",type,ifelse(type!="empir" & moments,"_moments",""),"_",ifelse(type!="empir" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type!="empir",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),"allbv_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(generate_precip_random){path <- paste0(get.dirstr(k,rean,period),"generate.precip.random/precip_",ifelse(moments,"moments_",""),bv,ifelse(season,"_season",""),"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_seuil",seuil,"_",rean,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(reordering_precip){path <- paste0(get.dirstr(k,rean,period),"reordering.precip/precip_final_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
-  if(reordering_precip_all){path <- paste0(get.dirstr(k,rean,period),"reordering.precip/precip_final_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),"allbv_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
+  if(reordering_precip_all){path <- paste0(get.dirstr(k,rean,period),"reordering.precip/precip_final_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),"allbv_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".Rdata")}
   if(plot_fit_precip){path <- paste0(get.dirstr(k,rean,period),"plot.fit.precip/plot_",bv,"_",ifelse(gamma,"gamma_",""),ifelse(exp,"exp_",""),ifelse(invgauss,"invgauss_",""),ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",ifelse(gamma|exp,paste0("seuil",seuil,"_"),""),ifelse((gamma|exp) & moments,"moments_",""),rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".png")}
   if(plot_param_ana){path <- paste0(get.dirstr(k,rean,period),"plot.param.ana/plot_",bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(type=="gamma" & moments,"moments_",""),rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,".png")}
   if(plot_precip_ana){path <- paste0(get.dirstr(k,rean,period),"plot.precip.ana/precip_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
   if(plot_precip_ana_day){path <- paste0(get.dirstr(k,rean,period),"plot.precip.ana.day/precip_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma",paste0("q",q.threshold,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
-  if(plot_cum_ana_sais){path <- paste0(get.dirstr(k,rean,period),"plot.cum.ana.sais/plot_cum_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
-  if(plot_max_ana_sais){path <- paste0(get.dirstr(k,rean,period),"plot.max.ana.sais/plot_max_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
-  if(plot_distrib_ana_sais){path <- paste0(get.dirstr(k,rean,period),"plot.distrib.ana.sais/plot_distrib_ana_",ifelse(random,"random_",""),type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
+  if(plot_cum_ana_sais){path <- paste0(get.dirstr(k,rean,period),"plot.cum.ana.sais/plot_cum_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
+  if(plot_max_ana_sais){path <- paste0(get.dirstr(k,rean,period),"plot.max.ana.sais/plot_max_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
+  if(plot_cum_ana_sais_all){path <- paste0(get.dirstr(k,rean,period),"plot.cum.ana.sais/plot_cum_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),ifelse(fun!="sum",paste0("_q",probs),""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
+  if(plot_max_ana_sais_all){path <- paste0(get.dirstr(k,rean,period),"plot.max.ana.sais/plot_max_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,ifelse(dat.max,"_dat.max",""),"_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
+    if(plot_distrib_ana_sais){path <- paste0(get.dirstr(k,rean,period),"plot.distrib.ana.sais/plot_distrib_ana_",ifelse(random,"random_",""),type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,"_",start.rean,"_",end.rean,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
   if(fit_gev_ana){path <- paste0(get.dirstr(k,rean,period),"fit.gev.ana/fit_gev_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".Rdata")}
-  if(fit_gev_ana_all){path <- paste0(get.dirstr(k,rean,period),"fit.gev.ana/fit_gev_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),"allbv_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".Rdata")}
+  if(fit_gev_ana_all){path <- paste0(get.dirstr(k,rean,period),"fit.gev.ana/fit_gev_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),"allbv",ifelse(dat.max,"_dat.max",""),"_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),"_",ifelse(med,"ens.med_",""),ifelse(one.gev,"one.gev_",""),start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".Rdata")}
   if(compute_gev_ana){path <- paste0(get.dirstr(k,rean,period),"compute.gev.ana/compute_gev_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".Rdata")}
-  if(compute_gev_ana_all){path <- paste0(get.dirstr(k,rean,period),"compute.gev.ana/compute_gev_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),"allbv_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".Rdata")}
-  if(plot_gev){path <- paste0(get.dirstr(k,rean,period),"plot.gev/plot_gev_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,"_",ifelse(spazm,"spazm_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
-  if(map_trend_gev_obs_ana){path <- paste0(get.dirstr(k,rean,period),"map.trend.gev.obs.ana/map_gev_",mod,"_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),"allbv_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE"),""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
+  if(compute_gev_ana_all){path <- paste0(get.dirstr(k,rean,period),"compute.gev.ana/compute_gev_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),"allbv",ifelse(dat.max,"_dat.max",""),"_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),"_",ifelse(med,"ens.med_",""),ifelse(one.gev,"one.gev_",""),start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".Rdata")}
+  if(plot_gev){path <- paste0(get.dirstr(k,rean,period),"plot.gev/plot_gev_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),bv,ifelse(dat.max,"_dat.max",""),"_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
+  if(map_trend_gev_obs_ana){path <- paste0(get.dirstr(k,rean,period),"map.trend.gev.obs.ana/map_gev_",mod,"_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),"allbv",ifelse(dat.max,"_dat.max",""),"_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),"_",ifelse(med,"ens.med_",""),ifelse(one.gev,"one.gev_",""),start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
+  if(map_trend_cum_obs_ana){path <- paste0(get.dirstr(k,rean,period),"map.trend.cum.obs.ana/map_cum_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),"allbv_mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
+  if(plot_dates_max_ana){path <- paste0(get.dirstr(k,rean,period),"plot.dates.max.ana/plot_dates_max_ana_",type,ifelse(type=="gamma" & moments,"_moments",""),"_",ifelse(type=="gamma" & !rgamma,paste0("q",q.threshold,"_"),""),ifelse(rgamma,"rgamma_",""),ifelse(type=="gamma",paste0("seuil",seuil,"_"),""),ifelse(season,"season_",""),ifelse(dP,"dP_",""),"mean",nbdays,"day_nbana",nbana,"_",rean,"_k",k,"_",dist,ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE",ifelse(var2.indiv,"_indivbv","")),""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,ifelse(!schaake,"_without_schaake",""),".png")}
+  if(compute_crps_ana_all){path <- paste0(get.dirstr(k,rean,period),"compute.crps.ana/crps_ana_all_season_mean1day_nbana",nbana,"_",rean,"_k",k,"_TWS",ifelse(!is.null(var2),paste0("_nbana",nbana2,"_",rean,"_",var2,"_RMSE_indivbv"),""),"_",start,"_",end,"_ana_",start,"_",end,".Rdata")}
   path
 }
 
 # Colorlegend pour cartes
-map.leg <- function(type="trend"){
+map.leg <- function(type="trend",ncol=10){
   
   # Parametres
   if(type=="trend"){
     leg <- seq(-100,100,20)
-    colo<-colorRampPalette(c("darkred","white","darkblue"))(10)
+    colo<-colorRampPalette(c("darkred","white","darkblue"))(ncol)
     #colo <- brewer.pal(n = 10, name = "RdBu")
   }
   
@@ -1224,9 +1641,131 @@ map.leg <- function(type="trend"){
               vertical = T,xlim = c(0,0.6),ylim = c(0,1))
 }
 
-# A voir si on fait aussi l'etude pour les cumuls saisonniers/cumuls saisonniers par WP
-map.trend.cum.obs <- function(){
+# Carte avec numero des BVs
+map.num.bv <- function(){
   
+  png("2_Travail/1_Past/Rresults/map.num.bv/map_num_bv.png",width = 4,height = 5,units = "in",res = 600)
+  vec <- rep(0,24)
+  myimage.plot.bv(vec = vec,type = "trend",main="Numero BV")
+  graphics.off()
+}
+
+# A voir si on fait aussi l'etude pour les cumuls saisonniers/cumuls saisonniers par WP
+map.trend.cum.obs <- function(nbdays=1,start="1950-01-01",end="2017-12-31",save=F){
+  
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  
+  # Import des precipitations
+  load("2_Travail/Data/Precip/SPAZM/dailyspazmSecteurHydro_1950-2017.Rdata")
+  precip <- matdaily;rm(matdaily)
+  
+  # Calcul cumuls saisonniers pour vecteur trend
+  sais <- c("winter","spring","summer","autumn")
+  change.cum <- matrix(data = NA,nrow = ncol(precip),ncol = length(sais))
+  pval <- matrix(data = NA,nrow = ncol(precip),ncol = length(sais))
+
+  for(i in 1:length(sais)){
+    print(sais[i])
+    pos <- get.ind.season(sais = sais[i],start = start,end = end)
+    for(j in 1:ncol(precip)){
+      print(paste0(j,"/",ncol(precip)))
+      year <- unique(substr(dates,1,4))
+      if(sais[i] == "winter") year <- year[-1] # car pas de premiere saison hiver
+      precip.i <- precip[pos$pos.season,j]
+      precip.i[pos$pos.NA] <- NA
+      dim(precip.i) <- c(pos$l.season,pos$n.season)
+      precip.i <- apply(precip.i,2,sum,na.rm=T)
+      reg <- lm(precip.i~as.numeric(year))
+      change.cum[j,i] <- unname((reg$fitted.values[length(reg$fitted.values)]-reg$fitted.values[1])/reg$fitted.values[1]*100)
+      pval[j,i] <- round(unname(summary(reg)$coefficients[,4][2]),3)
+    }
+  }
+  
+  # Cartes
+  if(save){
+    png(filename = paste0("2_Travail/1_Past/Rresults/map.trend.cum.obs/map_trend_cum_mean",nbdays,"day_",start,"_",end,".png"),width = 6,height = 7,units = "in",res = 600)
+    layout(mat = matrix(data = 1:8,nrow = 2,ncol = 4,byrow = T),widths = c(0.8,0.2,0.8,0.2),heights = c(1,1))
+  }
+  for(i in 1:length(sais)){
+    par(mar=c(1,1,2,0))
+    myimage.plot.bv(vec = change.cum[,i],type = "trend",ncol = 11,main=nam2str(sais[i]))
+    if(save) map.leg(type = "trend",ncol=11)
+  }
+  if(save) graphics.off()
+}
+
+# Carte des tendances cumuls sur tous les bvs
+map.trend.cum.obs.ana <- function(nbdays=1,start="1950-01-01",end="2017-12-31",type="empir",k,dist,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,var2=NULL,nbana2=NULL,var2.indiv=F){
+  
+  # Dates utiles
+  dates <- getdates(start,end)
+  
+  start.end.rean <- get.start.end.rean(rean,period,"dist",k,var = var2)
+  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2017-12-31")
+  dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
+  n <- length(dates.ana)
+  
+  # Import des precipitations analogues
+  if(schaake){
+    load(get.path(reordering_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
+  }else{
+    load(get.path(generate_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
+    precip.ana.final <- lapply(precip.ana.sample,function(v){do.call(rbind,v)})
+  }
+  
+  pos <- match(dates,dates.rean)
+  precip.ana.final <- lapply(precip.ana.final,function(v){v[pos,]})
+  
+  # Traitement pour vecteur trend
+  sais <- c("winter","spring","summer","autumn")
+  mean.change.cum <- matrix(data = NA,nrow = ncol(precip),ncol = length(sais))
+  median.change.cum <- matrix(data = NA,nrow = ncol(precip),ncol = length(sais))
+  
+  for(i in 1:length(sais)){
+    print(sais[i])
+    pos <- get.ind.season(sais = sais[i],start = start,end = end)
+    year <- unique(substr(dates,1,4))
+    if(sais[i] == "winter") year <- year[-1]
+    
+    for(j in 1:length(precip.ana.final)){
+    precip.ana.i <- precip.ana.final[[j]][pos$pos.season,]
+    precip.ana.i[pos$pos.NA,] <- NA
+    dim(precip.ana.i) <- c(pos$l.season,pos$n.season*ncol(precip.ana.i))
+    precip.ana.i <- apply(precip.ana.i,2,sum,na.rm=T)
+    dim(precip.ana.i) <- c(length(year),ncol(precip.ana.final[[i]]))
+    reg <- apply(precip.ana.i,2,function(v){lm(v~as.numeric(year))})
+    trend <- unlist(lapply(reg,function(v){unname((v$fitted.values[length(v$fitted.values)]-v$fitted.values[1])/v$fitted.values[1]*100)}))
+    pval <- unlist(lapply(reg,function(v){round(unname(summary(v)$coefficients[,4][2]),3)}))
+    
+    mean.change.cum[j,i] <- mean(trend)
+    median.change.cum[j,i] <- median(trend)
+    }
+  }
+  
+  # Cartes
+  png(filename = get.path(map_trend_cum_obs_ana = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,start = start,end = end,mod=mod,var2.indiv = var2.indiv),width = 6,height = 10,units = "in",res = 600)
+  layout(mat = matrix(data = 1:16,nrow = 4,ncol = 4,byrow = F),widths = c(1,1,1,0.25),heights = c(1,1,1,1))
+  
+  # Obs
+  map.trend.cum.obs(nbdays = nbdays,start = start,end = end,save = F)
+  # Moyenne
+  for(i in 1:length(sais)){
+    myimage.plot.bv(vec = mean.change.cum[,i],type = "trend",ncol = 11,main=paste0(nam2str(sais[i])," - analog mean"))
+  }
+  # Mediane
+  for(i in 1:length(sais)){
+    myimage.plot.bv(vec = median.change.cum[,i],type = "trend",ncol = 11,main=paste0(nam2str(sais[i])," - analog median"))
+  }
+  # Legende
+  par(mar=c(1,0.5,2,0))
+  for(i in 1:length(sais)){
+    map.leg(type = "trend",ncol = 11)
+  }
+  
+  graphics.off()
 }
 
 # Carte des tendances gev sur tous les bvs
@@ -1259,16 +1798,29 @@ map.trend.gev.obs <- function(mod="rl20",nbdays=1,start="1950-01-01",end="2017-1
 }
 
 # Carte des tendances gev sur tous les bvs
-map.trend.gev.obs.ana <- function(mod="rl20",nbdays=1,start="1950-01-01",end="2017-12-31",type="empir",k,dist,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,var2=NULL,nbana2=NULL){
+map.trend.gev.obs.ana <- function(mod="rl20",nbdays=1,start="1950-01-01",end="2017-12-31",type="empir",k,dist,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,var2=NULL,nbana2=NULL,var2.indiv=F,dat.max = F,med = F,one.gev = F){
+  
+  # Dates utiles
+  dates <- getdates(start,end)
+  year <- as.numeric(unique(substr(dates,1,4)))
+  
+  start.end.rean <- get.start.end.rean(rean,period,"dist",k,var = var2)
+  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2017-12-31")
+  dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
+  n <- length(dates.ana)
   
   # Import des tendances gev analogues
-  load(get.path(compute_gev_ana_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,start = start,end = end))
+  load(get.path(compute_gev_ana_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,med = med,one.gev = one.gev,start = start,end = end))
   
   # Traitement pour vecteur trend RL20 ou trend mean
   sais <- c("winter","spring","summer","autumn")
   colu <- ifelse(mod=="rl20",2,3)
   res <- vector(mode="list",length=length(val.gev))
   
+  if(!med & !one.gev){
   for(i in 1:length(res)){
     print(paste0(i,"/",length(res)))
     res[[i]] <- matrix(data = NA,nrow = length(val.gev[[i]]),ncol = length(sais))
@@ -1282,9 +1834,16 @@ map.trend.gev.obs.ana <- function(mod="rl20",nbdays=1,start="1950-01-01",end="20
   # Moyenne et Mediane
   moy.ana <- do.call(rbind,lapply(res,function(mat){apply(mat,2,mean)}))
   med.ana <- do.call(rbind,lapply(res,function(mat){apply(mat,2,median)}))
+  }else{
+    med.ana <- matrix(data = NA,nrow = length(val.gev),ncol = length(sais))
+    for(i in 1:length(sais)){
+     med.ana[,i] <- unname(unlist(lapply(val.gev,function(v){x <- v[[i]];(x[2,colu]-x[1,colu])/x[1,colu]*100})))
+    }
+    moy.ana <- med.ana
+  }
   
   # Cartes
-  png(filename = get.path(map_trend_gev_obs_ana = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,start = start,end = end,mod=mod),width = 6,height = 10,units = "in",res = 600)
+  png(filename = get.path(map_trend_gev_obs_ana = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,start = start,end = end,mod=mod,var2.indiv = var2.indiv,dat.max = dat.max,med = med,one.gev = one.gev),width = 6,height = 10,units = "in",res = 600)
   layout(mat = matrix(data = 1:16,nrow = 4,ncol = 4,byrow = F),widths = c(1,1,1,0.25),heights = c(1,1,1,1))
   
   # Obs
@@ -1365,7 +1924,7 @@ map.trend.gev.rean <- function(mod="rl20",rean="ERA5",nbdays=1,start="1950-01-01
 }
 
 # Carte des BV moyens du sud-est de la France, colories par un vecteur (moyenne de precip, tendance d'extreme...)
-myimage.plot.bv<-function(vec,type="trend",...){
+myimage.plot.bv<-function(vec,type="trend",ncol=10,...){
   
   # Import des donnees carto
   load(file="2_Travail/Data/Carto/SecteurHydro/SecteurHydro_LII.Rdata")#bv.list
@@ -1375,13 +1934,13 @@ myimage.plot.bv<-function(vec,type="trend",...){
   # Parametres graphiques
   if(type=="trend"){
     leg <- seq(-100,100,20)
-    colo<-colorRampPalette(c("darkred","white","darkblue"))(10)
+    colo<-colorRampPalette(c("darkred","white","darkblue"))(ncol)
     #colo <- brewer.pal(n = 10, name = "RdBu")
   }
   if(type=="mean"){
     ran <- range(vec)
-    leg <- seq(ran[1],ran[2],length.out = 11)
-    colo<-colorRampPalette(c("white", "darkblue"))(11)[-1]
+    leg <- seq(ran[1],ran[2],length.out = ncol+1)
+    colo<-colorRampPalette(c("white", "darkblue"))(ncol+1)[-1]
   }
   
   breaks <- seq(leg[1],leg[length(leg)],length=length(colo)+1)
@@ -1480,6 +2039,294 @@ plot.cum.ana.sais <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,re
     lines(year,precip.i,col="red",lwd=3)
     #legend("topleft",inset=.02,bty="n",c("Obs","Analog Scenarios (range,IC80%,IC50%)"),col=c("red","gray50"),lwd=2,cex=0.8,horiz = T)
     
+  }
+  graphics.off()
+}
+
+# Trace les cumuls saisonniers analogie/obs en fonction du temps, pour un BV parmi tous
+plot.cum.ana.sais.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end,var2=NULL,nbana2=NULL,var2.indiv=F,fun="mean",probs=0.5){
+  
+  # Dates utiles
+  dates <- getdates(start,end)
+  
+  start.end.rean <- get.start.end.rean(rean,period,"dist",k)
+  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2017-12-31")
+  dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
+  n <- length(dates.ana)
+  
+  # Import des precipitations
+  load("2_Travail/Data/Precip/SPAZM/dailyspazmSecteurHydro_1950-2017.Rdata")
+  precip <- matdaily;rm(matdaily)
+  
+  if(schaake){
+    load(get.path(reordering_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
+  }else{
+    load(get.path(generate_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
+    for(i in 1:length(precip.ana.final)){precip.ana.final[[i]] <- do.call(rbind,precip.ana.sample[[i]])}
+  }
+  
+  # Un seul BV
+  id.bv <- 7
+  precip.ana.final <- precip.ana.final[[id.bv]]
+  
+  if(id.bv==1) bv <- "Drac-seul"
+  if(id.bv==2) bv <- "Arc"
+  if(id.bv==7) bv <- "Isere-amont"
+  
+  pos <- match(dates,dates.rean)
+  precip.ana.final <- precip.ana.final[pos,] # on ne traite qu'avec la serie reduite
+  
+  # Traitement et graphique par saison
+  sais <- c("winter","spring","summer","autumn","year")
+  
+  png(filename = get.path(plot_cum_ana_sais_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,start = start,end = end,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,fun = fun,probs = probs),width = 9,height = 9,units = "in",res = 600)
+  par(mfrow=c(3,2),mar=c(4,4,2,2))
+  
+  for(i in 1:length(sais)){
+    
+    print(sais[i])
+    year <- unique(substr(dates,1,4))
+    if(sais[i] == "winter") year <- year[-1] # car pas de premiere saison hiver
+    
+    # Traitement precip obs
+    pos <- get.ind.season(sais = sais[i],start = start,end = end)
+    precip.i <- precip[pos$pos.season]
+    precip.i[pos$pos.NA] <- NA
+    dim(precip.i) <- c(pos$l.season,pos$n.season)
+    if(fun=="sum"){
+      precip.i <- apply(precip.i,2,sum,na.rm=T)
+    }else{precip.i <- apply(precip.i,2,function(v){quantile(v,probs=probs,na.rm=T)})}
+    
+    # Traitement precip analogues
+    if(sais[i]!="year"){precip.ana.i <- precip.ana.final[pos$pos.season,]
+    }else{precip.ana.i <- apply(precip.ana.final,2,function(v){v[pos$pos.season]})}
+    precip.ana.i[pos$pos.NA,] <- NA
+    dim(precip.ana.i) <- c(pos$l.season,pos$n.season*ncol(precip.ana.i))
+    if(fun=="sum"){
+      precip.ana.i <- apply(precip.ana.i,2,sum,na.rm=T)
+    }else{precip.ana.i <- apply(precip.ana.i,2,function(v){quantile(v,probs=probs,na.rm=T)})}
+    dim(precip.ana.i) <- c(length(year),ncol(precip.ana.final))
+    
+    mini <- apply(precip.ana.i,1,min)
+    maxi <- apply(precip.ana.i,1,max)
+    q10 <- apply(precip.ana.i,1,quantile,probs=0.1)
+    q90 <- apply(precip.ana.i,1,quantile,probs=0.9)
+    q25 <- apply(precip.ana.i,1,quantile,probs=0.25)
+    q75 <- apply(precip.ana.i,1,quantile,probs=0.75)
+    
+    # Graphique
+    if(fun=="sum"){
+    ylim <- c(0,ifelse(sais[i]!="year",1000,2500))
+    }else{ylim <- c(0,max(maxi)*1.2)}
+    
+    plot(year,precip.i,type="n",ylim=ylim,xlab="Year",ylab="Precipitation (mm)",main=paste0(nam2str(sais[i])," - ",nam2str(bv)," - ",ncol(precip.ana.final)," scenarios - ",rean))
+    grid()
+    polygon(c(year,rev(year)), c(maxi, rev(mini)),
+            col = "gray80",border = F)
+    polygon(c(year,rev(year)), c(q10, rev(q90)),
+            col = "gray50",border = F)
+    polygon(c(year,rev(year)), c(q75, rev(q25)),
+            col = "gray30",border = F)
+    lines(year,precip.i,col="red",lwd=3)
+    #legend("topleft",inset=.02,bty="n",c("Obs","Analog Scenarios (range,IC80%,IC50%)"),col=c("red","gray50"),lwd=2,cex=0.8,horiz = T)
+    
+  }
+  graphics.off()
+}
+
+# Trace les CRPSS pour une seule etape d'analogie
+plot.crpss.1step <- function(k=3,rean="ERA5",period="past",start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  N <- length(dates)
+  
+  # Import des CRPSS climatologiques
+  load(paste0("2_Travail/1_Past/Rresults/compute.crps.climato/crps_climato_all_",start,"_",end,".Rdata"))
+  
+  # Import des CRPSS par analogie
+  nbana <- c(1,0.5,0.2,0.1,0.05)
+  crps.ana.all <- vector(mode = "list",length = length(nbana))
+  for(i in 1:length(nbana)){
+    load(get.path(compute_crps_ana_all = T,period = period,nbana = nbana[i],rean = rean,k = k,start = start,end = end))
+    crps.ana.all[[i]] <- crps.ana
+  }
+  
+  # Calcul crpss
+  # All
+  crps.climato.mean <- unname(apply(crps.climato,2,mean))
+  crps.ana.mean <- do.call(cbind,lapply(crps.ana.all,function(v){unname(apply(v,2,mean))}))
+  crpss.all <- apply(crps.ana.mean,2,function(v){1-v/crps.climato.mean})
+  
+  # Pos
+  load("2_Travail/Data/Precip/SPAZM/dailyspazmSecteurHydro_1950-2017.Rdata")
+  precip <- matdaily;rm(matdaily)
+  crpss.pos <- crpss.extr <- crpss.all
+  
+  for(i in 1:ncol(crps.climato)){
+    print(i)
+    # pos
+    pos.pos <- which(precip[,i]>0)
+    crps.mean.climato.pos <- mean(crps.climato[pos.pos,i])
+    crps.ana.mean.pos <- unlist(lapply(crps.ana.all,function(v){mean(v[pos.pos,i])}))
+    crpss.pos[i,] <- 1-crps.ana.mean.pos/crps.mean.climato.pos
+    
+    # max sais
+    pos.extr <- get.ind.max.allseason(precip = precip[,i],start = start,end = end)
+    crps.mean.climato.extr <- mean(crps.climato[pos.extr,i])
+    crps.ana.mean.extr <- unlist(lapply(crps.ana.all,function(v){mean(v[pos.extr,i])}))
+    crpss.extr[i,] <- 1-crps.ana.mean.extr/crps.mean.climato.extr
+  }
+    
+    # Boxplots
+    png(filename = paste0(get.dirstr(k,rean,period),"plot.crpss/plot_crpss_k",k,"_",rean,"_",start,"_",end,".png"),width = 7,height = 4,units = "in",res = 600)
+    par(mfrow=c(1,3),mar=c(4,4,2,0))
+    
+    # All
+    boxplot(crpss.all,xaxt="n",ylim=c(0,0.6),col="royalblue",xlab="Analog number (%)",ylab="CRPSS",main="All")
+    grid()
+    boxplot(crpss.all,xaxt="n",ylim=c(0,0.6),col="royalblue",xlab="Analog number (%)",ylab="CRPSS",main="All",add=T)
+    axis(side = 1,at = 1:length(nbana),labels = nbana)
+    
+    # Pos
+    boxplot(crpss.pos,xaxt="n",ylim=c(0,0.6),col="royalblue",xlab="Analog number (%)",ylab="CRPSS",main="Pos")
+    grid()
+    boxplot(crpss.pos,xaxt="n",ylim=c(0,0.6),col="royalblue",xlab="Analog number (%)",ylab="CRPSS",main="Pos",add=T)
+    axis(side = 1,at = 1:length(nbana),labels = nbana)
+    
+    # Extr
+    boxplot(crpss.extr,xaxt="n",ylim=c(0,0.6),col="royalblue",xlab="Analog number (%)",ylab="CRPSS",main="Seasonal max")
+    grid()
+    boxplot(crpss.extr,xaxt="n",ylim=c(0,0.6),col="royalblue",xlab="Analog number (%)",ylab="CRPSS",main="Seasonal max",add=T)
+    axis(side = 1,at = 1:length(nbana),labels = nbana)
+    graphics.off()
+}
+
+# Trace les CRPSS pour deux etapes d'analogie
+plot.crpss.2step <- function(k=3,var2="vv700",rean="ERA5",period="past",start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  N <- length(dates)
+  
+  # Import des CRPSS climatologiques
+  load(paste0("2_Travail/1_Past/Rresults/compute.crps.climato/crps_climato_all_",start,"_",end,".Rdata"))
+  
+  # Import des CRPSS par analogie
+  nbana <- c(1,0.5,0.2,0.1,0.05)
+  nbana2 <- c(0.5,0.2,0.1,0.05,0.025)
+  nam <- expand.grid(nbana2,nbana);nam <- nam[,c(2,1)];nam <- nam[nam[,1]>nam[,2],];nam <- unname(apply(nam,1,function(v){paste(v,collapse="-")}))
+  load(get.path(compute_crps_ana_all = T,period = period,nbana = paste(nbana,collapse="_"),rean = rean,k = k,var2 = var2,nbana2 = paste(nbana2,collapse="_"),start = start,end = end))
+  
+  # Calcul crpss
+  # All
+  crps.climato.mean <- unname(apply(crps.climato,2,mean))
+  crps.ana.mean <- do.call(cbind,lapply(crps.ana,function(v){do.call(cbind,lapply(v,function(w){unname(apply(w,2,mean))}))}))
+  crpss.all <- apply(crps.ana.mean,2,function(v){1-v/crps.climato.mean})
+  
+  # Pos
+  load("2_Travail/Data/Precip/SPAZM/dailyspazmSecteurHydro_1950-2017.Rdata")
+  precip <- matdaily;rm(matdaily)
+  crpss.pos <- crpss.extr <- crpss.all
+  
+  for(i in 1:ncol(crps.climato)){
+    print(i)
+    # pos
+    pos.pos <- which(precip[,i]>0)
+    crps.mean.climato.pos <- mean(crps.climato[pos.pos,i])
+    crps.ana.mean.pos <- unname(unlist(lapply(crps.ana,function(v){lapply(v,function(w){mean(w[pos.pos,i])})})))
+    crpss.pos[i,] <- 1-crps.ana.mean.pos/crps.mean.climato.pos
+    
+    # max sais
+    pos.extr <- get.ind.max.allseason(precip = precip[,i],start = start,end = end)
+    crps.mean.climato.extr <- mean(crps.climato[pos.extr,i])
+    crps.ana.mean.extr <- unname(unlist(lapply(crps.ana,function(v){lapply(v,function(w){mean(w[pos.pos,i])})})))
+    crpss.extr[i,] <- 1-crps.ana.mean.extr/crps.mean.climato.extr
+  }
+  
+  # Boxplots
+  png(filename = paste0(get.dirstr(k,rean,period),"plot.crpss/plot_crpss_k",k,"_",var2,"_",rean,"_",start,"_",end,".png"),width = 10,height = 4,units = "in",res = 600)
+  par(mfrow=c(1,3),mar=c(4,4,2,0))
+  
+  # All
+  boxplot(crpss.all,xaxt="n",ylim=c(0,0.6),col="royalblue",xlab="Analog number (%)",ylab="CRPSS",main="All")
+  grid()
+  boxplot(crpss.all,xaxt="n",ylim=c(0,0.6),col="royalblue",xlab="Analog number (%)",ylab="CRPSS",main="All",add=T)
+  axis(side = 1,at = 1:length(nam),labels = nam,cex.axis=0.8)
+  
+  # Pos
+  boxplot(crpss.pos,xaxt="n",ylim=c(0,0.6),col="royalblue",xlab="Analog number (%)",ylab="CRPSS",main="Pos")
+  grid()
+  boxplot(crpss.pos,xaxt="n",ylim=c(0,0.6),col="royalblue",xlab="Analog number (%)",ylab="CRPSS",main="Pos",add=T)
+  axis(side = 1,at = 1:length(nam),labels = nam,cex.axis=0.8)
+  
+  # Extr
+  boxplot(crpss.extr,xaxt="n",ylim=c(0.6,1),col="royalblue",xlab="Analog number (%)",ylab="CRPSS",main="Seasonal max")
+  grid()
+  boxplot(crpss.extr,xaxt="n",ylim=c(0.6,1),col="royalblue",xlab="Analog number (%)",ylab="CRPSS",main="Seasonal max",add=T)
+  axis(side = 1,at = 1:length(nam),labels = nam,cex.axis=0.8)
+  graphics.off()
+}
+
+# Trace les differences de dates des max saisonniers dans les series analogues par rapport a l'observe
+plot.dates.max.ana <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end,var2=NULL,nbana2=NULL,var2.indiv=F){
+  
+  # Dates utiles
+  dates <- getdates(start,end)
+  
+  start.end.rean <- get.start.end.rean(rean,period,"dist",k)
+  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2017-12-31")
+  dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
+  n <- length(dates.ana)
+  
+  # Import des precipitations
+  load("2_Travail/Data/Precip/SPAZM/dailyspazmSecteurHydro_1950-2017.Rdata")
+  precip <- matdaily;rm(matdaily)
+  
+  if(schaake){
+    load(get.path(reordering_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
+  }else{
+    load(get.path(generate_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
+    for(i in 1:length(precip.ana.final)){precip.ana.final[[i]] <- do.call(rbind,precip.ana.sample[[i]])}
+  }
+  
+  # Un seul BV
+  precip.ana.final <- precip.ana.final[[1]] # 7: Isere amont
+  
+  # Traitement et graphique par saison
+  sais <- c("winter","spring","summer","autumn")
+  
+  png(filename = get.path(plot_dates_max_ana = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,start = start,end = end,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv),width = 8,height = 6,units = "in",res = 600)
+  par(mfrow=c(2,2),mar=c(2,4,2,1))
+  
+  for(i in 1:length(sais)){
+    
+    print(sais[i])
+    year <- unique(substr(dates,1,4))
+    if(sais[i] == "winter") year <- year[-1] # car pas de premiere saison hiver
+    
+    # Traitement precip obs
+    pos <- get.ind.season(sais = sais[i],start = start,end = end)
+    precip.i <- precip[pos$pos.season]
+    precip.i[pos$pos.NA] <- NA
+    dim(precip.i) <- c(pos$l.season,pos$n.season)
+    dat.extr <- apply(precip.i,2,which.max)
+    
+    # Traitement precip analogues
+    precip.ana.i <- precip.ana.final[pos$pos.season,]
+    precip.ana.i[pos$pos.NA,] <- NA
+    dim(precip.ana.i) <- c(pos$l.season,pos$n.season*ncol(precip.ana.i))
+    precip.ana.i <- apply(precip.ana.i,2,which.max)
+    dim(precip.ana.i) <- c(length(year),ncol(precip.ana.final))
+    
+    diff <- apply(precip.ana.i,2,function(v){v-dat.extr})
+    boxplot(t(diff),xaxt="n",ylab="Difference of days",main=nam2str(sais[i]))
+    axis(side = 1,at = seq(1,length(year),10),labels = year[seq(1,length(year),10)])
+    abline(h=0,col="red")
   }
   graphics.off()
 }
@@ -1713,6 +2560,65 @@ plot.gev <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,period
   graphics.off()
 }
 
+# Trace les RL20 et mean max selon la GEV pour les scenarios analogues et l'observe, pour un BV parmi tous
+plot.gev.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end,var2=NULL,nbana2=NULL,var2.indiv=F,dat.max=F){
+  
+  # Import des GEV observees
+  load(file = paste0("2_Travail/1_Past/Rresults/compute.gev.obs/compute_gev_all_mean",nbdays,"day_",start,"_",end,".Rdata"))
+  gev.obs <- val.gev
+  
+  # Import des GEV analogues
+  start.end.rean <- get.start.end.rean(rean,period,"dist",k,var = var2)
+  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2017-12-31")
+  dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
+  n <- length(dates.ana)
+  
+  load(file = get.path(compute_gev_ana_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,start = start,end = end))
+  gev.ana <- val.gev
+  rm(val.gev)
+  
+  # Un seul BV
+  id.bv <- 7
+  gev.obs <- gev.obs[[id.bv]]
+  gev.ana <- gev.ana[[id.bv]]
+  
+  if(id.bv==1) bv <- "Drac-seul"
+  if(id.bv==2) bv <- "Arc"
+  if(id.bv==7) bv <- "Isere-amont"
+  
+  # Graphiques
+  sais <- c("winter","spring","summer","autumn")
+  png(filename = get.path(plot_gev = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,start = start,end = end),width = 10,height = 6,units = "in",res = 600)
+  par(mfcol=c(2,4),mar=c(2,4,2,1))
+  
+  for(i in 1:length(sais)){
+    
+    # RL 20ans
+    plot(gev.obs[[i]][,1],gev.obs[[i]][,2],type="n",xaxt="n",ylim=c(0,100),ylab="Precipitation (mm)",main=paste0("RL20 - ",nam2str(sais[i])))
+    axis(side = 1,at = gev.obs[[i]][,1],labels = gev.obs[[i]][,1])
+    grid(nx=NA,ny=NULL)
+    abline(v = gev.obs[[i]][,1],col="grey",lty=3)
+    for(j in 1:length(gev.ana)){
+      lines(gev.ana[[j]][[i]][,1],gev.ana[[j]][[i]][,2],lty=ifelse(gev.ana[[j]][[i]][1,4]<0.05,1,2))
+    }
+    lines(gev.obs[[i]][,1],gev.obs[[i]][,2],col="red",lwd=2,lty=ifelse(gev.obs[[i]][1,4]<0.05,1,2))
+    
+    # Mean
+    plot(gev.obs[[i]][,1],gev.obs[[i]][,3],type="n",xaxt="n",ylim=c(0,100),ylab="Precipitation (mm)",main=paste0("Mean - ",nam2str(sais[i])))
+    axis(side = 1,at = gev.obs[[i]][,1],labels = gev.obs[[i]][,1])
+    grid(nx=NA,ny=NULL)
+    abline(v = gev.obs[[i]][,1],col="grey",lty=3)
+    for(j in 1:length(gev.ana)){
+      lines(gev.ana[[j]][[i]][,1],gev.ana[[j]][[i]][,3],lty=ifelse(gev.ana[[j]][[i]][1,4]<0.05,1,2))
+    }
+    lines(gev.obs[[i]][,1],gev.obs[[i]][,3],col="red",lwd=2,lty=ifelse(gev.obs[[i]][1,4]<0.05,1,2))
+  }
+  graphics.off()
+}
+
 # Trace les cumuls saisonniers analogie/obs en fonction du temps
 plot.max.ana.sais <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end){
   
@@ -1765,6 +2671,104 @@ plot.max.ana.sais <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,re
     precip.ana.i[pos$pos.NA,] <- NA
     dim(precip.ana.i) <- c(pos$l.season,pos$n.season*ncol(precip.ana.i))
     precip.ana.i <- apply(precip.ana.i,2,max,na.rm=T)
+    dim(precip.ana.i) <- c(length(year),ncol(precip.ana.final))
+    
+    mini <- apply(precip.ana.i,1,min)
+    maxi <- apply(precip.ana.i,1,max)
+    q10 <- apply(precip.ana.i,1,quantile,probs=0.1)
+    q90 <- apply(precip.ana.i,1,quantile,probs=0.9)
+    q25 <- apply(precip.ana.i,1,quantile,probs=0.25)
+    q75 <- apply(precip.ana.i,1,quantile,probs=0.75)
+    
+    # Graphique
+    ylim <- c(0,max(maxi))
+    
+    plot(year,precip.i,type="n",ylim=ylim,xlab="Year",ylab="Precipitation (mm)",main=paste0(nam2str(sais[i])," - ",nam2str(bv)," - ",ncol(precip.ana.final)," scenarios - ",rean))
+    grid()
+    polygon(c(year,rev(year)), c(maxi, rev(mini)),
+            col = "gray80",border = F)
+    polygon(c(year,rev(year)), c(q10, rev(q90)),
+            col = "gray50",border = F)
+    polygon(c(year,rev(year)), c(q75, rev(q25)),
+            col = "gray30",border = F)
+    lines(year,precip.i,col="red",lwd=3)
+    #legend("topleft",inset=.02,bty="n",c("Obs","Analog Scenarios (range,IC80%,IC50%)"),col=c("red","gray50"),lwd=2,cex=0.8,horiz = T)
+    
+  }
+  graphics.off()
+}
+
+# Trace les cumuls saisonniers analogie/obs en fonction du temps, pour un BV parmi tous
+plot.max.ana.sais.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,schaake=T,season=F,dP=F,rgamma=T,moments=F,start,end,var2=NULL,nbana2=NULL,var2.indiv=F,dat.max=F){
+  
+  # Dates utiles
+  dates <- getdates(start,end)
+  
+  start.end.rean <- get.start.end.rean(rean,period,"dist",k,var = var2)
+  dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
+  N <- length(dates.rean)
+  
+  start.end.ana <- c("1950-01-01","2017-12-31")
+  dates.ana <- getdates(start.end.ana[1],as.character(as.Date(start.end.ana[2])-nbdays+1))
+  n <- length(dates.ana)
+  
+  # Import des precipitations
+  load("2_Travail/Data/Precip/SPAZM/dailyspazmSecteurHydro_1950-2017.Rdata")
+  precip <- matdaily;rm(matdaily)
+  
+  if(schaake){
+    print(get.path(reordering_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
+    load(get.path(reordering_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
+  }else{
+    load(get.path(generate_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,spazm = spazm,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
+    for(i in 1:length(precip.ana.sample)){precip.ana.sample[[i]] <- do.call(rbind,precip.ana.sample[[i]])}
+    precip.ana.final <- precip.ana.sample
+  }
+  
+  # Un seul BV
+  id.bv <- 7
+  precip.ana.final <- precip.ana.final[[id.bv]]
+  
+  if(id.bv==1) bv <- "Drac-seul"
+  if(id.bv==2) bv <- "Arc"
+  if(id.bv==7) bv <- "Isere-amont"
+  
+  pos <- match(dates,dates.rean)
+  precip.ana.final <- precip.ana.final[pos,] # on ne traite qu'avec la serie reduite
+  
+  # Traitement et graphique par saison
+  sais <- c("winter","spring","summer","autumn","year")
+  
+  png(filename = get.path(plot_max_ana_sais_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,bv = bv,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,schaake = schaake,start = start,end = end,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max),width = 9,height = 9,units = "in",res = 600)
+  par(mfrow=c(3,2),mar=c(4,4,2,2))
+  
+  for(i in 1:length(sais)){
+    
+    print(sais[i])
+    year <- unique(substr(dates,1,4))
+    if(sais[i] == "winter") year <- year[-1] # car pas de premiere saison hiver
+    
+    # Traitement precip obs
+    pos <- get.ind.season(sais = sais[i],start = start,end = end)
+    precip.i <- precip[pos$pos.season]
+    precip.i[pos$pos.NA] <- NA
+    dim(precip.i) <- c(pos$l.season,pos$n.season)
+    if(dat.max) dat.extr <- apply(precip.i,2,which.max)
+    precip.i <- apply(precip.i,2,max,na.rm=T)
+    
+    # Traitement precip analogues
+    if(sais[i]!="year"){precip.ana.i <- precip.ana.final[pos$pos.season,]
+    }else{precip.ana.i <- apply(precip.ana.final,2,function(v){v[pos$pos.season]})}
+    precip.ana.i[pos$pos.NA,] <- NA
+    dim(precip.ana.i) <- c(pos$l.season,pos$n.season*ncol(precip.ana.i))
+    if(dat.max){
+      dat.extr <- rep(dat.extr,ncol(precip.ana.final))
+      maxi <- dat.extr
+      for(j in 1:ncol(precip.ana.i)) {maxi[j] <- precip.ana.i[dat.extr[j],j]}
+    }else{
+    maxi <- apply(precip.ana.i,2,max,na.rm=T)
+    }
+    precip.ana.i <- maxi
     dim(precip.ana.i) <- c(length(year),ncol(precip.ana.final))
     
     mini <- apply(precip.ana.i,1,min)
@@ -2153,12 +3157,11 @@ reordering.precip <- function(type="empir",k,dist,nbdays,nbana=0.2,bv,spazm=T,re
 }
 
 # Application du Schaake shuffle temporel, pour tous les BVs
-reordering.precip.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,season=F,dP=F,rgamma=F,moments=F,var2=NULL,nbana2=NULL){
+reordering.precip.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,period="past",q.threshold=0.99,seuil=0,season=F,dP=F,rgamma=F,moments=F,var2=NULL,nbana2=NULL,var2.indiv=F){
   
   # Dates utiles
   start.end.rean <- get.start.end.rean(rean,period,"dist",k,var = var2)
   dates.rean <- getdates(start.end.rean[1],as.character(as.Date(start.end.rean[2])-nbdays+1))
-  N <- length(dates.rean)
   start.end.ana <- c("1950-01-01","2017-12-31")
   
   # Import precip
@@ -2168,13 +3171,20 @@ reordering.precip.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,peri
   precip <- rbind(precip,precip[nrow(precip),]) # on replique la derniere valeur si on veut aller chercher le rang du lendemain du dernier jour...
   
   # Import precip generees
-  load(get.path(generate_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2))
+  load(get.path(generate_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
   N <- length(precip.ana.sample[[1]])
   
   # Import dates analogues
-  load(get.path(save_ana = T,short = T,k = k,rean = rean,period = period,season = season,dP = F,dist = dist,nbdays = nbdays,var2 = var2,nbana2 = nbana2,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]))
+  load(get.path(save_ana = T,short = T,k = k,rean = rean,period = period,season = season,dP = F,dist = dist,nbdays = nbdays,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]))
   nbnei <- length(precip.ana.sample[[1]][[1]]) # on veut le meme nbre d'analogues que de precip a reordonner
-  nei <- lapply(nei,function(v){v[1:nbnei]})
+  
+  if(!var2.indiv){
+    nei <- lapply(nei,function(v){v[1:nbnei]})
+  }else{ # si var2.indiv, on a des nei differents pour chaque BV
+    #for(i in 1:length(nei)){nei[[i]] <- lapply(nei[[i]],function(v){v[1:nbnei]})}
+    nbana.all <- c(1,0.5,0.2,0.1,0.05)
+    nei <- lapply(nei.bv,function(v){lapply(v,function(w){w[[which(nbana==nbana.all)]][1:nbnei]})})
+  } 
   
   # Schaake shuffle
   # rang.im1p1 <- lapply(nei,function(v){rank(precip[v+1],ties.method = "random")}) # attribution d'un rang aleatoire pour les 0
@@ -2188,15 +3198,19 @@ reordering.precip.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,peri
   precip.ana.final <- precip.ana.sample
   nei.new <- nei
   
-  for(i in 1:length(precip.ana.sample)){
+  for(i in 1:ncol(precip)){
     print(paste0(i,"/",length(precip.ana.sample)))
     
     for(j in 2:N){ # on ne reordonne pas le premier pas de temps
-      
+
       if(j%%50==0) print(paste0(j,"/",N))
       
       # rang precip lendemain des analogues de la veille
-      rang.im1p1 <- rank(precip[nei.new[[j-1]]+1,i],ties.method = "random")
+      if(!var2.indiv){
+        rang.im1p1 <- rank(precip[nei.new[[j-1]]+1,i],ties.method = "random")
+      }else{
+        rang.im1p1 <- rank(precip[nei.new[[i]][[j-1]]+1,i],ties.method = "random")
+      }
       
       # rang precip du jour
       rang.brut <- rank(precip.ana.final[[i]][[j]],ties.method = "random")
@@ -2206,102 +3220,126 @@ reordering.precip.all <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,peri
       
       # reordonnancement et mise à jour nei
       precip.ana.final[[i]][[j]] <- precip.ana.final[[i]][[j]][pos]
+      if(!var2.indiv){
       nei.new[[j]] <- nei.new[[j]][pos]
+      }else{
+        nei.new[[i]][[j]] <- nei.new[[i]][[j]][pos]
+      }
     }
   }
   
   precip.ana.final <- lapply(precip.ana.final,function(v){do.call(rbind,v)})
   
   # Export
-  save(precip.ana.final,file = get.path(reordering_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2))
+  save(precip.ana.final,file = get.path(reordering_precip_all = T,k = k,rean = rean,period = period,type = type,rgamma=rgamma,q.threshold = q.threshold,seuil = seuil,moments = moments,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv))
 }
 
 # Run la methode des analogues
 run.analogs <- function(k = 1,dist = "TWS",start = "1851-01-01",end = "2011-12-31",
                         rean = "20CR-m1",period = "past",nbdays = 1,nbana = 0.2,
-                        bv = "Isere-seul",spazm = T,season = T,seuil = 0,moments = T,
-                        type = "empir",q.threshold = 0.99,schaake = T,var2 = "vv700",nbana2 = 0.2){
+                        bv = "Isere-seul",spazm = T,season = T,dP = F,seuil = 0,moments = T,rgamma = T,
+                        type = "empir",q.threshold = 0.99,schaake = T,
+                        var2 = "vv700",nbana2 = 0.2,var2.indiv = F,dat.max = F,one.gev = F){
   
   # Parametres
   compute_dist=F
   save_ana=F
-  save_precip=F
-  fit_law=F
-  generate_precip=F
-  gev=F
-  graphics=F
+  save_precip=T
+  compute_crps=F
+  fit_law=T
+  generate_precip=T
+  gev=T
+  graphics=T
   maps=T
   
   # Calcul des distances
   if(compute_dist){
     print("Calcul des distances")
-    compute_dist_gen(k = k,dist = dist,start = start,end = end,rean = rean,period = period)
-    if(k==3){combine.dist.k3(wk1 = 0.5,wk2 = 0.5,dist = dist,rean = rean,start = start,end = end)}
+    #compute_dist_gen(k = k,dist = dist,start = start,end = end,rean = rean,period = period)
+    #if(k==3){combine.dist.k3(wk1 = 0.5,wk2 = 0.5,dist = dist,rean = rean,start = start,end = end)}
+    compute.dist.var2.all(var2 = var2,rean = rean,period = period,start = start,end = end)
+    gc()
   }
   
   # Enregistrement des analogues et des precipitations associees
   if(save_ana){
     print("Enregistrement des dates analogues")
     #save.ana(k = k,dist = dist,nbdays = nbdays,rean = rean,period = period)
-    save.ana.par(k = k,dist = dist,nbdays = nbdays,rean = rean,period = period,season = season,ncores = 6)
+    #save.ana.par(k = k,dist = dist,nbdays = nbdays,rean = rean,period = period,season = season,ncores = 6)
+    save.ana.var2.all.par(k = k,nbana = nbana,var2 = var2,rean = rean,period = period,start = start,end = end)
     #save.ana.sea(k = k,dist = dist,nbdays = nbdays,rean = rean,period = period)
   }
   if(save_precip){
     print("Enregistrement des precipitations analogues")
-    #save.precip.ana(k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = F)
-    #save.precip.ana.all(k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,season = season,dP = F)
-    #save.precip.ana.twostage(k = k,dist1 = dist,var = var2,nbdays = nbdays,nbana1 = nbana,nbana2 = nbana2,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = F)
-    save.precip.ana.twostage.all(k = k,dist1 = dist,var = var2,nbdays = nbdays,nbana1 = nbana,nbana2 = nbana2,rean = rean,period = period,season = season,dP = F)
-  }
+    #save.precip.ana(k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = dP)
+    #save.precip.ana.all(k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,season = season,dP = dP)
+    #save.precip.ana.twostage(k = k,dist1 = dist,var = var2,nbdays = nbdays,nbana1 = nbana,nbana2 = nbana2,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = dP)
+    #save.precip.ana.twostage.all(k = k,dist1 = dist,var = var2,nbdays = nbdays,nbana1 = nbana,nbana2 = nbana2,rean = rean,period = period,season = season,dP = dP,var2.indiv = var2.indiv)
+    save.precip.ana.twostage.all.clean(k = k,dist1 = dist,var = var2,nbdays = nbdays,nbana1 = nbana,nbana2 = nbana2,rean = rean,period = period,season = season,dP = dP,var2.indiv = var2.indiv,start = start,end = end)
+    }
+  
+  if(compute_crps){
+    print("Calcul des CRPS analogues")
+    compute.crps.ana.all(k = k,nbana = nbana,var2 = var2,rean = rean,period = period,start = start,end = end)
+    }
   
   # Calage d'une loi parametrique
   if(fit_law){
     print("Calage d'une loi parametrique")
-    #fit.gamma(k = k,dist = dist,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = F,moments = moments,var2 = var2,nbana2 = nbana2)
-    fit.gamma.all(k = k,dist = dist,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,rean = rean,period = period,season = season,dP = F,moments = moments,var2 = var2,nbana2 = nbana2)
+    #fit.gamma(k = k,dist = dist,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = dP,moments = moments,var2 = var2,nbana2 = nbana2)
+    fit.gamma.all(k = k,dist = dist,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,rean = rean,period = period,season = season,dP = dP,moments = moments,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv)
     #fit.gamma.random(replic = 1000,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,bv = bv,spazm = spazm,rean = rean,period = period,moments = moments,ncores = 10)
-    #fit.exp(k = k,dist = dist,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = F,moments = T)
-    #fit.invgauss(k = k,dist = dist,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = F,moments = T)
+    #fit.exp(k = k,dist = dist,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = dP,moments = T)
+    #fit.invgauss(k = k,dist = dist,nbdays = nbdays,nbana = nbana,nbmini = 10,seuil = seuil,bv = bv,spazm = spazm,rean = rean,period = period,season = season,dP = dP,moments = T)
     }
   
   # Generation des series de precipitations avec reodonnancement
   if(generate_precip){
     print("Generation des series de precipitations")
-    #generate.precip(n = 50,type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,season = season,dP = F,rgamma = T,moments = moments,var2 = var2,nbana2 = nbana2)
-    generate.precip.all(n = 50,type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,season = season,dP = F,rgamma = T,moments = moments,var2 = var2,nbana2 = nbana2)
-    #generate.precip.random(n = 45,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = "past",q.threshold = q.threshold,seuil = seuil,rgamma = F,moments = moments,ncores = 10)
-    #reordering.precip(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,season = season,dP = F,rgamma = T,moments = moments,var2 = var2,nbana2 = nbana2)
-    reordering.precip.all(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,season = season,dP = F,rgamma = T,moments = moments,var2 = var2,nbana2 = nbana2)
+    #generate.precip(n = 50,type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,season = season,dP = dP,rgamma = rgamma,moments = moments,var2 = var2,nbana2 = nbana2)
+    generate.precip.all(n = 25,type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,season = season,dP = dP,rgamma = rgamma,moments = moments,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv)
+    #generate.precip.random(n = 45,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = "past",q.threshold = q.threshold,seuil = seuil,rgamma = rgamma,moments = moments,ncores = 10)
+    #reordering.precip(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,season = season,dP = dP,rgamma = rgamma,moments = moments,var2 = var2,nbana2 = nbana2)
+    reordering.precip.all(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,season = season,dP = dP,rgamma = rgamma,moments = moments,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv)
   }
   
   # Calculs GEV
   if(gev){
     #fit.gev.obs(bv = bv,nbdays = nbdays,spazm = spazm,start = start,end = end)
-    #fit.gev.ana.par(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = T,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2)
-    fit.gev.ana.par.all(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = T,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2)
+    #fit.gev.ana.par(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2)
+    fit.gev.ana.par.all(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,one.gev = one.gev)
+    #fit.gev.ana.par.all.med(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max)
     #compute.gev.obs(bv = bv,nbdays = nbdays,spazm = spazm,start = start,end = end)
-    #compute.gev.ana(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = T,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2)
-    compute.gev.ana.all(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = T,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2)
+    #compute.gev.ana(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2)
+    compute.gev.ana.all(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,one.gev = one.gev)
+    #compute.gev.ana.all.med(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max)
   }
   
   # Graphiques de sortie
   if(graphics){
     print("Graphiques")
-    #plot.fit.precip(k = k,dist = dist,bv = bv,spazm = spazm,nbdays = nbdays,nbana = nbana,rean = rean,period = period,gamma = T,exp = T,invgauss = T,season = season,dP = F,seuil = seuil,moments = moments)
-    #plot.param.ana(k = k,dist = dist,bv = bv,spazm = spazm,nbdays = nbdays,nbana = nbana,rean = rean,period = period,type = type,season = season,dP = F,seuil = seuil,moments = moments)
-    #plot.precip.ana(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = F,moments = moments)
-    #plot.precip.ana.day(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,schaake = schaake,season = season,dP = F,moments = moments)
-    #plot.cum.ana.sais(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = T,moments = moments,start = start,end = end)
-    #plot.max.ana.sais(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = T,moments = moments,start = start,end = end)
-    #plot.distrib.ana.sais(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = F,moments = moments,random=F)
+    #plot.fit.precip(k = k,dist = dist,bv = bv,spazm = spazm,nbdays = nbdays,nbana = nbana,rean = rean,period = period,gamma = T,exp = T,invgauss = T,season = season,dP = dP,seuil = seuil,moments = moments)
+    #plot.param.ana(k = k,dist = dist,bv = bv,spazm = spazm,nbdays = nbdays,nbana = nbana,rean = rean,period = period,type = type,season = season,dP = dP,seuil = seuil,moments = moments)
+    #plot.precip.ana(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments)
+    #plot.precip.ana.day(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,schaake = schaake,season = season,dP = dP,moments = moments)
+    #plot.cum.ana.sais(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,start = start,end = end)
+    #plot.cum.ana.sais.all(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,fun = "sum",probs = NULL)
+    #plot.max.ana.sais(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,start = start,end = end)
+    plot.max.ana.sais.all(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max)
+    #plot.distrib.ana.sais(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,random=F)
     #compare.schaake(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,season = season,moments = moments)
-    plot.gev(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = T,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2)
-  }
+    #plot.gev(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,bv = bv,spazm = spazm,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2)
+    #plot.gev.all(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max)
+    #plot.dates.max.ana(type = type,k = k,dist = dist,nbdays = nbdays,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,start = start,end = end,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv)
+    #plot.crpss.2step(k = k,var2 = var2,rean = rean,period = period,start = start,end = end)
+    }
   
   # Cartes de sortie
   if(maps){
-    map.trend.gev.obs.ana(mod = "rl20",nbdays = nbdays,start = start,end = end,type = type,k = k,dist = dist,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = F,rgamma = T,moments = moments,var2 = var2,nbana2 = nbana2)
-    }
+    map.trend.gev.obs.ana(mod = "rl20",nbdays = nbdays,start = start,end = end,type = type,k = k,dist = dist,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,med = F,one.gev = one.gev)
+    map.trend.gev.obs.ana(mod = "mean",nbdays = nbdays,start = start,end = end,type = type,k = k,dist = dist,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv,dat.max = dat.max,med = F,one.gev = one.gev)
+    #map.trend.cum.obs.ana(nbdays = nbdays,start = start,end = end,type = type,k = k,dist = dist,nbana = nbana,rean = rean,period = period,q.threshold = q.threshold,seuil = seuil,schaake = schaake,season = season,dP = dP,rgamma = rgamma,moments = moments,var2 = var2,nbana2 = nbana2,var2.indiv = var2.indiv)
+  }
 }
 
 # Run la methode des analogues en boucle
@@ -2312,24 +3350,29 @@ run.analogs.loop <- function(){
   # Attention a ne pas utiliser k dans les indices de boucle
   
   # Parametres
-  k <- c(1,2,3)
+  k <- 3#c(1,2,3)
   dist <- "TWS"
   start <- "1950-01-01"
   end <- "2017-12-31"
   rean <- c("ERA5")#,"20CR-m0","20CR-m2","ERA20C","ERA5")
   period <- "past"
   nbdays <- c(1)#,3)
-  nbana <- c(0.5)
-  nbana2 <- 0.2
-  var2 <- "vv700"
+  nbana <- c(0.2)
+  nbana2 <- 0.1#NULL#c(0.5,0.2,0.1,0.05,0.025)
+  var2 <- c("pwat","rh850","rh700","sph850","sph700","t850","t700","tcw","vv850")# vv700 probleme avec sph850 et vv850
+  var2.indiv <- T
+  dat.max <- F
   bv <- "Isere-seul"#c("Drac-seul","Isere-seul","Isere")
   spazm <- c(T)#,F)
   season <- c(T)#,F)
+  dP <- F
   seuil <- c(0)#,0.1)
   moments <- c(T)#,F)
   type <- "gamma"#c("empir","invgauss")
+  rgamma <- T
   q.threshold <- c(1)#,0.999,1)
   schaake <- c(T)#,F)
+  one.gev <- T
   
   for(i in 1:length(k)){
     print(paste0("k=",k[i]))
@@ -2355,10 +3398,17 @@ run.analogs.loop <- function(){
                         print(paste0("q.threshold=",q.threshold[t]))
                         for(u in 1:length(schaake)){
                           print(paste0("schaake=",schaake[u]))
-                          run.analogs(k = k[i],dist = dist,start = start,end = end,
-                                      rean = rean[j],period = period,nbdays = nbdays[l],nbana = nbana[m],
-                                      bv = bv[n],spazm = spazm[o],season = season[p],seuil = seuil[q],moments = moments[r],
-                                      type = type[s],q.threshold = q.threshold[t],schaake = schaake[u],var2 = var2,nbana2 = nbana2)
+                          for(v in 1:length(var2)){
+                            print(paste0("var2=",var2[v]))
+                            for(w in 1:length(nbana2)){
+                              print(paste0("nbana2=",nbana2[w]))
+                              run.analogs(k = k[i],dist = dist,start = start,end = end,
+                                          rean = rean[j],period = period,nbdays = nbdays[l],nbana = nbana[m],
+                                          bv = bv[n],spazm = spazm[o],season = season[p],dP = dP,seuil = seuil[q],moments = moments[r],rgamma = rgamma,
+                                          type = type[s],q.threshold = q.threshold[t],schaake = schaake[u],
+                                          var2 = var2[v],nbana2 = nbana2[w],var2.indiv = var2.indiv,dat.max = dat.max,one.gev = one.gev)
+                            }
+                          }
                         }
                       }
                     }
@@ -2648,6 +3698,60 @@ save.ana.par <- function(k,dist,nbdays,rean,period="past",season=F,ncores=6){
   save(nei,file=get.path(save_ana = T,short = short,k = k,rean = rean,period = period,season = season,dP = F,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2]))
 }
 
+# Renvoie les indices des n% des journees les plus analogues au sens de var2, parmi les analogues de geopotentiel (season=T)
+save.ana.var2.all.par <- function(k=1,nbana=c(1,0.5,0.2,0.1,0.05),var2="vv700",rean="ERA5",period="past",start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  N <- length(dates)
+  
+  # Import des analogues selon geopotentiel
+  start.end.rean <- get.start.end.rean(rean,period,"dist",k)
+  load(get.path(save_ana = T,short = T,k = k,rean = rean,period = period,season = T,dP = F,dist = "TWS",nbdays = 1,start.rean = start,end.rean = start.end.rean[2],start.ana = start,end.ana = end))
+  nbnei <- round(nbana*0.01*N,0)
+  nei <- lapply(nei,function(v){v[1:max(nbnei)]}) # pour alleger la memoire a importer dans les coeurs
+  
+  # Import des distances selon var2
+  print("Import distances var2")
+  load(paste0(get.dirstr(rean = rean,period = period),"compute_dist/RMSE_",rean,"_",var2,"_",start,"_",end,".Rdata"))
+  U<-c(0,(N-1):1)
+  sU<-sapply(1:(N-1),function(x) sum(U[1:x]))
+  nei.bv <- vector("list",length=length(dist.list))
+  
+  ncores <- 10
+  outfile <- paste0(get.dirstr(k,rean,period),"save.ana/calcul.txt")
+  print(paste0("Logfile for // loop : ",outfile))
+  cl <- makeCluster(ncores, outfile=outfile) 
+  registerDoParallel(cl)
+  
+  for(i in 1:length(dist.list)){
+    print(paste0(i,"/",length(dist.list)))
+    dist.vec <- unlist(dist.list[[i]])
+    nei.bv.i <- foreach(j=1:N) %dopar%{
+      if(j%%500==0){print(paste0(j,"/",N))}
+      source(paste0("2_Travail/1_Past/",rean,"/save.ana/utils_save_ana_var2_all_par.R"), encoding = 'UTF-8')
+      dist2.j <- getdist4i(j,dist.vec,N,sU)
+      nei.jl <- vector(mode = "list",length = length(nbana))
+      names(nei.jl) <- nbana
+      
+      for(l in 1:length(nbana)){
+      nei.j <- nei[[j]][1:nbnei[l]]
+      pos.NA <- which(is.na(dist2.j[nei.j])) # car decembre derniere annee pas pris en compte dans compute.dist.var2
+      if(length(pos.NA!=0)) {nei.j <- nei.j[-pos.NA]}
+      pos.j <- sort(dist2.j[nei.j],index.return=T)$ix
+      nei.j <- nei.j[pos.j]
+      nei.jl[[l]] <- nei.j
+      }
+      nei.jl
+    }
+    nei.bv[[i]] <- nei.bv.i
+    gc()
+  }
+  stopCluster(cl)
+  
+  # Export
+  save(nei.bv,file = get.path(save_ana = T,k = k,rean = rean,period = period,season = T,dP = F,dist = "TWS",nbdays = 1,start.rean = start,end.rean = end,start.ana = start,end.ana = end,nbana = nbana,var2 = var2,short = T,var2.indiv = T))
+}
+
 # Sauvegarde les precipitations analogues pour analogie classique
 save.precip.ana <- function(k,dist,nbdays,nbana=0.2,bv,spazm=T,rean,period="past",season=F,dP=F){
   
@@ -2712,7 +3816,7 @@ save.precip.ana.all <- function(k,dist,nbdays,nbana=0.2,rean,period="past",seaso
   save(precip.ana,file = get.path(save_precip_ana_all = T,k = k,rean = rean,period = period,season = season,dP = dP,dist = dist,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = start.end.rean[2],start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana))
 }
 
-# Sauvegarde les indices et les precipitations analogues pour analogie en 2 etapes
+# Sauvegarde les indices et les precipitations analogues pour analogie en 2 etapes (dates analogues communes tous BVs)
 save.precip.ana.twostage <- function(k,dist1="TWS",var="vv700",nbdays,nbana1=0.5,nbana2=0.2,bv,spazm=T,rean,period="past",season=F,dP=F){
   
   # Dates utiles
@@ -2775,8 +3879,8 @@ save.precip.ana.twostage <- function(k,dist1="TWS",var="vv700",nbdays,nbana1=0.5
   save(precip.ana,file = get.path(save_precip_ana = T,k = k,rean = rean,period = period,season = season,dP = dP,dist = dist1,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = end.var,start.ana = start.end.ana[1],end.ana = start.end.ana[2],bv = bv,spazm = spazm,nbana = nbana1,var2 = var,nbana2 = nbana2))
 }
 
-# Sauvegarde les indices et les precipitations analogues pour analogie en 2 etapes, pour tous les BVs
-save.precip.ana.twostage.all <- function(k,dist1="TWS",var="vv700",nbdays,nbana1=0.5,nbana2=0.2,rean,period="past",season=F,dP=F){
+# Sauvegarde les indices et les precipitations analogues pour analogie en 2 etapes, pour tous les BVs (dates analogues propres BV, mais distances var2 calculees uniquement sur analogues geo)
+save.precip.ana.twostage.all <- function(k,dist1="TWS",var="vv700",nbdays,nbana1=0.5,nbana2=0.2,rean,period="past",season=F,dP=F,var2.indiv=F){
   
   # Dates utiles
   start.end.rean <- get.start.end.rean(rean,period,"dist",k)
@@ -2812,39 +3916,55 @@ save.precip.ana.twostage.all <- function(k,dist1="TWS",var="vv700",nbdays,nbana1
   print(paste0("Nombre d'analogues etape 2: ",nbnei2))
   
   # Fenetre commune: les dates analogues restent les memes pour tous les BVs
-  print("Indices analogues")
-  lim <- get.lon.lat.var.bv(bv = "allbv")
-  data <- getdata(k = 1,day0 = start.end.rean[1],day1 = end.var,rean = rean,lim.lon = lim$lim.lon,lim.lat = lim$lim.lat,var = var)
-  
-  for(i in 1:length(nei)){
-    if(i%%50==0) print(paste0(i,"/",length(nei)))
-    data.i <- array(data = data[,,i],dim = c(dim(data[,,i]),nbnei1))
-    data.j <- data[,,nei[[i]]]
-    dist <- apply(data.i-data.j,3,function(v) sqrt(mean(v^2)))
-    ind <- sort(dist,index.return=T)$ix[1:nbnei2]
-    if(shif[1]!=1) ind <- ind-shif[1]+1 # on se remet dans le referentiel de l'archive analogue pour precipitations
-    nei[[i]] <- nei[[i]][ind]
-  }
-  
-  # Fenetre propores aux BVs: les dates analogues changent pour chaque BV
-  print("Indices analogues")
-  lim <- get.lon.lat.var.bv(bv = "allbv.indiv")
-  data <- getdata(k = 1,day0 = start.end.rean[1],day1 = end.var,rean = rean,var = var,return.lonlat = T)
-  lon <- data$lon;lat <- data$lat;data <- data$data
-  
-  for(i in 1:ncol(precip)){
-    print(paste0(i,"/",ncol(precip)))
-    data.i <- data[which(lon==lim.lon[i,1]):which(lon==lim.lon[i,2]),which(lat==lim.lat[i,1]):which(lat==lim.lat[i,2]),]
+  if(!var2.indiv){
+    print("Indices analogues")
+    lim <- get.lon.lat.var.bv(bv = "allbv")
+    data <- getdata(k = 1,day0 = start.end.rean[1],day1 = end.var,rean = rean,lim.lon = lim$lim.lon,lim.lat = lim$lim.lat,var = var)
     
-    for(j in 1:length(nei)){
-      if(j%%50==0) print(paste0(j,"/",length(nei)))
-      data.j <- array(data = data[,,j],dim = c(dim(data[,,j]),nbnei1))
-      data.jj <- data[,,nei[[j]]]
-      dist <- apply(data.j-data.jj,3,function(v) sqrt(mean(v^2)))
+    for(i in 1:length(nei)){
+      if(i%%50==0) print(paste0(i,"/",length(nei)))
+      data.i <- array(data = data[,,i],dim = c(dim(data[,,i]),nbnei1))
+      data.j <- data[,,nei[[i]]]
+      dist <- apply(data.i-data.j,3,function(v) sqrt(mean(v^2)))
       ind <- sort(dist,index.return=T)$ix[1:nbnei2]
       if(shif[1]!=1) ind <- ind-shif[1]+1 # on se remet dans le referentiel de l'archive analogue pour precipitations
       nei[[i]] <- nei[[i]][ind]
     }
+  }
+  
+  # Fenetre propores aux BVs: les dates analogues changent pour chaque BV
+  if(var2.indiv){
+    print("Indices analogues")
+    lim <- get.lon.lat.var.bv(bv = "allbv.indiv")
+    lim.lon <- lim$lim.lon;lim.lat <- lim$lim.lat;rm(lim)
+    data <- getdata(k = 1,day0 = start.end.rean[1],day1 = end.var,rean = rean,var = var,return.lonlat = T)
+    lon <- data$lon;lat <- data$lat;data <- data$data
+    nei.bv <- vector("list",length=ncol(precip))
+    
+    ncores <- 9
+    outfile <- paste0(get.dirstr(rean = rean,period = "past"),"save.ana/calcul.txt")
+    print(paste0("Logfile for // loop : ",outfile))
+    cl <- makeCluster(ncores, outfile=outfile) 
+    registerDoParallel(cl)
+    
+    for(i in 1:ncol(precip)){
+      print(paste0(i,"/",ncol(precip)))
+      data.i <- data[which(lon==lim.lon[i,1]):which(lon==lim.lon[i,2]),which(lat==lim.lat[i,1]):which(lat==lim.lat[i,2]),]
+      
+      nei.bv.i <- foreach (j=1:length(nei)) %dopar%{
+        gc()
+        if(j%%50==0) print(paste0(j,"/",length(nei)))
+        data.j <- array(data = data[,,j],dim = c(dim(data[,,j]),nbnei1))
+        data.jj <- data[,,nei[[j]]]
+        dist <- apply(data.j-data.jj,3,function(v) sqrt(mean(v^2)))
+        ind <- sort(dist,index.return=T)$ix[1:nbnei2]
+        if(shif[1]!=1) ind <- ind-shif[1]+1 # on se remet dans le referentiel de l'archive analogue pour precipitations
+        nei[[j]][ind]
+      }
+      nei.bv[[i]] <- nei.bv.i
+      gc()
+    }
+    stopCluster(cl)
   }
   
   # Les precipitations analogues changent pas definition pour chaque BV
@@ -2855,12 +3975,46 @@ save.precip.ana.twostage.all <- function(k,dist1="TWS",var="vv700",nbdays,nbana1
     print(paste0(i,"/",ncol(precip)))
     for(j in 1:length(nei)){
       if(j%%50==0) print(paste0(j,"/",length(nei)))
+      if(!var2.indiv){
       precip.ana[[i]][[j]] <- unname(precip[nei[[j]],i])
+      }else{
+        precip.ana[[i]][[j]] <- unname(precip[nei.bv[[i]][[j]],i])
+      }
     }
   }
   
   # Export
-  save(nei,file = get.path(save_ana = T,k = k,rean = rean,period = period,season = season,dP = dP,dist = dist1,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = end.var,start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var,short = T))
-  save(precip.ana,file = get.path(save_precip_ana_all = T,k = k,rean = rean,period = period,season = season,dP = dP,dist = dist1,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = end.var,start.ana = start.end.ana[1],end.ana = start.end.ana[2],bv = bv,spazm = spazm,nbana = nbana1,var2 = var,nbana2 = nbana2))
+  if(var2.indiv) nei <- nei.bv
+  save(nei,file = get.path(save_ana = T,k = k,rean = rean,period = period,season = season,dP = dP,dist = dist1,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = end.var,start.ana = start.end.ana[1],end.ana = start.end.ana[2],nbana = nbana,var2 = var,short = T,var2.indiv = var2.indiv))
+  save(precip.ana,file = get.path(save_precip_ana_all = T,k = k,rean = rean,period = period,season = season,dP = dP,dist = dist1,nbdays = nbdays,start.rean = start.end.rean[1],end.rean = end.var,start.ana = start.end.ana[1],end.ana = start.end.ana[2],bv = bv,spazm = spazm,nbana = nbana1,var2 = var,nbana2 = nbana2,var2.indiv = var2.indiv))
 }
 
+# Sauvegarde des precipitations uniquement, car indices analogues deja calcules
+save.precip.ana.twostage.all.clean <- function(k,dist1="TWS",var="vv700",nbdays,nbana1=0.5,nbana2=0.2,rean,period="past",season=F,dP=F,var2.indiv=F,start,end){
+  
+  dates <- getdates(start,end)
+  N <- length(dates)
+  
+  # Import des dates analogues
+  load(get.path(save_ana = T,k = k,rean = rean,period = period,season = season,dP = dP,dist = dist1,nbdays = nbdays,start.rean = start,end.rean = end,start.ana = start,end.ana = end,nbana = nbana,var2 = var,short = T,var2.indiv = var2.indiv))
+  
+  # Import des precip
+  load("2_Travail/Data/Precip/SPAZM/dailyspazmSecteurHydro_1950-2017.Rdata")
+  precip <- matdaily;rm(matdaily)
+  
+  # Selection des precip et enregistrement
+  nbana.all <- c(1,0.5,0.2,0.1,0.05)
+  nbnei2 <- round(nbana2*0.01*N,0)
+  
+  precip.ana <- vector("list",length=ncol(precip))
+  
+  for(i in 1:ncol(precip)){
+    print(paste0(i,"/",ncol(precip)))
+    for(j in 1:N){
+      #if(j%%5000 == 0) print(paste0(j,"/",N))
+      nei.ij <- nei.bv[[i]][[j]][[which(nbana1==nbana.all)]][1:nbnei2]
+      precip.ana[[i]][[j]] <- unname(precip[nei.ij,i])
+    }
+  }
+  save(precip.ana,file = get.path(save_precip_ana_all = T,k = k,rean = rean,period = period,season = season,dP = dP,dist = dist1,nbdays = nbdays,start.rean = start,end.rean = end,start.ana = start,end.ana = end,nbana = nbana1,var2 = var,nbana2 = nbana2,var2.indiv = var2.indiv))
+}
