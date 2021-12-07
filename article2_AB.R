@@ -60,6 +60,24 @@ combine.plot.descr.density.subperiod <- function(wp=NULL,k,dist,nbdays=1,rean,st
   graphics.off()
 }
 
+# Combinaison de plusieurs plot.descr.rain.norain
+combine.plot.descr.rain.norain <- function(bv=c("Isere-seul","Drac-seul"),wp=c(1,2),sais=c("spring","winter"),k,dist,nbdays=1,rean,spazm,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
+  
+  # Graphiques
+  pl <- list()
+  for(i in 1:length(bv)){
+    pl[[i]] <- plot.descr.rain.norain(bv = bv[i],wp = wp[i],sais = sais[i],k = k,dist = dist,nbdays = nbdays,rean = rean,
+                                      spazm = spazm,start = start,end = end,start.ana = start.ana,end.ana = end.ana,save = F)
+    pl[[i]] <- pl[[i]]+labs(title=paste(nam2str(bv),wp.name[wp],nam2str(sais),sep = " - ")[i])
+  }
+  
+  # Combinaison
+  wp.name <- c("Atlantic","Mediterranean","Northeast","Anticyclonic")
+  main <- paste(nam2str(bv),wp.name[wp],nam2str(sais),sep = " - ")
+  pl.final <- ggarrange(plotlist = pl,ncol = 2,nrow = 1,font.label = list(size=20,face="bold"),legend = "right",common.legend = T)
+  ggsave(filename = paste0(get.dirstr(k,rean,period = "past"),"plot.descr.rain.norain/plot_descr_",paste(bv,collapse = "_"),"_",paste(sais,collapse = "_"),"_wp",paste(wp,collapse = "_"),"_",nbdays,"days",ifelse(spazm,"_spazm",""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".png"),plot = pl.final,width = 14,height = 5)
+}
+
 # Combinaison de plusieurs plot.descr.violin.subperiod
 combine.plot.descr.violin.subperiod <- function(k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
   
@@ -275,6 +293,31 @@ combine.plot.trend.descr.sais <- function(k,dist,rean,nbdays=1,start="1950-01-01
   graphics.off()
 }
 
+# Combinaison de plusieurs plot.trend.precip.wp.combine
+combine.plot.trend.precip.wp <- function(bv=c("Isere-seul","Drac-seul"),spazm=T,start="1950-01-01",end="2017-12-31",norm=T){
+  
+  # graphique
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip.wp.combine/plot_trend_precip_",bv[1],"_",bv[2],"_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(norm,"_norm",""),".png"),width = 10,height = 6,units = "in",res=600)
+  layout(mat = matrix(data = c(rep(1,5),2:6,rep(7,5),8:12),nrow = 4,ncol = 5,byrow = T),widths = c(0.1,1,1,1,1),heights = c(0.1,1,0.1,1))
+  
+  for(i in 1:length(bv)){
+    
+    # Titre
+    par(mar=c(0,0,0,0))
+    plot(1,1,type="n",bty="n",xaxt="n",yaxt="n")
+    text(1,1,nam2str(bv[i]),font=2,cex=2.5)
+    
+    # Axe
+    plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+    text(1,0.5,"Precipitation (mm/day)",srt=90,cex=1.3)
+    
+    # Plot
+    par(mar=c(3,2,2,0))
+    plot.trend.precip.wp.combine(bv = bv[i],spazm = spazm,start = start,end = end,norm = norm,leg = ifelse(i==1,T,F),save = F)
+  }
+  graphics.off()
+}
+  
 # Combinaison de plusieurs combine.plot.trend.wp
 combine.plot.trend.wp <- function(nbdays=1,start="1950-01-01",end="2017-12-31"){
   
@@ -1233,6 +1276,57 @@ plot.descr.density.subperiod <- function(descr,wp=NULL,k,dist,nbdays=1,rean,star
   }
   
   pl+geom_rect(data=subset(tab,Season %in% nam2str(sais)[test]),aes(fill=Season),xmin=-Inf,xmax=Inf,ymin=-Inf,ymax=Inf,colour="red",fill=NA,alpha=0.9)
+}
+
+# Boxplot des indicateurs pour les journees humides (>1mm) ou seches sur un BV, pour une saison et un wp
+plot.descr.rain.norain <- function(bv,wp,sais,k,dist,nbdays=1,rean,spazm,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",save=T){
+  
+  dates <- getdates(start,end)
+  descr <- c("cel","sing05","rsing05","dP")
+  
+  # Imports
+  precip <- get.precip(nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm)
+  des <- matrix(data = NA,nrow = length(dates),ncol = length(descr))
+  for(i in 1:length(descr)){
+  des[,i] <- get.descriptor(descriptor = descr[i],k = k,dist = dist,nbdays = nbdays,start = start,end = end,standardize = F,
+                            rean = rean,threeday = F,desais = F,period = "past",start.ana = start.ana,end.ana = end.ana)
+  }
+  colnames(des) <- nam2str(descr,whole = T)
+  tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = bv,agreg = T,spazm = spazm)
+  
+  # Traitement
+  pos.wp <- which(tt==wp)
+  des[!(1:length(dates)) %in% pos.wp,] <- NA
+  des <- apply(des,2,function(v){ecdf(v)(v)*100}) # percentile par rapport aux journees du meme wp
+  
+  rain.norain <- as.numeric(precip>1)
+  rain.norain[rain.norain==1] <- "Wet";rain.norain[rain.norain==0] <- "Dry"
+  des <- cbind(as.data.frame(des),rain.norain)
+  
+  pos.sea <- get.ind.season.past(sais = sais,start = start,end = end,nbdays = nbdays)
+  pos <- intersect(pos.sea,pos.wp)
+  des <- des[pos,]
+  
+  des <- pivot_longer(data = as.data.frame(des),1:4,names_to = "descr",values_to = "val")
+  des$rain.norain <- factor(des$rain.norain)
+  des$descr <- factor(des$descr,levels = nam2str(descr,whole = T))
+  
+  # Graphique
+  pl <- ggplot(des, aes(x=descr, y=val, fill=rain.norain)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(1.5,0,0,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 12,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 12,face = "bold"),axis.text.x = element_text(size=13,colour="black",vjust=0),
+          axis.text.y = element_text(size=13),plot.title = element_text(hjust = 0.5,vjust=3,face="bold",size=18),
+          legend.position = "right",legend.key.size = unit(1.5,"cm"),legend.text = element_text(size=16,colour="black"),
+          legend.title = element_blank())+
+    stat_boxplot(geom = "errorbar",col="darkblue",position=position_dodge(width = 0.75),width=0.3) +
+    geom_boxplot(outlier.shape = NA,col="darkblue")+
+    scale_fill_manual(values=c(brewer.pal(n = 11, name = "RdBu")[7],brewer.pal(n = 11, name = "RdBu")[9]))+
+    ylab("Percentile of descriptor value (%)")
+  if(save){
+  ggsave(filename = paste0(get.dirstr(k,rean,period = "past"),"plot.descr.rain.norain/plot_descr_",bv,"_",sais,"_wp",wp,"_",nbdays,"days",ifelse(spazm,"_spazm",""),"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".png"),plot = pl,width = 8,height = 5)
+  graphics.off()
+  }else{pl}
 }
 
 # Graphique du nombre d'indicateurs en dessous d'un seuil sur une saison pour deux sous-periodes et pour un type de temps (comptage d'extremes de precipitation dans ces seuils)
@@ -2200,7 +2294,7 @@ plot.trend.precip.wp <- function(bv="Isere-seul",wp=1,spazm=T,start="1950-01-01"
 }
 
 # Trace l'evolution des cumuls saisonniers issus des differentes influences atmospheriques, dans un seul graphique
-plot.trend.precip.wp.combine <- function(bv="Isere-seul",spazm=T,start="1950-01-01",end="2017-12-31"){
+plot.trend.precip.wp.combine <- function(bv="Isere-seul",spazm=T,start="1950-01-01",end="2017-12-31",norm=T,leg=T,save=T){
   
   dates <- getdates(start,end)
   pos.dec <- which(substr(dates,6,7)=="12")
@@ -2217,23 +2311,35 @@ plot.trend.precip.wp.combine <- function(bv="Isere-seul",spazm=T,start="1950-01-
   # Saison
   sais <- c("winter","spring","summer","autumn")
   vec.sais <- rep(NA,length(dates))
+  l.sais <- rep(NA,4)
+  
   for(i in 1:length(sais)){
     pos <- get.ind.season(sais = sais[i],start = start,end = end)
     vec.sais[pos$pos.season] <- sais[i]
+    l.sais[i] <- pos$l.season
   }
   
   # Aggregation et mise en forme
   res <- aggregate(precip,by=list(vec.sais,ann,tt),sum,na.rm=T)
   colnames(res) <- c("Season","Year","WP","Value")
+  if(norm){ # on normalise le cumul de chaque annee par l'occurence de ce wp cette annee là
+  occ <- aggregate(tt,by=list(vec.sais,ann,tt),table)
+  res$Value <- res$Value/occ$x
+  }
   res <- pivot_wider(res,names_from = 3,values_from = 4)
   res[,-c(1,2)] <- apply(res[,-c(1,2)],2,function(v){v[is.na(v)] <- 0;v}) # on met cumul à 0 si combinaison saison/WP manquante
-  Tot <- apply(res[,-c(1,2)],1,sum)
+  
+  Tot <- aggregate(precip,by=list(vec.sais,ann),sum,na.rm=T)
+  l.sais <- l.sais[match(Tot$Group.1,sais)]
+  Tot <- Tot$x/l.sais
   res <- cbind(res,Tot)
   
   # Traitement et graphique
   colo <- c("blue","red","darkgreen","dimgrey","black")
-  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip.wp.combine/plot_trend_precip_",bv,"_",start,"_",end,ifelse(spazm,"_spazm",""),".png"),width = 9,height = 6,units = "in",res=600)
-  par(mfrow=c(2,2),mar=c(2,4,2,1))
+  if(save){
+    png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip.wp.combine/plot_trend_precip_",bv,"_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(norm,"_norm",""),".png"),width = 9,height = 6,units = "in",res=600)
+    par(mfrow=c(2,2),mar=c(2,4,2,1))
+  }
   
   for(i in 1:length(sais)){
     pos <- which(res$Season==sais[i])
@@ -2241,7 +2347,7 @@ plot.trend.precip.wp.combine <- function(bv="Isere-seul",spazm=T,start="1950-01-
     if(i==1) res.i <- rbind(c(1950,rep(NA,5)),res.i) # pour avoir meme xaxis que les autres saisons
     res.i.liss <- apply(res.i,2,function(v){unname(rollapply(v,5,mean))})
     
-    plot(res.i.liss[,1],res.i.liss[,6],type="n",ylim=c(0,max(res.i.liss[,6],na.rm=T)),ylab="Precipitation (mm)",main=nam2str(sais[i]))
+    plot(res.i.liss[,1],res.i.liss[,6],type="n",ylim=c(0,ifelse(norm,10,max(res.i.liss[,-1],na.rm=T))),ylab="Precipitation (mm)",main=nam2str(sais[i]),cex.main=1.5)
     grid()
     
     for(j in 2:(ncol(res.i.liss))){
@@ -2251,9 +2357,9 @@ plot.trend.precip.wp.combine <- function(bv="Isere-seul",spazm=T,start="1950-01-
       reg <- lm(res.i[,j]~res.i[,1])
       abline(reg,col=colo[j-1],lwd=2,lty=ifelse(summary(reg)$coefficients[,4][2]<0.1,1,2))
     }
-    if(i==1) legend("topright",legend = c(tt.name,"Total"),col = colo,lwd=2,lty=1,bty="n",ncol=2,cex=0.7)
+    if(i==2 & leg) legend("top",legend = c(tt.name,"Total"),col = colo,lwd=2,lty=1,bty="n",ncol=2,cex=1)
   }
-  graphics.off()
+  if(save){graphics.off()}
 }
 
 # Trace l'évolution de l'occurrence des WP par saison
@@ -2586,8 +2692,8 @@ run.article2 <- function(type=1){
   if(type==10){
     descr <- c("cel","sing05","rsing05","dP")
     bv <- c("Isere-seul","Drac-seul","Isere")
-    wp <- c(1,2)
-    nbdays <- c(1,3)
+    wp <- "all" #c(1,2)
+    nbdays <- 1#c(1,3)
     
     for(i in 1:length(descr)){
       print(descr[i])
@@ -2600,6 +2706,25 @@ run.article2 <- function(type=1){
             plot.trend.descr.extr(bv = bv[j],wp = wp[k],descr = descr[i],k = 1,dist = "TWS",rean = "ERA5",nbdays = nbdays[l],spazm = T,
                                   start = "1950-01-01",end = "2017-12-31",start.ana = "1950-01-01",end.ana = "2017-12-31")
           }
+        }
+      }
+    }
+  }
+  
+  if(type==11){
+    bv <- c("Isere-seul","Drac-seul","Isere")
+    sais <- c("winter","spring","summer","autumn")
+    wp <- c(1,2)
+    
+    for(i in 1:length(bv)){
+      print(bv[i])
+      for(j in 1:length(sais)){
+        print(sais[j])
+        for(k in 1:length(wp)){
+          print(wp[k])
+          plot.descr.rain.norain(bv = bv[i],wp = wp[k],sais = sais[j],k = 1,dist = "TWS",nbdays = 1,
+                                 rean = "ERA5",spazm = T,start = "1950-01-01",end = "2017-12-31",
+                                 start.ana = "1950-01-01",end.ana = "2010-12-31")
         }
       }
     }

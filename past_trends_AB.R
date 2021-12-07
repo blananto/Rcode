@@ -104,194 +104,6 @@ get.nao <- function(start="1950",end="2019",sais="all",daily=F){
   nao
 }
 
-# Trace l'evolution dans le temps de la latitude du jet saison et type de temps
-plot.trend.lat.jet <- function(gamme=c(5450,5550),wp="all",start="1900-01-01",end="2010-12-31",rean,liss=1){
-  
-  # Import
-  dates <- getdates(start,end)
-  year <- substr(dates,1,4)
-  load(paste0("2_Travail/1_Past/",rean,"/compute.lat.jet/weighted_mean_lat_jet_",start,"_",end,"_btw_",gamme[1],"_and_",gamme[2],".Rdata"))
-  
-  # Traitement
-  if(wp!="all" & rean!="ERA5"){
-    load(paste0("2_Travail/1_Past/",rean,"/compute_wp_past/wp_final_",start,"_1947-12-31_start.ana_1948-01-01_end.ana_2010-12-31_n.ana=1.Rdata"))
-    lati[tt_final!=wp] <- NA
-  }
-  if(wp!="all"){
-    tt_final <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
-    lati[tt_final!=wp] <- NA
-  }
-  
-  # Annuel
-  lat.ann <- aggregate(lati,by=list(year),mean,na.rm=T)
-  lat.ann[,1] <- as.numeric(lat.ann[,1])
-  
-  # Saisonnier
-  sais <- list(c("12","01","02"),c("03","04","05"),c("06","07","08"),c("09","10","11"))
-  sais.name <- c("winter","spring","summer","autumn")
-  lat.sais <- matrix(NA,length(unique(year)),5)
-  lat.sais[,1] <- as.numeric(unique(year))
-  for(i in 1:length(sais)){
-    tmp <- lati
-    tmp[!(substr(dates,6,7) %in% sais[[i]])] <- NA
-    lat.sais[,i+1] <- aggregate(tmp,by=list(year),mean,na.rm=T)[,2]
-  }
-  
-  # Lissage
-  if(liss!=1){
-    lat.ann[,2] <- rollapply(lat.ann[,2],liss,mean,partial=F,fill=NA)
-    lat.sais[,-1] <- apply(lat.sais[,-1],2,function(v) rollapply(v,liss,mean,partial=F,fill=NA))
-  }
-  
-  # Graphiques
-  # Annuel
-  png(filename = paste0("2_Travail/1_Past/",rean,"/plot.trend.lat.jet/lat_jet_ann",start,"_",end,"_liss=",liss,"_wp=",wp,".png"),width = 12,height = 9,units = "cm",res=300)
-  par(mar=c(4,4,1,3))
-  plot(lat.ann,type="n",xlab="Year",ylab="Jet Latitude (°)")
-  grid()
-  lines(lat.ann,lwd=2)
-  abline(lm(lat.ann[,2]~lat.ann[,1]))
-  graphics.off()
-  
-  # Saisonnier
-  for(i in 1:4){
-    png(filename = paste0("2_Travail/1_Past/",rean,"/plot.trend.lat.jet/lat_jet_",sais.name[i],"_",start,"_",end,"_liss=",liss,"_wp=",wp,".png"),width = 12,height = 9,units = "cm",res=300)
-    par(mar=c(4,4,1,3))
-    plot(lat.sais[,c(1,i+1)],type="n",xlab="Year",ylab="Jet Latitude (°)")
-    grid()
-    lines(lat.sais[,c(1,i+1)],lwd=2)
-    abline(lm(lat.sais[,i+1]~lat.sais[,1]))
-    graphics.off()
-  }
-  
-}
-
-# Trace l'évolution des precip et des max par bv pour la periode 1950-2011
-plot.trend.precip <- function(bv="Isere-seul",nbdays,spazm=F,start="1950-01-01",end="2019-12-31",nao=F,liss=1){
-  
-  # Import
-  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
-  ann <- as.numeric(substr(dates,1,4))
-  precip <- get.precip(nbdays,start,end,bv,spazm=spazm)
-  
-  # Traitement
-  cum_an <- aggregate(precip,by=list(ann),sum)
-  max_an <- aggregate(precip,by=list(ann),max)
-  
-  sais <- c("winter","spring","summer","autumn")
-  vec.sais <- rep(NA,length(dates))
-  
-  for(i in 1:4){
-    sea <- get.ind.season(sais = sais[i],start = start,end = end)
-    vec.sais[sea$pos.season] <- i
-  }
-  
-  cum_sais <- aggregate(precip,by=list(ann,vec.sais),sum)
-  colnames(cum_sais) <- c("year","season","value")
-  cum_sais <- as.data.frame(pivot_wider(cum_sais,names_from = season,values_from = value))
-  
-  max_sais <- aggregate(precip,by=list(ann,vec.sais),max)
-  colnames(max_sais) <- c("year","season","value")
-  max_sais <- as.data.frame(pivot_wider(max_sais,names_from = season,values_from = value))
-  
-  if(liss!=1){
-    cum_an[,2] <- rollapply(cum_an[,2],liss,mean,partial=T)
-    max_an[,2] <- rollapply(max_an[,2],liss,mean,partial=T)
-    cum_sais[,2:5] <- apply(cum_sais[,2:5],2,function(v) rollapply(v,liss,mean,partial=T))
-    max_sais[,2:5] <- apply(max_sais[,2:5],2,function(v) rollapply(v,liss,mean,partial=T))
-  }
-  
-  if(nao){
-    nao_an <- get.nao(start = ann[1],end = ann[length(ann)],sais = "all")
-    nao_sais <- vector("list",length = 4)
-    for(i in 1:4) nao_sais[[i]] <- get.nao(start = ann[1],end = ann[length(ann)],sais = sais[i])
-    if(liss!=1){
-      nao_an[,2] <- rollapply(nao_an[,2],liss,mean,partial=T)
-      nao_sais <- lapply(nao_sais,function(v) {v[,2] <- rollapply(v[,2],liss,mean,partial=T);return(v)})
-    }
-  }
-  
-  # Figures
-  
-  if(nbdays==1){
-    # Cumul annuel
-    png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_cum_an_",head(ann,1),"_",tail(ann,1),"_liss=",liss,ifelse(spazm,"_spazm",""),ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
-    par(mar=c(4,4,2,3))
-    plot(cum_an[,c(1,2)],type="n",xlab="Year",ylab="Precipitation (mm)",main="Year")
-    grid()
-    lines(cum_an[,c(1,2)],col="cornflowerblue",lwd=2)
-    reg <- lm(cum_an[,2]~cum_an[,1])
-    abline(reg,col="red",lwd=2)
-    text(quantile(cum_an[,1],0.8),quantile(cum_an[,2],0.8),paste0("pvalue=",round(unname(summary(reg)$coefficients[,4][2]),3)),col="red",font=2)
-    if(nao){
-      par(new=T)
-      plot(nao_an,col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
-      abline(h=0,col="grey")
-      axis(side = 4)
-      mtext("NAOI",side=4,line=2)
-    }
-    graphics.off()
-    
-    # Cumuls saisonniers
-    for(i in 1:4){
-      png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_cum_",sais[i],"_",head(ann,1),"_",tail(ann,1),"_liss=",liss,ifelse(spazm,"_spazm",""),ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
-      par(mar=c(4,4,2,3))
-      plot(cum_sais[,c(1,i+1)],type="n",xlab="Year",ylab="Precipitation (mm)",main=nam2str(sais[i]))
-      grid()
-      lines(cum_sais[,c(1,i+1)],col="cornflowerblue",lwd=2)
-      reg <- lm(cum_sais[,i+1]~cum_sais[,1])
-      abline(reg,col="red",lwd=2)
-      text(quantile(cum_sais[,1],0.8),quantile(cum_sais[,i+1],0.8),paste0("pvalue=",round(unname(summary(reg)$coefficients[,4][2]),3)),col="red",font=2)
-      if(nao){
-        par(new=T)
-        plot(nao_sais[[i]],col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
-        abline(h=0,col="grey")
-        axis(side = 4)
-        mtext("NAOI",side=4,line=2)
-      }
-      graphics.off()
-    }
-  }
-  
-  # Max annuel
-  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_max_an_",nbdays,"days_",head(ann,1),"_",tail(ann,1),"_liss=",liss,ifelse(spazm,"_spazm",""),ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
-  par(mar=c(4,4,2,3))
-  plot(max_an[,c(1,2)],type="n",xlab="Year",ylab="Precipitation (mm)",main="Year")
-  grid()
-  lines(max_an[,c(1,2)],col="cornflowerblue",lwd=2)
-  reg <- lm(max_an[,2]~max_an[,1])
-  abline(reg,col="red",lwd=2)
-  text(quantile(max_an[,1],0.8),quantile(max_an[,2],0.8),paste0("pvalue=",round(unname(summary(reg)$coefficients[,4][2]),3)),col="red",font=2)
-  if(nao){
-    par(new=T)
-    plot(nao_an,col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
-    abline(h=0,col="grey")
-    axis(side = 4)
-    mtext("NAOI",side=4,line=2)
-  }
-  graphics.off()
-  
-  # Max saisonniers
-  for(i in 1:4){
-    png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_max_",sais[i],"_",nbdays,"days_",head(ann,1),"_",tail(ann,1),"_liss=",liss,ifelse(spazm,"_spazm",""),ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
-    par(mar=c(4,4,2,3))
-    plot(max_sais[,c(1,i+1)],type="n",xlab="Year",ylab="Precipitation (mm)",main=nam2str(sais[i]))
-    grid()
-    lines(max_sais[,c(1,i+1)],col="cornflowerblue",lwd=2)
-    reg <- lm(max_sais[,i+1]~max_sais[,1])
-    abline(reg,col="red",lwd=2)
-    text(quantile(max_sais[,1],0.8),quantile(max_sais[,i+1],0.8),paste0("pvalue=",round(unname(summary(reg)$coefficients[,4][2]),3)),col="red",font=2)
-    if(nao){
-      par(new=T)
-      plot(nao_sais[[i]],col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
-      abline(h=0,col="grey")
-      axis(side = 4)
-      mtext("NAOI",side=4,line=2)
-    }
-    graphics.off()
-  }
-}
-
 # Carte de l'altitude des mailles ERA5
 map.topo.ERA5 <- function(reg=c("small","medium","large")){
   
@@ -742,6 +554,194 @@ map.trend.vv <- function(z="850",wp=NULL,extr=F,rean="ERA5",start="1950-01-01",e
       if(type!="large") points(x = 5.73,y = 45.18,col = "red",pch=19)
       graphics.off()
     }
+  }
+}
+
+# Trace l'evolution dans le temps de la latitude du jet saison et type de temps
+plot.trend.lat.jet <- function(gamme=c(5450,5550),wp="all",start="1900-01-01",end="2010-12-31",rean,liss=1){
+  
+  # Import
+  dates <- getdates(start,end)
+  year <- substr(dates,1,4)
+  load(paste0("2_Travail/1_Past/",rean,"/compute.lat.jet/weighted_mean_lat_jet_",start,"_",end,"_btw_",gamme[1],"_and_",gamme[2],".Rdata"))
+  
+  # Traitement
+  if(wp!="all" & rean!="ERA5"){
+    load(paste0("2_Travail/1_Past/",rean,"/compute_wp_past/wp_final_",start,"_1947-12-31_start.ana_1948-01-01_end.ana_2010-12-31_n.ana=1.Rdata"))
+    lati[tt_final!=wp] <- NA
+  }
+  if(wp!="all"){
+    tt_final <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+    lati[tt_final!=wp] <- NA
+  }
+  
+  # Annuel
+  lat.ann <- aggregate(lati,by=list(year),mean,na.rm=T)
+  lat.ann[,1] <- as.numeric(lat.ann[,1])
+  
+  # Saisonnier
+  sais <- list(c("12","01","02"),c("03","04","05"),c("06","07","08"),c("09","10","11"))
+  sais.name <- c("winter","spring","summer","autumn")
+  lat.sais <- matrix(NA,length(unique(year)),5)
+  lat.sais[,1] <- as.numeric(unique(year))
+  for(i in 1:length(sais)){
+    tmp <- lati
+    tmp[!(substr(dates,6,7) %in% sais[[i]])] <- NA
+    lat.sais[,i+1] <- aggregate(tmp,by=list(year),mean,na.rm=T)[,2]
+  }
+  
+  # Lissage
+  if(liss!=1){
+    lat.ann[,2] <- rollapply(lat.ann[,2],liss,mean,partial=F,fill=NA)
+    lat.sais[,-1] <- apply(lat.sais[,-1],2,function(v) rollapply(v,liss,mean,partial=F,fill=NA))
+  }
+  
+  # Graphiques
+  # Annuel
+  png(filename = paste0("2_Travail/1_Past/",rean,"/plot.trend.lat.jet/lat_jet_ann",start,"_",end,"_liss=",liss,"_wp=",wp,".png"),width = 12,height = 9,units = "cm",res=300)
+  par(mar=c(4,4,1,3))
+  plot(lat.ann,type="n",xlab="Year",ylab="Jet Latitude (°)")
+  grid()
+  lines(lat.ann,lwd=2)
+  abline(lm(lat.ann[,2]~lat.ann[,1]))
+  graphics.off()
+  
+  # Saisonnier
+  for(i in 1:4){
+    png(filename = paste0("2_Travail/1_Past/",rean,"/plot.trend.lat.jet/lat_jet_",sais.name[i],"_",start,"_",end,"_liss=",liss,"_wp=",wp,".png"),width = 12,height = 9,units = "cm",res=300)
+    par(mar=c(4,4,1,3))
+    plot(lat.sais[,c(1,i+1)],type="n",xlab="Year",ylab="Jet Latitude (°)")
+    grid()
+    lines(lat.sais[,c(1,i+1)],lwd=2)
+    abline(lm(lat.sais[,i+1]~lat.sais[,1]))
+    graphics.off()
+  }
+  
+}
+
+# Trace l'évolution des precip et des max par bv pour la periode 1950-2011
+plot.trend.precip <- function(bv="Isere-seul",nbdays,spazm=F,start="1950-01-01",end="2019-12-31",nao=F,liss=1){
+  
+  # Import
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  ann <- as.numeric(substr(dates,1,4))
+  precip <- get.precip(nbdays,start,end,bv,spazm=spazm)
+  
+  # Traitement
+  cum_an <- aggregate(precip,by=list(ann),sum)
+  max_an <- aggregate(precip,by=list(ann),max)
+  
+  sais <- c("winter","spring","summer","autumn")
+  vec.sais <- rep(NA,length(dates))
+  
+  for(i in 1:4){
+    sea <- get.ind.season(sais = sais[i],start = start,end = end)
+    vec.sais[sea$pos.season] <- i
+  }
+  
+  cum_sais <- aggregate(precip,by=list(ann,vec.sais),sum)
+  colnames(cum_sais) <- c("year","season","value")
+  cum_sais <- as.data.frame(pivot_wider(cum_sais,names_from = season,values_from = value))
+  
+  max_sais <- aggregate(precip,by=list(ann,vec.sais),max)
+  colnames(max_sais) <- c("year","season","value")
+  max_sais <- as.data.frame(pivot_wider(max_sais,names_from = season,values_from = value))
+  
+  if(liss!=1){
+    cum_an[,2] <- rollapply(cum_an[,2],liss,mean,partial=T)
+    max_an[,2] <- rollapply(max_an[,2],liss,mean,partial=T)
+    cum_sais[,2:5] <- apply(cum_sais[,2:5],2,function(v) rollapply(v,liss,mean,partial=T))
+    max_sais[,2:5] <- apply(max_sais[,2:5],2,function(v) rollapply(v,liss,mean,partial=T))
+  }
+  
+  if(nao){
+    nao_an <- get.nao(start = ann[1],end = ann[length(ann)],sais = "all")
+    nao_sais <- vector("list",length = 4)
+    for(i in 1:4) nao_sais[[i]] <- get.nao(start = ann[1],end = ann[length(ann)],sais = sais[i])
+    if(liss!=1){
+      nao_an[,2] <- rollapply(nao_an[,2],liss,mean,partial=T)
+      nao_sais <- lapply(nao_sais,function(v) {v[,2] <- rollapply(v[,2],liss,mean,partial=T);return(v)})
+    }
+  }
+  
+  # Figures
+  
+  if(nbdays==1){
+    # Cumul annuel
+    png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_cum_an_",head(ann,1),"_",tail(ann,1),"_liss=",liss,ifelse(spazm,"_spazm",""),ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
+    par(mar=c(4,4,2,3))
+    plot(cum_an[,c(1,2)],type="n",xlab="Year",ylab="Precipitation (mm)",main="Year")
+    grid()
+    lines(cum_an[,c(1,2)],col="cornflowerblue",lwd=2)
+    reg <- lm(cum_an[,2]~cum_an[,1])
+    abline(reg,col="red",lwd=2)
+    text(quantile(cum_an[,1],0.8),quantile(cum_an[,2],0.8),paste0("pvalue=",round(unname(summary(reg)$coefficients[,4][2]),3)),col="red",font=2)
+    if(nao){
+      par(new=T)
+      plot(nao_an,col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
+      abline(h=0,col="grey")
+      axis(side = 4)
+      mtext("NAOI",side=4,line=2)
+    }
+    graphics.off()
+    
+    # Cumuls saisonniers
+    for(i in 1:4){
+      png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_cum_",sais[i],"_",head(ann,1),"_",tail(ann,1),"_liss=",liss,ifelse(spazm,"_spazm",""),ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
+      par(mar=c(4,4,2,3))
+      plot(cum_sais[,c(1,i+1)],type="n",xlab="Year",ylab="Precipitation (mm)",main=nam2str(sais[i]))
+      grid()
+      lines(cum_sais[,c(1,i+1)],col="cornflowerblue",lwd=2)
+      reg <- lm(cum_sais[,i+1]~cum_sais[,1])
+      abline(reg,col="red",lwd=2)
+      text(quantile(cum_sais[,1],0.8),quantile(cum_sais[,i+1],0.8),paste0("pvalue=",round(unname(summary(reg)$coefficients[,4][2]),3)),col="red",font=2)
+      if(nao){
+        par(new=T)
+        plot(nao_sais[[i]],col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
+        abline(h=0,col="grey")
+        axis(side = 4)
+        mtext("NAOI",side=4,line=2)
+      }
+      graphics.off()
+    }
+  }
+  
+  # Max annuel
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_max_an_",nbdays,"days_",head(ann,1),"_",tail(ann,1),"_liss=",liss,ifelse(spazm,"_spazm",""),ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
+  par(mar=c(4,4,2,3))
+  plot(max_an[,c(1,2)],type="n",xlab="Year",ylab="Precipitation (mm)",main="Year")
+  grid()
+  lines(max_an[,c(1,2)],col="cornflowerblue",lwd=2)
+  reg <- lm(max_an[,2]~max_an[,1])
+  abline(reg,col="red",lwd=2)
+  text(quantile(max_an[,1],0.8),quantile(max_an[,2],0.8),paste0("pvalue=",round(unname(summary(reg)$coefficients[,4][2]),3)),col="red",font=2)
+  if(nao){
+    par(new=T)
+    plot(nao_an,col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
+    abline(h=0,col="grey")
+    axis(side = 4)
+    mtext("NAOI",side=4,line=2)
+  }
+  graphics.off()
+  
+  # Max saisonniers
+  for(i in 1:4){
+    png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip/",bv,"_max_",sais[i],"_",nbdays,"days_",head(ann,1),"_",tail(ann,1),"_liss=",liss,ifelse(spazm,"_spazm",""),ifelse(nao,"_nao",""),".png"),width = 12,height = 9,units = "cm",res=300)
+    par(mar=c(4,4,2,3))
+    plot(max_sais[,c(1,i+1)],type="n",xlab="Year",ylab="Precipitation (mm)",main=nam2str(sais[i]))
+    grid()
+    lines(max_sais[,c(1,i+1)],col="cornflowerblue",lwd=2)
+    reg <- lm(max_sais[,i+1]~max_sais[,1])
+    abline(reg,col="red",lwd=2)
+    text(quantile(max_sais[,1],0.8),quantile(max_sais[,i+1],0.8),paste0("pvalue=",round(unname(summary(reg)$coefficients[,4][2]),3)),col="red",font=2)
+    if(nao){
+      par(new=T)
+      plot(nao_sais[[i]],col="grey",type="l",xlab="",ylab="",xaxt="n",yaxt="n")
+      abline(h=0,col="grey")
+      axis(side = 4)
+      mtext("NAOI",side=4,line=2)
+    }
+    graphics.off()
   }
 }
 

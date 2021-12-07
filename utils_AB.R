@@ -38,6 +38,7 @@ library("abind") # abind
 library("ks") # kde.test
 library("ismev") # gev
 library("evd") # gev
+library("lubridate") #dmy
 
 #setwd("../../")
 #
@@ -3157,8 +3158,10 @@ get.ind.max.sais <- function(sais="winter",wp=1,nbdays=3,start="1950-01-01", end
   dates <- as.Date(getdates(start,as.character(as.Date(end)-nbdays+1)))
   
   # WP
+  if(wp!="all"){
   tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = spazm)
   precip[tt!=wp] <- NA
+  }
   
   # Traitement saisonnier
   tmp <- get.ind.season(sais = sais,start = start,end = end)
@@ -4250,7 +4253,7 @@ map.geo <- function(date,rean="20CR",climat=NULL,run=1,k,nbdays=1,save=F,win=F,l
         image.plot(lon,lat,z,xlim=c(-15,25),ylim=c(25,65),
                    col=rev(brewer.pal(n = N, name = "RdBu")),
                    xlab="",ylab="",main="",xaxt="n",yaxt="n",
-                   breaks = breaks,axis.args = list(at=lab,labels=as.character(lab)))
+                   breaks = breaks,axis.args = list(at=lab,labels=as.character(lab)),legend.cex=2)
       }
     }else{
       if(!condens){
@@ -4295,7 +4298,7 @@ map.geo <- function(date,rean="20CR",climat=NULL,run=1,k,nbdays=1,save=F,win=F,l
     }
     
     # Date dans la carte
-    if(condens) shadowtext(5,61,as.Date(date)+i-1,font=2,cex=1.7,col="black",bg="white",r=0.3)
+    if(condens) shadowtext(5,61,as.Date(date)+i-1,font=2,cex=2,col="black",bg="white",r=0.3)
     
     box()
   }
@@ -5500,6 +5503,80 @@ plot.empir.sel<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end
   
 }
 
+# Trace differentes caracteristiques des crues de riviere de la BD RTM-IGE
+plot.event.river <- function(){
+  
+  # Montrer que la saison
+  # Separer en Isere seul, Drac seul, Isere+Drac: colorier la barre de chaque mois!
+  
+  # Import
+  bd <- read_bd(path = "2_Travail/Data/Event/BD-RTM-IGE_20201208_finale.csv")
+  
+  # Traitement
+  bd <- bd[bd$type=="R"|bd$type=="TR",] # que riviere ou torrent+riviere
+  bd <- bd[-c(27,41),] # car romanche seule
+  rownames(bd) <- 1:nrow(bd)
+  #bd <- bd[1:39,]
+  mon <- as.numeric(substr(bd$date,6,7))
+  
+  # Isere seule, Drac seul, ou les deux
+  bv <- rep(NA,length(mon))
+  bv[!is.na(bd$Categorie_Coeur_Is) & !is.na(bd$Categorie_Coeur_Dr)] <- "Isere+Drac"
+  bv[!is.na(bd$Categorie_Coeur_Is) & is.na(bd$Categorie_Coeur_Dr)] <- "Isere"
+  bv[is.na(bd$Categorie_Coeur_Is) & !is.na(bd$Categorie_Coeur_Dr)] <- "Drac"
+  bv[is.na(bv)] <- bd$autre_site_cite[is.na(bv)]
+  bv[bv=="Isere,Drac"] <- "Isere+Drac"
+  bv[c(10,18,32,39)] <- "Isere+Drac"
+  bv[c(27,28,40)] <- "Isere"
+  
+  # Mise en forme
+  tmp <- data.frame(Month=mon,BV=bv,Count=rep(1,length(mon)))
+  res <- aggregate(tmp$Count,by=list(tmp$Month,tmp$BV),sum)
+  colnames(res) <- colnames(tmp)
+  res$BV <- factor(res$BV,levels = c("Isere+Drac","Drac","Isere"))
+  res$Month <- factor(res$Month)
+  
+  # Graphique saison et BV
+  colo <- c("grey","burlywood1","cornflowerblue")
+  print(paste0("Nombre de crues: ",length(mon)))
+  print(paste0("Nombre de crues Isere+Drac: ",sum(bv=="Isere+Drac")))
+  print(paste0("Nombre de crues Isere: ",sum(bv=="Isere")))
+  print(paste0("Nombre de crues Drac: ",sum(bv=="Drac")))
+  
+  png(filename = "2_Travail/0_Present/Rresults/plot.event.river/plot_event_sais_bv.png",width = 10,height = 6,units = "in",res = 600)
+  par(mar=c(3,4,0.5,0.5))
+  ggplot(res, aes(fill=BV, y=Count, x=Month)) + 
+    theme_bw()+
+    theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 15,face = "bold"),
+          axis.title.y = element_text(vjust=4,size = 15,face = "bold"),
+          axis.text.x = element_text(size=12),axis.text.y = element_text(size=12),
+          plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=18),
+          legend.key.si = unit(1,"cm"),legend.text = element_text(size=15),
+          legend.title = element_text(hjust=0.5,vjust=1,size = 18,face = "bold"),
+          panel.grid.major = element_blank(),panel.grid.minor = element_blank())+
+    geom_bar(position="stack",stat = "identity",width = 1,colour="black",size=1)+
+    scale_fill_manual(values=colo)+
+    scale_x_discrete(breaks=1:12, labels=month.abb)+
+    grids(axis = "xy",color = "grey",linetype = "dashed")
+  graphics.off()
+  
+  #hist(mon,breaks=0:12,xaxt="n",col="cornflowerblue",border = "royalblue",xlab = "Month",main="") # attention à mai sur-représenté avec les décennales
+  #grid(ny=NULL,nx=NA)
+  #hist(mon,breaks=0:12,xaxt="n",col="cornflowerblue",border = "royalblue",xlab = "Month",main="",add=T) # attention à mai sur-représenté avec les décennales
+  #axis(side = 1,at = 0.5:11.5,month.abb)
+  #
+  ## Graphique intensite
+  #int.is <- aggregate(bd$Categorie_Coeur_Is,by=list(mon),mean,na.rm=T)[,2]
+  #int.dr <- aggregate(bd$Categorie_Coeur_Dr,by=list(mon),mean,na.rm=T)[,2]
+  #barplot(int.is,xaxt="n",col="cornflowerblue",border = "royalblue",xlab = "Month",main="")
+  #barplot(int.dr,xaxt="n",col="cornflowerblue",border = "royalblue",xlab = "Month",main="")
+  #
+  #q.is <- aggregate(bd$Q_Is_bast,by=list(mon),mean,na.rm=T)[,2]
+  #q.dr <- aggregate(bd$Q_Drac,by=list(mon),mean,na.rm=T)[,2]
+  #barplot(q.is,xaxt="n",col="cornflowerblue",border = "royalblue",xlab = "Month",main="")
+  #barplot(q.dr,xaxt="n",col="cornflowerblue",border = "royalblue",xlab = "Month",main="")
+}
+
 # plot le papillon de Lorenz en 3d colorie par indicateur
 plot.lorenz <- function(){
   
@@ -5635,6 +5712,51 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
     ggsave(filename = paste0("2_Travail/20CR/Rresults/overall/plot.quant.descr/plot_",descr,"_",nbdays,"day_",start,"_",end,"_",bv,".png"),plot = a,width = 15,height = 8,units="cm",dpi = 200)
     graphics.off()
   }else{a}
+}
+
+# Trace des percentiles de precip associes aux max annuels de debit sur l'Isere a St Gervais
+plot.quant.rain <- function(nbdays=3,start = "1969-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  
+  # Imports
+  precip <- get.precip(bv = "Isere",spazm=F,nbdays = nbdays,start = start,end = end)
+  crues <- read.table("2_Travail/0_Present/Rresults/image.cumul/crues_1969_2017_Isere_StGervais.txt",header = F)
+  crues <- as.data.frame(crues)
+  
+  # Traitement
+  event <- as.character(as.Date(crues[,1],format="%d/%m/%Y")-nbdays) # on prend les pluies de j-3,j-2,j-1 de la crue (car 8hj a 7hj+1)
+  event.ann <- as.numeric(substr(event,1,4))
+  event.month <- as.numeric(substr(event,6,7))
+  ind   <- match(event,dates)
+  
+  distrib <- ecdf(precip)(precip)*100
+  dis.ind <- distrib[ind]
+  
+  debit <- crues[,2]
+  
+  # Graphique
+  colo <- colorRampPalette(c("darkblue","lightgreen","purple"))(12)
+  
+  png(file = paste0("2_Travail/0_Present/Rresults/image.cumul/Quant_rain_flood_last_",nbdays,"days.png"),width = 6,height = 4,units = "in",res = 600)
+  par(mar=c(2,4,0.5,0))
+  plot(event.ann,dis.ind,pch=21,ylim=c(0,100),ylab=paste0(nbdays,"-day precipitation percentile (%)"),cex=debit/mean(debit)*2)
+  grid()
+  abline(h=90,col="red",lty=2)
+  points(event.ann,dis.ind,pch=21,bg=colo[event.month],cex=debit/mean(debit)*2)
+  colorlegend(colbar = colo,labels = 1:12,at = seq(0,1,length.out = 12),xlim = c(1992,2017),ylim = c(0,10),vertical = F)
+  text(2004.5,15,"Month")
+  legend("bottomleft",inset=.02,pch=21,bty="n",
+         pt.cex=c(max(debit/mean(debit)*2),median(debit/mean(debit)*2),min(debit/mean(debit)*2)),
+         paste0(c(max(debit,na.rm=T),median(debit,na.rm=T),min(debit,na.rm=T))," m3/s"))
+  graphics.off()
+  
+  # Stats
+  print(paste0("Nombre de max annuels: ",length(dis.ind)))
+  print(paste0("Nombre superieur a q90: ",sum(dis.ind>90)))
+  print(paste0("Nombre superieur a q95: ",sum(dis.ind>95)))
+  print(paste0("Nombre superieur a q98: ",sum(dis.ind>98)))
+  print(paste0("Nombre superieur a q99: ",sum(dis.ind>99)))
 }
 
 # Trace les hyétorgammes des 62 plus grosses séquences de pluie
@@ -6275,6 +6397,18 @@ plot.wp.occurence<-function(start="1950-01-01",end="2011-12-31"){
   ggsave(filename = paste0("2_Travail/0_Present/Rresults/plot.wp.occurence/plot_wp_occurence_",start,"_",end,".png"),width = 28,height = 14,units="cm",dpi = 200)
   graphics.off()
   
+}
+
+# Import de la BD RTM-IGE
+read_bd=function(path){
+  bd=read.delim(path,sep=";",stringsAsFactors = F)
+  bd$Date_evenement=dmy(bd$Date_evenement)
+  bd$debut_hydro=dmy(bd$debut_hydro)
+  bd$fin_hydro=dmy(bd$fin_hydro)
+  bd$debut_meteo=dmy(bd$debut_meteo)
+  bd$fin_meteo=dmy(bd$fin_meteo)
+  colnames(bd)[1]="date"
+  return(bd)
 }
 
 # Mise en forme de 20CR wind
