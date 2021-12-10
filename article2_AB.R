@@ -5,8 +5,8 @@ combine.map.diff.geo.wp <- function(wp=c(8,1,2),k,rean,start="1950-01-01",end="2
   
   tt <- c(1,2,5,8)
   wp.name <- c("Atlantic","Mediterranean","Northeast","Anticyclonic")
-  png(filename = paste0(get.dirstr(k,rean,"past"),"map.diff.geo.wp/map_diff_combine_k",k,"_wp",paste(wp,collapse = "_"),".png"),width = 8,height = 8,units = "in",res=600)
-  layout(mat = matrix(data = c(rep(1,4),2:5,rep(6,4),7:10,rep(11,4),12:15,rep(16,4)),nrow = 7,ncol = 4,byrow = T),widths = c(1,1,1,1),heights = c(0.1,1,0.1,1,0.1,1,0.4))
+  png(filename = paste0(get.dirstr(k,rean,"past"),"map.diff.geo.wp/map_diff_combine_k",k,"_wp",paste(wp,collapse = "_"),".png"),width = 8,height = 5.5,units = "in",res=600)
+  layout(mat = matrix(data = c(rep(1,4),2:5,rep(6,4),7:10,rep(11,4)),nrow = 5,ncol = 4,byrow = T),widths = c(1,1,1,1),heights = c(0.1,1,0.1,1,0.4))
   
   for(i in 1:length(wp)){
   # Titre
@@ -16,7 +16,7 @@ combine.map.diff.geo.wp <- function(wp=c(8,1,2),k,rean,start="1950-01-01",end="2
   
   # Cartes
   par(mar=c(0.5,0.5,1.5,0.5),pty="s")
-  map.diff.geo.wp(wp = wp[i],k = k,rean = rean,start = start,end = end,save = F)
+  map.diff.geo.wp(wp = wp[i],k = k,rean = rean,start = start,end = end,save = F,signif = T)
   }
   
   # Legende
@@ -275,6 +275,24 @@ combine.plot.trend.descr.all <- function(k,dist,liss=1,ana.comm=F,align=F,nao=F)
   graphics.off()
 }
 
+# Combinaison de plusieurs plot.trend.descr.extr.combine, avec ajout de plot.trend.alldescr.nbr.qua
+combine.plot.trend.descr.extr.alldescr <- function(bv=c("Isere-seul","Drac-seul"),sais=c("winter","autumn"),k,dist,rean,nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
+  
+  png(filename = paste0(get.dirstr(k,rean,period="past"),"plot.trend.descr.extr/plot_",paste(bv,collapse = "_"),"_",paste(sais,collapse = "_"),"_mean",nbdays,"day_",rean,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".png"),width = 9,height = 7,units = "in",res=600)
+  par(mfrow=c(2,length(bv)),mar=c(2,4,2,0.5))
+  
+  # plot.trend.descr.extr.combine
+  for(i in 1:length(bv)){
+    plot.trend.descr.extr.alldescr(bv = bv[i],sais = sais[i],k = k,dist = dist,rean = rean,nbdays = nbdays,spazm = spazm,start = start,end = end,start.ana = start.ana,end.ana = end.ana,leg=ifelse(i==1,T,F))
+  }
+  
+  # plot.trend.descr.nbr.qua
+  for(i in 1:length(sais)){
+    plot.trend.alldescr.nbr.qua(qua = 0.25,k = k,dist = dist,nbdays = nbdays,rean = rean,sais = sais[i],wp = "all",start = start,end = end,start.ana = start.ana,end.ana = end.ana,save = F)
+  }
+  graphics.off()
+}
+
 # Combinaison de plusieurs plot.trend.descr.sais
 combine.plot.trend.descr.sais <- function(k,dist,rean,nbdays=1,start="1950-01-01",end="2010-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
   
@@ -289,6 +307,31 @@ combine.plot.trend.descr.sais <- function(k,dist,rean,nbdays=1,start="1950-01-01
     leg <- ifelse(i==1,T,F)
     plot.trend.descr.sais(descr = descr[i],k = k,dist = dist,rean = rean,nbdays = nbdays,
                           start = start,end = end,start.ana = start.ana,end.ana = end.ana,leg = leg,save = F)
+  }
+  graphics.off()
+}
+
+# Combinaison de plusieurs plot.trend.precip.gev
+combine.plot.trend.precip.gev <- function(bv=c("Isere-seul","Drac-seul"),nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31"){
+  
+  # graphique
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip.gev/plot_trend_precip_gev_",bv[1],"_",bv[2],"_",ifelse(spazm,"spazm_",""),start,"_",end,".png"),width = 10,height = 6,units = "in",res=600)
+  layout(mat = matrix(data = c(rep(1,5),2:6,rep(7,5),8:12),nrow = 4,ncol = 5,byrow = T),widths = c(0.1,1,1,1,1),heights = c(0.1,1,0.1,1))
+  
+  for(i in 1:length(bv)){
+    
+    # Titre
+    par(mar=c(0,0,0,0))
+    plot(1,1,type="n",bty="n",xaxt="n",yaxt="n")
+    text(1,1,nam2str(bv[i]),font=2,cex=2.5)
+    
+    # Axe
+    plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+    text(1,0.5,"Precipitation (mm)",srt=90,cex=1.3)
+    
+    # Plot
+    par(mar=c(3,2,2,0))
+    plot.trend.precip.gev(bv = bv[i],nbdays = nbdays,spazm = spazm,start = start,end = end,leg = ifelse(i==1,T,F))
   }
   graphics.off()
 }
@@ -843,6 +886,20 @@ convert_dist_past <- function(k,dist,rean){
   gc()
 }
 
+# Calcule le nombre de jours superieurs/inferieurs à un quantile d'indicateur pour chaque saison d'une periode
+get.ind.qua <- function(descr,qua=0.2,lower=T,k,dist,nbdays=1,rean,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
+  
+  des <- get.descriptor(descriptor = descr,k = k,dist = dist,nbdays = nbdays,start = start,end = end,standardize = F,rean = rean,
+                        threeday = F,desais = F,period = "past",start.ana = start.ana,end.ana = end.ana)
+  des <- ecdf(des)(des)
+  if(lower){
+    pos <- which(des<qua)
+  }else{
+    pos <- which(des>(1-qua))
+  }
+  pos
+}
+
 # Calcul une moyenne d'indicateur sur toute la periode et a partir de toutes les reanalyses (pour cel en reference dans plot.TWS.crossed)
 get.mean.descr.allrean <- function(k,descr,sais,ana.comm=T){
   
@@ -1001,7 +1058,7 @@ map.diff.geo <- function(k,rean=c("20CR-m1","ERA20C")){
 }
 
 # Difference altitude geopotentiel 1950-1983 et 1984-2017 pour 2 wp et les 4 saisons
-map.diff.geo.wp <- function(wp=1,k,rean,start="1950-01-01",end="2017-12-31",save=T){
+map.diff.geo.wp <- function(wp=1,k,rean,start="1950-01-01",end="2017-12-31",save=T,signif=F){
   
   dates <- getdates(start,end)
   
@@ -1055,6 +1112,25 @@ map.diff.geo.wp <- function(wp=1,k,rean,start="1950-01-01",end="2017-12-31",save
     data.per1 <- data[,,pos.per1]
     data.per2 <- data[,,pos.per2]
     
+    # Test de significativite
+    if(signif){
+      ind.lon <- seq(1,length(lon),by=8) # on ne prend que 1 pt sur 8 pour ERA5
+      ind.lat <- seq(4,length(lat),by=8)
+      lon.red <- lon[ind.lon]
+      lat.red <- lat[ind.lat]
+      
+      sig <- matrix(data = NA,nrow = length(lon.red),ncol = length(lat.red))
+      for(j in 1:length(lon.red)){
+        for(k in 1:length(lat.red)){
+          sig[j,k] <- as.numeric(t.test(data.per1[ind.lon[j],ind.lat[k],],data.per2[ind.lon[j],ind.lat[k],])$p.value < 0.05)
+        }
+      }
+      sig.res <- expand.grid(lon.red,lat.red)
+      colnames(sig.res) <- c("lon","lat")
+      dim(sig) <- nrow(sig.res)
+      sig.res <- cbind(sig.res,sig)
+    }
+    
     # Moyennes et difference
     mean.per1 <- apply(data.per1,1:2,mean)
     mean.per2 <- apply(data.per2,1:2,mean)
@@ -1068,6 +1144,7 @@ map.diff.geo.wp <- function(wp=1,k,rean,start="1950-01-01",end="2017-12-31",save
     image(lon,lat,diff.per,xlim=c(-15,25),ylim=c(25,65),main=nam2str(season[i]),
           col=rev(brewer.pal(n = N, name = "RdBu")),xaxt="n",yaxt="n",xlab="",ylab="",breaks = breaks)
     plot(wrld_simpl, add = TRUE)
+    if(signif){points(sig.res$lon,sig.res$lat,cex=sig.res$sig/6,pch=20)} # differences de moyennes significatives, en petits points
     rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
     gc()
   }
@@ -1799,6 +1876,61 @@ plot.sais.diff.nbdays.subperiod <- function(sais,wp=NULL,k,dist,nbdays=1,rean,st
     scale_fill_manual(values = c(brewer.pal(n = 11, name = "RdBu")[9],brewer.pal(n = 11, name = "RdBu")[3]))
 }
 
+# Trace l'evolution du nombre de jours en dessous/dessus d'un quantile pour tous les indicateurs de maniere groupee, pour toutes les ciculations, pour une saison
+plot.trend.alldescr.nbr.qua <- function(qua=0.25,k,dist,nbdays=1,rean,sais,wp="all",start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",save=T){
+  
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  year <- unique(substr(dates,1,4))
+  if(sais=="winter") year <- year[-1]
+  
+  # Import des indices des jours sup/inf le quantile
+  descr <- c("cel","sing05","rsing05","dP")
+  inf <- c(T,T,T,F)
+  quant <- c(qua,qua,qua,1-qua)
+  ind.qua <- vector(mode="list",length=length(descr))
+  
+  for(i in 1:length(descr)){
+  ind.qua[[i]] <- get.ind.qua(descr = descr[i],qua = qua,lower = inf[i],k = k,dist = dist,nbdays = nbdays,rean = rean,start = start,end = end,start.ana = start.ana,end.ana = end.ana)
+  }
+  ind.qua.all <- Reduce(intersect,ind.qua)
+  
+  # WP
+  if(wp!="all"){
+  tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = spazm)
+  }
+  
+  # Traitement saisonnier
+  vec.qua <- rep(0,length(dates))
+  vec.qua[ind.qua.all] <- 1
+  
+  if(wp!="all"){vec.qua[tt!=wp] <- 0}
+  
+  pos <- get.ind.season(sais = sais,start = start,end = end)
+  vec.qua <- vec.qua[pos$pos.season]
+  vec.qua[pos$pos.NA] <- NA
+  dim(vec.qua) <- c(pos$l.season,pos$n.season)
+  res <- apply(vec.qua,2,sum,na.rm=T)
+  
+  # Graphique
+  if(save){
+  png(filename = paste0(get.dirstr(k = k,rean = rean,period = "past"),"plot.trend.alldescr.nbr.qua/plot_",sais,"_q",qua,"_wp",wp,"_",nbdays,"days_",rean,"_",start,"_",end,"_ana_",start.ana,"_",end.ana,".png"),width = 6,height = 4,units = "in",res = 600)
+  par(mar=c(2,4,2,0))
+  }
+  
+  plot(year,res,type="n",ylab="Number of days",main=nam2str(sais),cex.main=1.5)
+  grid()
+  abline(h=0,lty=3)
+  par(new=T)
+  plot(year,res,type="l",ylab="Number of days",main=nam2str(sais),cex.main=1.5)
+  
+  reg <- glm(res~as.numeric(year),family = "poisson")
+  pval <- summary(reg)$coefficients[2,4]
+  lty <- ifelse(pval<0.05,1,2)
+  lines(year,reg$fitted.values,col="blue",lwd=2,lty=lty)
+  text(2010,max(res),paste0("pval = ",round(pval,2)),font=2,col="blue")
+  if(save){graphics.off()}
+}
+
 # Trace l'evolution d'un indicateur, pour plusieurs reanalyses et par saison, avec NAO
 plot.trend.descr <- function(descr,k,dist,sais="year",liss=5,ana.comm=F,align=F,nao=F,leg=T,save=F,type="descr"){
   
@@ -2089,7 +2221,7 @@ plot.trend.descr.cond.regquant <- function(descr,k,dist,rean,sais="all",start="1
 }
 
 # Trace l'evolution des indicateurs aux dates des precipitations extremes pour l'annee et les 4 saisons, par BV ou par WP
-plot.trend.descr.extr <- function(bv="Isere-seul",wp=1,descr,k,dist,rean,nbdays=3,spazm=T,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
+plot.trend.descr.extr <- function(bv="Isere-seul",wp=1,descr,k,dist,rean,nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31"){
   
   dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
   dat <- as.Date(dates)
@@ -2119,8 +2251,41 @@ plot.trend.descr.extr <- function(bv="Isere-seul",wp=1,descr,k,dist,rean,nbdays=
   graphics.off()
 }
 
+# Trace l'evolution des indicateurs aux dates des precipitations extremes pour l'annee pour un bv, une saison, mais tous les inicateurs en percentiles
+plot.trend.descr.extr.alldescr <- function(bv="Isere-seul",sais,k,dist,rean,nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",leg=T){
+  
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  ann <- as.numeric(unique(substr(dates,1,4)))
+  
+  # Import de l'indicateur
+  descr <- c("cel","sing05","rsing05","dP")
+  des <- matrix(data = NA,nrow = length(dates),ncol = length(descr))
+  for(i in 1:length(descr)){
+    des.i <- get.descriptor(descriptor = descr[i],k = k,dist = dist,nbdays = 1,start = start,end = end,
+                        standardize = F,rean = rean,threeday = F,period = "past",start.ana = start.ana,
+                        end.ana = end.ana)
+    des[,i] <- ecdf(des.i)(des.i)*100
+  }
+  
+  # Graphique
+  colo <- colo <- c("dimgrey","red","darkgreen","blue")
+  extr <- get.ind.max.sais(sais = sais,wp = "all",nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm)
+  if(sais=="winter"){extr <- c(NA,extr)}
+  
+  plot(ann,des[extr,1],col=colo[1],type="l",xlab="Year",ylab="Percentile of descriptor value (%)",main=paste0(nam2str(bv)," - ",nam2str(sais)),cex.main=1.5,ylim=c(0,115))
+  grid()
+  abline(h=c(0,100),lty=3)
+  for(i in 1:length(descr)){
+    lines(ann,des[extr,i],col=colo[i])
+    reg <- lm(des[extr,i]~ann)
+    lty.i <- ifelse(summary(reg)$coefficients[,4][2]<0.05,1,2)
+    abline(reg,col=colo[i],lty=lty.i,lwd=2)
+  }
+  if(leg){legend("top",nam2str(descr,whole = T),col=colo,lty=rep(1,4),lwd=2,bty="n",ncol=2,cex=0.9)}
+}
+
 # Trace l'evolution du nombre de jours en dessous/dessus d'un quantile pour tous les indicateurs, pour toutes les ciculations puis circulations Atl et Med, pour une saison
-plot.trend.descr.nbr.qua <- function(qua=0.2,lower=T,wp1=1,wp2=2,k,dist,nbdays=1,rean,sais,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",leg=T,save=T){
+plot.trend.descr.nbr.qua <- function(qua=0.25,lower=T,wp1=1,wp2=2,k,dist,nbdays=1,rean,sais,start="1950-01-01",end="2017-12-31",start.ana="1950-01-01",end.ana="2010-12-31",leg=T,save=T){
   
   dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
   year <- unique(substr(dates,1,4))
@@ -2243,6 +2408,55 @@ if(save) png(filename = paste0(get.dirstr(k,rean,period="past"),"plot.trend.desc
     if(save) graphics.off()
 }
 
+# Graphique d'evolution des max saisonniers de precip avec droites GEV (sans enregistrement)
+plot.trend.precip.gev <- function(bv="Isere-seul",nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31",leg=T){
+  
+  dates <- getdates(start,end)
+  ann <- as.numeric(unique(substr(dates,1,4)))
+  
+  # Imports
+  precip <- get.precip(nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm)
+  load(paste0("2_Travail/1_Past/Rresults/fit.gev.obs/fit_gev_",bv,"_mean",nbdays,"day",ifelse(spazm,"_spazm",""),"_",start,"_",end,".Rdata"))
+  
+  # Traitement et Graphique
+  sais <- c("winter","spring","summer","autumn")
+  meanGEV.fct<-function(mu,sig,xi){mu+sig/xi*(gamma(1-xi)-1)}
+  
+  for(i in 1:length(sais)){
+    
+    # Traitement max saisonnier
+    pos <- get.ind.season(sais = sais[i],start = start,end = end)
+    precip.i <- precip[pos$pos.season]
+    precip.i[pos$pos.NA] <- NA
+    dim(precip.i) <- c(pos$l.season,pos$n.season)
+    max.vec <- apply(precip.i,2,function(v){max(v,na.rm=T)})
+    if(sais[i]=="winter"){max.vec <- c(NA,max.vec)}
+    
+    # Graphique max saisonnier
+    plot(ann,max.vec,type="l",xlab="",ylab="",ylim=c(0,100),main=nam2str(sais[i]))
+    grid();par(new=T)
+    plot(ann,max.vec,type="l",xlab="",ylab="",ylim=c(0,100),main=nam2str(sais[i]))
+    
+    # Traitement GEV
+    fit.i <- fit[[i]]
+    rl20 <- mea <- NA
+    
+    for(j in 1:nrow(fit.i$fitbest$vals)){
+      rl20[j] <- qgev(1-1/20,fit.i$fitbest$vals[j,1],fit.i$fitbest$vals[j,2],fit.i$fitbest$vals[j,3])
+      mea[j] <- meanGEV.fct(fit.i$fitbest$vals[j,1],fit.i$fitbest$vals[j,2],fit.i$fitbest$vals[j,3])
+    }
+    if(sais[i]=="winter"){rl20 <- c(NA,rl20);mea <- c(NA,mea)}
+    
+    lty.i <- ifelse(fit.i$pval<0.05,1,2)
+    
+    # Graphique GEV
+    lines(ann,mea,col="blue",lty=lty.i,lwd=2)
+    #lines(ann,rl20,col="red",lty=lty.i,lwd=2)
+    #if(i==1 & leg){legend("topright",c("RL20","Mean"),lty=c(1,1),lwd=2,col=c("red","blue"),bty="n")}
+    if(i==1 & leg){legend("topright",c("Mean"),lty=1,lwd=2,col="blue",bty="n")}
+  }
+}
+
 # Trace l'evolution des cumuls saisonniers issus des differentes influences atmospheriques
 plot.trend.precip.wp <- function(bv="Isere-seul",wp=1,spazm=T,start="1950-01-01",end="2017-12-31"){
   
@@ -2350,14 +2564,14 @@ plot.trend.precip.wp.combine <- function(bv="Isere-seul",spazm=T,start="1950-01-
     plot(res.i.liss[,1],res.i.liss[,6],type="n",ylim=c(0,ifelse(norm,10,max(res.i.liss[,-1],na.rm=T))),ylab="Precipitation (mm)",main=nam2str(sais[i]),cex.main=1.5)
     grid()
     
-    for(j in 2:(ncol(res.i.liss))){
+    for(j in c(2,3,6)){
       # Graphiques
       lines(res.i.liss[,1],res.i.liss[,j],col=colo[j-1],lwd=2)
       # Regression sur le non lisse
       reg <- lm(res.i[,j]~res.i[,1])
       abline(reg,col=colo[j-1],lwd=2,lty=ifelse(summary(reg)$coefficients[,4][2]<0.1,1,2))
     }
-    if(i==2 & leg) legend("top",legend = c(tt.name,"Total"),col = colo,lwd=2,lty=1,bty="n",ncol=2,cex=1)
+    if(i==2 & leg) legend("top",legend = c(tt.name[1:2],"Total"),col = colo[c(1,2,5)],lwd=2,lty=1,bty="n",ncol=2,cex=1)
   }
   if(save){graphics.off()}
 }

@@ -3743,7 +3743,7 @@ image.region<-function(pluvios = TRUE,save=T,names=F,crsm=F,bd_alti=F,entites=F,
   # Frontieres climato crsm (Auer, 2005)
   if(crsm){
     ligne=read.csv("2_Travail/Data/Carto/Shape_CRSM.csv")
-    lines(ligne[ligne[,1]==1,4],ligne[ligne[,1]==1,5],lwd=3,lty=1,col="purple")
+    lines(ligne[ligne[,1]==1,4],ligne[ligne[,1]==1,5],lwd=3,lty=2,col="purple")
   }
   
   # Rivieres

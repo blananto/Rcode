@@ -616,20 +616,21 @@ map.composite.sais <- function(sais="winter",descr="sing05",years=c(NA,NA),k,sta
 }
 
 # Cartes composite tous wp
-map.wp <- function(rean="ERA5",anomalies=T){
+map.wp <- function(wp=c(1,2),rean="ERA5",anomalies=T,start="1950-01-01",end="2019-12-31"){
   
   # Source fct map.composite.wp.light dans article1_AB.R
   source('I:/ongoing_Documents/2_Travail/Rcode/article1_AB.R', encoding = 'UTF-8')
   
+  l <- length(wp)
+  
   # Figure
-  png(filename = paste0(get.dirstr(1,rean,"present"),"map.wp/map_comp_wp_",rean,ifelse(anomalies,"_anomalies",""),".png"),width = 9,height = 4,units = "in",res = 600)
-  layout(matrix(1:5,ncol=5,nrow=1),heights = 1,widths = c(rep(1,4),0.3))
+  png(filename = paste0(get.dirstr(1,rean,"present"),"map.wp/map_comp_wp_",paste(wp,collapse = "_"),"_",rean,ifelse(anomalies,"_anomalies",""),"_",start,"_",end,".png"),width = l*2.5,height = 4,units = "in",res = 600)
+  layout(matrix(1:(l+1),ncol=l+1,nrow=1),heights = 1,widths = c(rep(1,l),0.3))
   
   # Cartes composite wp
-  wp <- c(1,2,5,8)
   par(mar=c(1,1,1,1))
   for(i in 1:length(wp)){
-    map.composite.wp.light(wp = wp[i],k = 1,start = "1950-01-01",end = "2019-12-31",rean = rean,
+    map.composite.wp.light(wp = wp[i],k = 1,start = start,end = end,rean = rean,
                            leg = F,win = T,let = F,iso = F,agreg = T,anomalies = anomalies,wind = T)
   }
   
