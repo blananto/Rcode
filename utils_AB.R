@@ -34,7 +34,7 @@ library("viridis") # Viridis Color Palette
 library("quantreg") # rq
 library("SuppDists") # Inverse Gaussian distribution
 library("abind") # abind
-#library("kSamples") # ad.test
+library("kSamples") # ad.test
 library("ks") # kde.test
 library("ismev") # gev
 library("evd") # gev
@@ -3674,8 +3674,8 @@ image.europe<- function(rean="20CR"){
   lat <- nc$dim$lat$vals
   nc_close(nc)
   delta <- abs(lon[1]-lon[2])/2 # demi ditance entre deux points de grille pour tracer precisement la fenetre d'analogie
-  #rect(xleft = lon[fen1[1,1]]-delta,ybottom = lat[fen1[2,1]]-delta,xright = lon[fen1[1,1]+fen1[1,2]-1]+delta,ytop = lat[fen1[2,1]+fen1[2,2]-1]+delta,
-  #       border="blue",lwd=2)
+  rect(xleft = lon[fen1[1,1]]-delta,ybottom = lat[fen1[2,1]]-delta,xright = lon[fen1[1,1]+fen1[1,2]-1]+delta,ytop = lat[fen1[2,1]+fen1[2,2]-1]+delta,
+         border="blue",lwd=2)
   #rect(xleft = lon[fen2[1,1]]-delta,ybottom = lat[fen2[2,1]]-delta,xright = lon[fen2[1,1]+fen2[1,2]-1]+delta,ytop = lat[fen2[2,1]+fen2[2,2]-1]+delta,
   #     border="deepskyblue",lwd=2)
   #points(expand.grid(lon[fen[1,1]:(fen[1,1]+fen[1,2]-1)],lat[fen[2,1]:(fen[2,1]+fen[2,2]-1)]),pch=19,cex=0.1)
@@ -3691,7 +3691,6 @@ image.europe<- function(rean="20CR"){
   par(mar=c(4,4,4,4))
   image.region(pluvios = F,save=F,names = T,crsm=T,bd_alti = F)
   graphics.off()
-  
 }
 
 # Trace la carte du BV avec pluvios, rivieres, villes
@@ -4469,6 +4468,32 @@ map.extr.clean <- function(bv="Isere-seul",k,nbdays,start="1950-01-01",end="2011
     plot(1,1,type="n",axes=F,xlab="",ylab="");text(1,1,paste0(round(precip[ind[i]],1)," mm/day"),font=2)
     }
    graphics.off()
+}
+
+# Carte de geopotentiels des sequences de plus fortes precipitations pour une saison
+map.extr.sais <- function(bv="Isere-seul",sais="winter",k=1,nbdays=3,start="1950-01-01",end="2017-12-31",rean="ERA5",spazm=T){
+  
+  # Imports
+  dates <- getdates(start,end)
+  precip <- get.precip(nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm)
+  ind <- get.ind.max.sais(sais = sais,wp = "all",nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm)
+  
+  # Cartes
+  pdf(file = paste0(get.dirstr(k = k,rean = rean,period = "past"),"map.extr.sais/map_extr_",bv,"_",sais,"_k",k,"_mean",nbdays,"days_",start,"_",end,".pdf"),width = 2+4*nbdays,height = 8)
+  par(mfrow=c(3,nbdays+1),mar=c(4.5,5,4,6.5))
+  
+  for(i in 1:length(ind)){
+    
+    print(paste0(i,"/",length(ind)))
+    
+    # les 3 cartes
+    for(j in 1:nbdays){
+    map.geo(date = dates[ind[i]+j-1],rean = rean,k = k,win=T,iso=T)
+    }
+    # le cumul de precip de la sequence
+    plot(1,1,type="n",axes=F,xlab="",ylab="");text(1,1,paste0(round(precip[ind[i]],1)," mm/day"),font=2)
+  }
+  graphics.off()
 }
 
 # Noms propres des couples d'indicateurs et des bvs

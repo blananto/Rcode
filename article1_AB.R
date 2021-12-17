@@ -975,7 +975,7 @@ map.composite.wp.light <- function(wp,k,start,end,rean,leg=T,win=T,let=F,iso=T,a
     coord <- as.matrix(expand.grid(lon.wind,lat.wind))
     wi <- as.matrix(cbind(as.vector(comp.uwind),as.vector(comp.vwind)))
     
-    arrow.plot(a1 = coord,a2 = wi,length=0.05,xpd=F,arrow.ex = 0.4*maxi.fen/maxi.all,lwd=2)
+    arrow.plot(a1 = coord,a2 = wi,length=0.05,xpd=F,arrow.ex = 1*maxi.fen/maxi.all,lwd=2)
   }
   
   shadowtext(5,61,namflow,font=2,cex=2,col="black",bg="white",r=0.3)

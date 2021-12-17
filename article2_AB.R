@@ -315,7 +315,7 @@ combine.plot.trend.descr.sais <- function(k,dist,rean,nbdays=1,start="1950-01-01
 combine.plot.trend.precip.gev <- function(bv=c("Isere-seul","Drac-seul"),nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31"){
   
   # graphique
-  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip.gev/plot_trend_precip_gev_",bv[1],"_",bv[2],"_",ifelse(spazm,"spazm_",""),start,"_",end,".png"),width = 10,height = 6,units = "in",res=600)
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip.gev/plot_trend_precip_gev_",bv[1],"_",bv[2],"_",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".png"),width = 10,height = 6,units = "in",res=600)
   layout(mat = matrix(data = c(rep(1,5),2:6,rep(7,5),8:12),nrow = 4,ncol = 5,byrow = T),widths = c(0.1,1,1,1,1),heights = c(0.1,1,0.1,1))
   
   for(i in 1:length(bv)){
@@ -992,8 +992,155 @@ get.subperiod <- function(){
   sub.period
 }
 
+# Altitude geopotentiel 1900-1930 et 1970-2000 pour 2 reanalyses et les 4 saisons (pour reviwer #2)
+map.abs.geo <- function(k,rean=c("20CR-m1","ERA20C")){
+  
+  # Import des donnees
+  dates.deb <- c("1900-01-01","1929-12-31")
+  dates.fin <- c("1970-01-01","1999-12-31")
+  season <- c("winter","spring","summer","autumn")
+  
+  for(i in 1:length(season)){
+    
+    print(season[i])
+    pos.deb <- get.ind.season.past(sais = season[i],start = dates.deb[1],end = dates.deb[2])
+    pos.fin <- get.ind.season.past(sais = season[i],start = dates.fin[1],end = dates.fin[2])
+    
+    # Figure
+    png(filename = paste0("2_Travail/1_Past/Rresults/map.abs.geo/map_abs_combine_",season[i],"_k",k,"_",rean[1],"_",rean[2],".png"),width = 6,height = 6,units = "in",res=600)
+    layout(matrix(c(1:4,rep(5,2)),nrow = 3,ncol = 2,byrow = T),widths = c(1,1),heights = c(1,1,0.3))
+    par(mar=c(1,1,2,1),pty="s")
+    data(wrld_simpl)
+    
+    for(j in 1:length(rean)){
+      print(rean[j])
+      data.deb <- getdata(k = k,day0 = dates.deb[1],day1 = dates.deb[2],rean = rean[j],climat = NULL,run = 1,large_win = F,small_win = F,all = T,ssp = NULL,var = "hgt")
+      data.fin <- getdata(k = k,day0 = dates.fin[1],day1 = dates.fin[2],rean = rean[j],climat = NULL,run = 1,large_win = F,small_win = F,all = T,ssp = NULL,var = "hgt")
+      
+      data.deb.sea <- data.deb[,,pos.deb]
+      data.fin.sea <- data.fin[,,pos.fin]
+      
+      # Moyennes
+      mean.deb <- apply(data.deb.sea,1:2,mean)
+      mean.fin <- apply(data.fin.sea,1:2,mean)
+      
+      # Pour ajout du rectangle
+      nc <- load.nc(rean[j],var="hgt")
+      nc <- nc[[k]]
+      lon <- nc$dim$lon$vals
+      lat <- nc$dim$lat$vals
+      fen <- getinfo_window(k = k,rean=rean[j],var = "hgt")
+      delta <- 0.25/2 # on force la grille de ERA5 pour tracer le meme rectangle tout le temps
+      nc_close(nc)
+      
+      # Cartes
+      breaks <- seq(4850,6100,length.out = 12)
+      N <- 11
+      lab <- seq(4900,6100,200)
+        
+      image(lon,lat,mean.deb,xlim=c(-15,25),ylim=c(25,65),main=paste0(nam2str(rean[j])," - 1900-1930"),
+              col=rev(brewer.pal(n = N, name = "RdBu")),xaxt="n",yaxt="n",xlab="",ylab="",breaks = breaks)
+      plot(wrld_simpl, add = TRUE)
+      rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
+      
+      image(lon,lat,mean.fin,xlim=c(-15,25),ylim=c(25,65),main=paste0(nam2str(rean[j])," - 1970-2000"),
+            col=rev(brewer.pal(n = N, name = "RdBu")),xaxt="n",yaxt="n",xlab="",ylab="",breaks = breaks)
+      plot(wrld_simpl, add = TRUE)
+      rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
+    }
+    # Legende
+    par(pty="m",mar=c(0,0,0,0))
+    plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+    colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
+                labels = lab,at =  seq(0,1,length.out = length(lab)),
+                vertical = F,xlim = c(0.8,1.2),ylim = c(0.25,0.65),cex=1.4)
+    text(x = 1,y = 0.9,"Geopotential Height (m)",cex=1.2,font=2)
+    graphics.off()
+  }
+}
+
+# Altitude geopotentiel 1950-1983 et 1984-2017 pour 2 wp et les 4 saisons (pour moi)
+map.abs.geo.wp <- function(wp=1,k,rean,start="1950-01-01",end="2017-12-31"){
+  
+  dates <- getdates(start,end)
+  
+  # Import des donnees
+  print("Import")
+  data <- getdata(k = k,day0 = start,day1 = end,rean = rean,climat = NULL,run = 1,large_win = F,small_win = F,all = T,ssp = NULL,var = "hgt")
+  gc()
+  
+  # Periode
+  sep <- as.Date(median(as.numeric(as.Date(dates))))
+  period1 <- paste0(substr(start,1,4),"-",substr(sep-10,1,4))
+  period2 <- paste0(substr(sep+10,1,4),"-",substr(end,1,4))
+  per <- rep(1,length(dates))
+  per[as.Date(dates)>=sep] <- 2
+  
+  # WP
+  tt <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+  
+  # Pour lon/lat et ajout du rectangle
+  nc <- load.nc(rean,var="hgt")
+  nc <- nc[[k]]
+  lon <- nc$dim$lon$vals
+  lat <- nc$dim$lat$vals
+  fen <- getinfo_window(k = k,rean=rean,var = "hgt")
+  delta <- abs(lon[1]-lon[2])/2
+  nc_close(nc)
+  
+  # Figure par saison
+  season <- c("winter","spring","summer","autumn")
+  sais <- rep(NA,length(dates))
+  data(wrld_simpl)
+  
+  for(i in 1:length(season)){
+    print(season[i])
+    ind <- get.ind.season.past(sais = season[i],start = start,end = end,nbdays = 1)
+    sais[ind] <- season[i]
+    
+    # Donnees
+    pos.per1 <- which(per==1 & sais==season[i] & tt==wp)
+    pos.per2 <- which(per==2 & sais==season[i] & tt==wp)
+    
+    data.per1 <- data[,,pos.per1]
+    data.per2 <- data[,,pos.per2]
+    
+    # Moyennes
+    mean.per1 <- apply(data.per1,1:2,mean)
+    mean.per2 <- apply(data.per2,1:2,mean)
+    
+    # Cartes
+    png(filename = paste0(get.dirstr(k,rean,"past"),"map.abs.geo.wp/map_abs_",season[i],"_k",k,"_wp",wp,".png"),width = 6,height = 4,units = "in",res=600)
+    layout(matrix(c(1:2,rep(3,2)),nrow = 2,ncol = 2,byrow = T),widths = c(1,1),heights = c(1,0.3))
+    par(mar=c(1,1,2,1),pty="s")
+    
+    breaks <- seq(4850,6100,length.out = 12)
+    N <- 11
+    lab <- seq(4900,6100,200)
+    
+    image(lon,lat,mean.per1,xlim=c(-15,25),ylim=c(25,65),main=period1,
+          col=rev(brewer.pal(n = N, name = "RdBu")),xaxt="n",yaxt="n",xlab="",ylab="",breaks = breaks)
+    plot(wrld_simpl, add = TRUE)
+    rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
+    
+    image(lon,lat,mean.per2,xlim=c(-15,25),ylim=c(25,65),main=period2,
+          col=rev(brewer.pal(n = N, name = "RdBu")),xaxt="n",yaxt="n",xlab="",ylab="",breaks = breaks)
+    plot(wrld_simpl, add = TRUE)
+    rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
+    
+    # Legende
+    par(pty="m",mar=c(0,0,0,0))
+    plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+    colorlegend(colbar = rev(brewer.pal(n = N, name = "RdBu")),
+                labels = lab,at =  seq(0,1,length.out = length(lab)),
+                vertical = F,xlim = c(0.8,1.2),ylim = c(0.25,0.65),cex=1.4)
+    text(x = 1,y = 0.9,"Geopotential Height (m)",cex=1.2,font=2)
+    graphics.off()
+  }
+}
+
 # Difference altitude geopotentiel 1900-1930 et 1970-2000 pour 2 reanalyses et les 4 saisons
-map.diff.geo <- function(k,rean=c("20CR-m1","ERA20C")){
+map.diff.geo <- function(k,rean=c("20CR-m1","ERA20C"),signif=F){
   
   # Import des donnees
   dates.deb <- c("1900-01-01","1929-12-31")
@@ -1028,6 +1175,26 @@ map.diff.geo <- function(k,rean=c("20CR-m1","ERA20C")){
       data.deb.sea <- data.deb[,,pos.deb]
       data.fin.sea <- data.fin[,,pos.fin]
       
+      # Test de significativite
+      if(signif){
+        selec <- ifelse(substr(rean[i],1,4)=="20CR",1,2) # on ne prend que 1 pt sur 2 pr 20CR et 1 sur 4 pour ERA20C
+        ind.lon <- seq(1,length(lon),by=selec) 
+        ind.lat <- seq(2,length(lat),by=selec)
+        lon.red <- lon[ind.lon]
+        lat.red <- lat[ind.lat]
+        
+        sig <- matrix(data = NA,nrow = length(lon.red),ncol = length(lat.red))
+        for(l in 1:length(lon.red)){
+          for(m in 1:length(lat.red)){
+            sig[l,m] <- as.numeric(t.test(data.deb.sea[ind.lon[l],ind.lat[m],],data.fin.sea[ind.lon[l],ind.lat[m],])$p.value < 0.05)
+          }
+        }
+        sig.res <- expand.grid(lon.red,lat.red)
+        colnames(sig.res) <- c("lon","lat")
+        dim(sig) <- nrow(sig.res)
+        sig.res <- cbind(sig.res,sig)
+      }
+      
       # Moyennes et difference
       mean.deb <- apply(data.deb.sea,1:2,mean)
       mean.fin <- apply(data.fin.sea,1:2,mean)
@@ -1042,6 +1209,7 @@ map.diff.geo <- function(k,rean=c("20CR-m1","ERA20C")){
                  col=rev(brewer.pal(n = N, name = "RdBu")),xaxt="n",yaxt="n",xlab="",ylab="",breaks = breaks)
       
       plot(wrld_simpl, add = TRUE)
+      if(signif){points(sig.res$lon,sig.res$lat,cex=sig.res$sig/6,pch=20)} # differences de moyennes significatives, en petits points
       rect(xleft = lon[fen[1,1]]-delta,ybottom = lat[fen[2,1]]-delta,xright = lon[fen[1,1]+fen[1,2]-1]+delta,ytop = lat[fen[2,1]+fen[2,2]-1]+delta,lwd=2)
     }
   }
@@ -1642,7 +1810,7 @@ plot.sais.violin.subperiod <-  function(sais,wp=NULL,k,dist,nbdays=1,rean,start=
           legend.text = element_text(size=16,colour="black"))+
     geom_violin(position=dodge,col="black")+
     geom_boxplot(position=dodge,width=0.2,alpha=0)+
-    scale_fill_manual(values = alpha(c(brewer.pal(n = 11, name = "RdBu")[9],brewer.pal(n = 11, name = "RdBu")[3]),0.4))+
+    scale_fill_manual(values = c(brewer.pal(n = 11, name = "RdBu")[9],brewer.pal(n = 11, name = "RdBu")[3]))+
     ylim(-5,100)+
     xlab("")+
     ylab("")+
@@ -2261,7 +2429,7 @@ plot.trend.descr.extr.alldescr <- function(bv="Isere-seul",sais,k,dist,rean,nbda
   descr <- c("cel","sing05","rsing05","dP")
   des <- matrix(data = NA,nrow = length(dates),ncol = length(descr))
   for(i in 1:length(descr)){
-    des.i <- get.descriptor(descriptor = descr[i],k = k,dist = dist,nbdays = 1,start = start,end = end,
+    des.i <- get.descriptor(descriptor = descr[i],k = k,dist = dist,nbdays = nbdays,start = start,end = end,
                         standardize = F,rean = rean,threeday = F,period = "past",start.ana = start.ana,
                         end.ana = end.ana)
     des[,i] <- ecdf(des.i)(des.i)*100
