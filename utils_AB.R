@@ -39,6 +39,7 @@ library("ks") # kde.test
 library("ismev") # gev
 library("evd") # gev
 library("lubridate") #dmy
+library("fmsb") # radarchart
 
 #setwd("../../")
 #
@@ -1057,10 +1058,9 @@ compare.crps.simple <- function(k,nbdays,start="1950-01-01",end="2011-12-31",rad
   axis(2,cex.axis=1.8)
   grid()
   abline(v=1:ndescr,lty=2,col=gray(0.5))
-  title("Extreme precip (>q99)",font=2,cex.main=1.8)
+  title("1% largest precipitation",font=2,cex.main=1.8)
   
   graphics.off()
-  
 }
   
 # Calcule et trace les CRPSS pour la double analogie: classique puis indicateurs 
@@ -1447,89 +1447,6 @@ compare.crps.wp <- function(k,dist,nbdays=1,start="1950-01-01",end="2011-12-31",
   }
 }
 
-# Comparaison de MPD a MPD version gradient
-compare.dP.grad <- function(k,rean,nbdays,start="1950-01-01",end="2017-12-31",explain=F,qua=F,example=F){
-  
-  # Import des indicateurs
-  dP <- get.descriptor(descriptor = "dP",k = k,dist = "TWS",nbdays = nbdays,start = start,end = end,standardize = F,rean = rean,threeday = F,desais = F,period = "present")
-  dP_grad <- get.dP.grad(k = k,nbdays = nbdays,start = start,end = end,rean = rean)
-  dP.grad <- dP_grad[,1]
-  di <- dP_grad[,2]
-  lon.min <- dP_grad[,3]
-  lon.max <- dP_grad[,4]
-  rm(dP_grad)
-  
-  # Traitement et Graphique Scatterplot
-  corr <- round(cor(dP,dP.grad),2)
-  if(explain){
-    diag <- sqrt(32^2+16^2)
-    larg <- 16
-    pos.diag <- which(di==diag)
-    pos.larg <- which(di==larg)
-  }
-  
-  png(filename = paste0(get.dirstr(k,rean,period="present"),"compare.dP.grad/compare_dP_dPgrad_k",k,"_mean",nbdays,"day_",rean,"_",start,"_",end,ifelse(explain,"_explain",""),ifelse(qua,"_qua",""),ifelse(example,"_example",""),".png"),width = 6,height = 6,units = "in",res = 600)
-  par(pty="s")
-  plot(dP,dP.grad,main=paste0("R = ",corr),xlab="MPD (m)",ylab="MPD_grad (m/°)")
-  if(explain){
-    points(dP[pos.diag],dP.grad[pos.diag],col="red")
-    points(dP[pos.larg],dP.grad[pos.larg],col="blue")
-  }
-  if(qua){
-    abline(h=quantile(dP.grad,probs=0.75),col="red",lwd=2)
-    abline(v=quantile(dP,probs=0.75),col="red",lwd=2)
-    text(450,quantile(dP.grad,probs=0.8),"q75",col="red",font=2)
-  }
-  if(example){
-    points(dP[10574],dP.grad[10574],col="green",pch=19)
-    points(dP[11695],dP.grad[11695],col="green",pch=19)
-  }
-  graphics.off()
-  
-  # Traitement et Graphique densité des longitudes des pressions min pour les flux/MPD forts
-  pos.dP <- which(dP>quantile(dP,probs=0.8))
-  pos.dPgrad <- which(dP.grad>quantile(dP.grad,probs=0.8))
-  
-  # Min
-  png(filename = paste0(get.dirstr(k,rean,period="present"),"compare.dP.grad/compare_lon_pressure_min_q80_k",k,"_mean",nbdays,"day_",rean,"_",start,"_",end,".png"),width = 7,height = 5,units = "in",res = 600)
-  plot(density(lon.min[pos.dP]),ylim=c(0,0.1),xlab="Longitude (°)",main="Longitude du minimum de pression - MPD>q80 et MPD_grad>q80",lwd=2)
-  grid()
-  lines(density(lon.min[pos.dPgrad]),col="red",lwd=2)
-  legend("topright",inset=.02,bty="n",col=c("black","red"),c("MPD","MPD_grad"),lty=1,lwd=2)
-  graphics.off()
-  
-  # Max
-  png(filename = paste0(get.dirstr(k,rean,period="present"),"compare.dP.grad/compare_lon_pressure_max_q80_k",k,"_mean",nbdays,"day_",rean,"_",start,"_",end,".png"),width = 7,height = 5,units = "in",res = 600)
-  plot(density(lon.max[pos.dP]),xlab="Longitude (°)",main="Longitude du maximum de pression - MPD>q80 et MPD_grad>q80",lwd=2)
-  grid()
-  lines(density(lon.max[pos.dPgrad]),col="red",lwd=2)
-  legend("topright",inset=.02,bty="n",col=c("black","red"),c("MPD","MPD_grad"),lty=1,lwd=2)
-  graphics.off()
-  
-  # Traitement et Graphique flux et MPD des precip extremes Atlantiques en fonction de la longitude
-  pos.extr <- get.ind.max.flow(flow = 1,agreg = T,nbdays = nbdays,start = start,end = end,spazm = T,supseuil = T,nei = T)
-  
-  # MPD
-  png(filename = paste0(get.dirstr(k,rean,period="present"),"compare.dP.grad/dP_lon_pressure_min_precip_extr_k",k,"_mean",nbdays,"day_",rean,"_",start,"_",end,".png"),width = 7,height = 5,units = "in",res = 600)
-  plot(lon.min,dP,pch=19,cex=0.5,xlab="Longitude (°)",ylab="MPD (m)",main=paste0("Precip Max Atlantique - ",nbdays," jours"))
-  grid()
-  points(lon.min,dP,pch=19,cex=0.5)
-  abline(h=quantile(dP,probs=0.8),col="red",lwd=2)
-  text(22.7,quantile(dP,probs=0.9),"q80",col="red",font=2,cex=0.7)
-  points(lon.min[pos.extr],dP[pos.extr],pch=19,col="blue")
-  graphics.off()
-  
-  # MPD_grad
-  png(filename = paste0(get.dirstr(k,rean,period="present"),"compare.dP.grad/dPgrad_lon_pressure_min_precip_extr_k",k,"_mean",nbdays,"day_",rean,"_",start,"_",end,".png"),width = 7,height = 5,units = "in",res = 600)
-  plot(lon.min,dP.grad,pch=19,cex=0.5,xlab="Longitude (°)",ylab="MPD_grad (m/°)",main=paste0("Precip Max Atlantique - ",nbdays," jours"))
-  grid()
-  points(lon.min,dP.grad,pch=19,cex=0.5)
-  abline(h=quantile(dP.grad,probs=0.8),col="red",lwd=2)
-  text(22.7,quantile(dP.grad,probs=0.9),"q80",col="red",font=2,cex=0.7)
-  points(lon.min[pos.extr],dP.grad[pos.extr],pch=19,col="blue")
-  graphics.off()
-}
-
 # Comparaison des interpolations TPS et SPAZM
 compare.tps.spazm <- function(nbdays,start,end,bv){
   
@@ -1569,14 +1486,16 @@ compare.tps.spazm <- function(nbdays,start,end,bv){
   png(filename = paste0("2_Travail/0_Present/Rresults/compare.tps.spazm/comp_",bv,"_",bv2,"_",nbdays,"day_",start,"_",end,".png"),width = 800,height = 400,units = "px")
   par(mfrow=c(1,2),pty="s",mar=c(4,4,3,2))
   
-  ran <- range(spazm,tps)
-  plot(spazm,tps,main=nam2str(bv),xlim=ran,ylim=ran,xlab="SPAZM",ylab="TPS",pch=19)
-  abline(0,1,col="red",lwd=2)
-  text(60,10,paste0("R2 = ",round(cor(spazm,tps)^2,2)),cex=1.5,font=2)
+  te="0.98"
   
-  plot(spazm2,tps2,main=nam2str(bv2),xlim=ran,ylim=ran,xlab="SPAZM",ylab="TPS",pch=19)
+  ran <- range(spazm,tps)
+  plot(spazm,tps,main=nam2str(bv),xlim=ran,ylim=ran,xlab="Précipitation SPAZM (mm)",ylab="Précipitation TPS (mm)",pch=19,cex.main=2,cex.axis=1.5,cex.lab=1.3)
   abline(0,1,col="red",lwd=2)
-  text(60,10,paste0("R2 = ",round(cor(spazm2,tps2)^2,2)),cex=1.5,font=2)
+  text(60,10,bquote("r"^2*~"="~.(round(cor(spazm,tps)^2,2))),cex=1.5,font=2)
+  
+  plot(spazm2,tps2,main=nam2str(bv2),xlim=ran,ylim=ran,xlab="Précipitation SPAZM (mm)",ylab="Précipitation TPS (mm)",pch=19,cex.main=2,cex.axis=1.5,cex.lab=1.3)
+  abline(0,1,col="red",lwd=2)
+  text(60,10,bquote("r"^2*~"="~.(round(cor(spazm2,tps2)^2,2))),cex=1.5,font=2)
   graphics.off()
   
   #Si volonte de placer les WP dans le graphe
@@ -3292,14 +3211,14 @@ get.param.map <- function(field,var="vv700",type=c("Mean","Trend")){
   if(substr(var,1,2)=="vv" | type=="Trend"){
     N <- 10
     col <- brewer.pal(n = N, name = "RdBu")
-    if(substr(var,1,1)=="t"){col <- rev(col)}
+    if(substr(var,1,1)=="t" | var=="hgt"){col <- rev(col)}
     ran <- range(field,na.rm=T)
     ran <- c(-max(abs(ran)),max(abs(ran)))
     breaks <- seq(ran[1],ran[2],length.out = N+1)
      }else{
       N <- 9
       col <- brewer.pal(n = N, name = "PuBu")
-      if(substr(var,1,1)=="t"){col <- rev(brewer.pal(n = N, name = "RdBu"))}
+      if(substr(var,1,1)=="t" | var=="hgt"){col <- rev(brewer.pal(n = N, name = "RdBu"))}
       ran <- range(field,na.rm=T)
       if(substr(var,1,2)=="rh"){ran <- c(0,100)}
       breaks <- seq(ran[1],ran[2],length.out = N+1)
@@ -3307,6 +3226,10 @@ get.param.map <- function(field,var="vv700",type=c("Mean","Trend")){
   
   # Legende et titre
   main <- type
+  
+  if(var=="hgt"){
+    leg <- ifelse(type=="Mean","500hPa Geopotential height (m)","500hPa Geopotential height Trend (m/10year)")
+  }
   
   if(var=="tcw"){
     leg <- ifelse(type=="Mean","Total Column Water (mm)","Total Column Water Trend (mm/10year)")
@@ -3469,6 +3392,26 @@ get.wp <- function(nbdays,start="1950-01-01",end="2011-12-31",risk=F,bv="Isere",
     wp[substr(dates,6,7) %in% c("03","04","05","06","07","08")] <- wp[substr(dates,6,7) %in% c("03","04","05","06","07","08")]+8
   }
   
+  if(nbdays==2){
+    precip2 <- get.precip(nbdays = 2,start,end,bv,spazm)
+    precip1 <- get.precip(nbdays = 1,start,end,bv,spazm)
+    tab <- cbind(wp,c(wp[-1],NA))
+    tab <- tab[-c(nrow(tab)-1,nrow(tab)),]
+    res <- NULL
+    cat1 <- cat2 <- cat3 <- 0
+    
+    for(i in 1:nrow(tab)){
+      vec <- tab[i,]
+      count <- table(vec)
+      
+      if(count[1]==2) {res[i] <- as.numeric(names(count[1])); cat1<-cat1+1} # si on a le meme wp deux jours, on prend celui la
+      if(count[1]==1 & precip2[i]>=0.1) {res[i] <- vec[which.max(precip1[i:(i+1)])]; cat2<-cat2+1} # si trois differents, on prend celui ou il a le plus plu
+      if(count[1]==1 & precip2[i]<0.1)  {res[i] <- vec[1]; cat3<-cat3+1} # si trois differents et pas de precip, on prend celui du milieu
+    }
+    wp <- res
+    print(cat1);print(cat2);print(cat3)
+  }
+  
   if(nbdays==3){
     precip3 <- get.precip(nbdays = 3,start,end,bv,spazm)
     precip1 <- get.precip(nbdays = 1,start,end,bv,spazm)
@@ -3525,13 +3468,13 @@ illustr.precip.seq<-function(bv,nbdays,start="1950-01-01",end="2011-12-31",spazm
   rep <- round(table(tmp[ind,1]> seuil0)/length(ind)*100,0)
   
   if(save) png(file=paste0("2_Travail/0_Present/Rresults/illustr.precip.seq/plotseq_",bv,"_mean",nbdays,"days_",start,"_",end,ifelse(spazm,"_spazm",""),ifelse(nei,"_nei",""),".png"),width=350,heigh=404,units="px",res=72)
-  plot(range(precip0),range(precip0),type="n",xlab=paste0(nbdays,"-day precip (mm/day)"),ylab="daily precip (mm/day)",main=nam2str(bv))
+  plot(range(precip0),range(precip0),type="n",xlab=paste0(nbdays,"-day precip (mm/day)"),ylab="daily precip (mm/day)",main=nam2str(bv),cex.main=1.5,cex.axis=1.3,cex.lab=1.3)
   if(!nei){for (i in 1:ncol(tmp)) points(precip,tmp[,i],col=i,pch=19,cex=0.8)}
   if(nei){for (i in 1:ncol(tmp)) points(precip[-hid],tmp[-hid,i],col=i,pch=19,cex=0.8)}
   abline(v=seuil,lty=2)
-  text(x=seuil*0.9,y=67,"q = 0.99",font = 3,srt = 90)
+  text(x=seuil*0.85,y=max(precip0)*0.9,"q = 0.99",font = 3,srt = 90)
   abline(h=seuil0,lty=2)
-  text(x=55,y=seuil0*1.2,"q = 0.9",font = 3)
+  text(x=max(precip0)*0.9,y=seuil0*1.2,"q = 0.9",font = 3)
   text(x=65,y=5,paste0(rep[1],"%"),font = 2,cex=1.2)
   text(x=65,y=20,paste0(rep[2],"%"),font = 2,cex=1.2)
   if(save) dev.off()
@@ -3876,6 +3819,14 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
     if(rean == "20CR" & var == "vwind"){
       nc <-nc_open("2_Travail/Data/Reanalysis/20CR/WIND/20Crv2c_EnsembleMean_VWIND_500_1851-2014_daily.nc")
     }
+    
+    # Faire un reshape des t850 t700 z850 z700
+    if(substr(rean,1,4) == "20CR" & substr(var,1,1) == "t"){
+      nc <-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/Membre_1/20Crv2c_mbr01_T",substr(var,2,4),"_1851-2014_day_WestEur.nc"))
+      names(nc$var)[2] <- var
+      nc$var[[2]]$name <- var
+    }
+    
     
     if(rean == "ERA20C"){
       nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_daily.nc")
@@ -4223,13 +4174,13 @@ map.geo <- function(date,rean="20CR",climat=NULL,run=1,k,nbdays=1,save=F,win=F,l
   # Carte
   if(save) {
     png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.geo/",date,"_k",k,"_",nbdays,"day.png"),
-        width = ifelse(nbdays==3,1100,400),height = 400,units = "px")
+        width = nbdays*5,height = 5,units = "in",res = 600)
     layout(matrix(1:nbdays,1,nbdays))
   }
   
   par(pty="s")
-  if(nbdays==3){
-    par(mar=c(8,6,8,6))
+  if(nbdays>1){
+    par(mar=c(0,4,0,6))
     #par(mar=c(0,0,0,7))
   } 
   cex <- ifelse(nbdays==3,1.8,1.5)
@@ -5528,80 +5479,6 @@ plot.empir.sel<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end
   
 }
 
-# Trace differentes caracteristiques des crues de riviere de la BD RTM-IGE
-plot.event.river <- function(){
-  
-  # Montrer que la saison
-  # Separer en Isere seul, Drac seul, Isere+Drac: colorier la barre de chaque mois!
-  
-  # Import
-  bd <- read_bd(path = "2_Travail/Data/Event/BD-RTM-IGE_20201208_finale.csv")
-  
-  # Traitement
-  bd <- bd[bd$type=="R"|bd$type=="TR",] # que riviere ou torrent+riviere
-  bd <- bd[-c(27,41),] # car romanche seule
-  rownames(bd) <- 1:nrow(bd)
-  #bd <- bd[1:39,]
-  mon <- as.numeric(substr(bd$date,6,7))
-  
-  # Isere seule, Drac seul, ou les deux
-  bv <- rep(NA,length(mon))
-  bv[!is.na(bd$Categorie_Coeur_Is) & !is.na(bd$Categorie_Coeur_Dr)] <- "Isere+Drac"
-  bv[!is.na(bd$Categorie_Coeur_Is) & is.na(bd$Categorie_Coeur_Dr)] <- "Isere"
-  bv[is.na(bd$Categorie_Coeur_Is) & !is.na(bd$Categorie_Coeur_Dr)] <- "Drac"
-  bv[is.na(bv)] <- bd$autre_site_cite[is.na(bv)]
-  bv[bv=="Isere,Drac"] <- "Isere+Drac"
-  bv[c(10,18,32,39)] <- "Isere+Drac"
-  bv[c(27,28,40)] <- "Isere"
-  
-  # Mise en forme
-  tmp <- data.frame(Month=mon,BV=bv,Count=rep(1,length(mon)))
-  res <- aggregate(tmp$Count,by=list(tmp$Month,tmp$BV),sum)
-  colnames(res) <- colnames(tmp)
-  res$BV <- factor(res$BV,levels = c("Isere+Drac","Drac","Isere"))
-  res$Month <- factor(res$Month)
-  
-  # Graphique saison et BV
-  colo <- c("grey","burlywood1","cornflowerblue")
-  print(paste0("Nombre de crues: ",length(mon)))
-  print(paste0("Nombre de crues Isere+Drac: ",sum(bv=="Isere+Drac")))
-  print(paste0("Nombre de crues Isere: ",sum(bv=="Isere")))
-  print(paste0("Nombre de crues Drac: ",sum(bv=="Drac")))
-  
-  png(filename = "2_Travail/0_Present/Rresults/plot.event.river/plot_event_sais_bv.png",width = 10,height = 6,units = "in",res = 600)
-  par(mar=c(3,4,0.5,0.5))
-  ggplot(res, aes(fill=BV, y=Count, x=Month)) + 
-    theme_bw()+
-    theme(plot.margin = unit(c(0.5,0.5,1,0.5),"cm"),axis.title.x = element_text(vjust=-4,size = 15,face = "bold"),
-          axis.title.y = element_text(vjust=4,size = 15,face = "bold"),
-          axis.text.x = element_text(size=12),axis.text.y = element_text(size=12),
-          plot.title = element_text(hjust = 0.5,vjust=4,face="bold",size=18),
-          legend.key.si = unit(1,"cm"),legend.text = element_text(size=15),
-          legend.title = element_text(hjust=0.5,vjust=1,size = 18,face = "bold"),
-          panel.grid.major = element_blank(),panel.grid.minor = element_blank())+
-    geom_bar(position="stack",stat = "identity",width = 1,colour="black",size=1)+
-    scale_fill_manual(values=colo)+
-    scale_x_discrete(breaks=1:12, labels=month.abb)+
-    grids(axis = "xy",color = "grey",linetype = "dashed")
-  graphics.off()
-  
-  #hist(mon,breaks=0:12,xaxt="n",col="cornflowerblue",border = "royalblue",xlab = "Month",main="") # attention à mai sur-représenté avec les décennales
-  #grid(ny=NULL,nx=NA)
-  #hist(mon,breaks=0:12,xaxt="n",col="cornflowerblue",border = "royalblue",xlab = "Month",main="",add=T) # attention à mai sur-représenté avec les décennales
-  #axis(side = 1,at = 0.5:11.5,month.abb)
-  #
-  ## Graphique intensite
-  #int.is <- aggregate(bd$Categorie_Coeur_Is,by=list(mon),mean,na.rm=T)[,2]
-  #int.dr <- aggregate(bd$Categorie_Coeur_Dr,by=list(mon),mean,na.rm=T)[,2]
-  #barplot(int.is,xaxt="n",col="cornflowerblue",border = "royalblue",xlab = "Month",main="")
-  #barplot(int.dr,xaxt="n",col="cornflowerblue",border = "royalblue",xlab = "Month",main="")
-  #
-  #q.is <- aggregate(bd$Q_Is_bast,by=list(mon),mean,na.rm=T)[,2]
-  #q.dr <- aggregate(bd$Q_Drac,by=list(mon),mean,na.rm=T)[,2]
-  #barplot(q.is,xaxt="n",col="cornflowerblue",border = "royalblue",xlab = "Month",main="")
-  #barplot(q.dr,xaxt="n",col="cornflowerblue",border = "royalblue",xlab = "Month",main="")
-}
-
 # plot le papillon de Lorenz en 3d colorie par indicateur
 plot.lorenz <- function(){
   
@@ -5737,51 +5614,6 @@ plot.quant.descr <- function(descr,nbdays,start="1950-01-01",end="2011-12-31",re
     ggsave(filename = paste0("2_Travail/20CR/Rresults/overall/plot.quant.descr/plot_",descr,"_",nbdays,"day_",start,"_",end,"_",bv,".png"),plot = a,width = 15,height = 8,units="cm",dpi = 200)
     graphics.off()
   }else{a}
-}
-
-# Trace des percentiles de precip associes aux max annuels de debit sur l'Isere a St Gervais
-plot.quant.rain <- function(nbdays=3,start = "1969-01-01",end="2017-12-31"){
-  
-  dates <- getdates(start,end)
-  
-  # Imports
-  precip <- get.precip(bv = "Isere",spazm=F,nbdays = nbdays,start = start,end = end)
-  crues <- read.table("2_Travail/0_Present/Rresults/image.cumul/crues_1969_2017_Isere_StGervais.txt",header = F)
-  crues <- as.data.frame(crues)
-  
-  # Traitement
-  event <- as.character(as.Date(crues[,1],format="%d/%m/%Y")-nbdays) # on prend les pluies de j-3,j-2,j-1 de la crue (car 8hj a 7hj+1)
-  event.ann <- as.numeric(substr(event,1,4))
-  event.month <- as.numeric(substr(event,6,7))
-  ind   <- match(event,dates)
-  
-  distrib <- ecdf(precip)(precip)*100
-  dis.ind <- distrib[ind]
-  
-  debit <- crues[,2]
-  
-  # Graphique
-  colo <- colorRampPalette(c("darkblue","lightgreen","purple"))(12)
-  
-  png(file = paste0("2_Travail/0_Present/Rresults/image.cumul/Quant_rain_flood_last_",nbdays,"days.png"),width = 6,height = 4,units = "in",res = 600)
-  par(mar=c(2,4,0.5,0))
-  plot(event.ann,dis.ind,pch=21,ylim=c(0,100),ylab=paste0(nbdays,"-day precipitation percentile (%)"),cex=debit/mean(debit)*2)
-  grid()
-  abline(h=90,col="red",lty=2)
-  points(event.ann,dis.ind,pch=21,bg=colo[event.month],cex=debit/mean(debit)*2)
-  colorlegend(colbar = colo,labels = 1:12,at = seq(0,1,length.out = 12),xlim = c(1992,2017),ylim = c(0,10),vertical = F)
-  text(2004.5,15,"Month")
-  legend("bottomleft",inset=.02,pch=21,bty="n",
-         pt.cex=c(max(debit/mean(debit)*2),median(debit/mean(debit)*2),min(debit/mean(debit)*2)),
-         paste0(c(max(debit,na.rm=T),median(debit,na.rm=T),min(debit,na.rm=T))," m3/s"))
-  graphics.off()
-  
-  # Stats
-  print(paste0("Nombre de max annuels: ",length(dis.ind)))
-  print(paste0("Nombre superieur a q90: ",sum(dis.ind>90)))
-  print(paste0("Nombre superieur a q95: ",sum(dis.ind>95)))
-  print(paste0("Nombre superieur a q98: ",sum(dis.ind>98)))
-  print(paste0("Nombre superieur a q99: ",sum(dis.ind>99)))
 }
 
 # Trace les hyétorgammes des 62 plus grosses séquences de pluie

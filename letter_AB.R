@@ -1535,6 +1535,62 @@ scatterplot.descr.precip <- function(bv,type="cum",descr,k,dist,nbdays,start="19
   graphics.off()
 }
 
+# Scatterplot d'un max/quantile de descripteur et des max de precipitations par saison
+scatterplot.descr.precip.extr <- function(bv="Isere",descr=c("dP","sing05"),k,dist,nbdays=1,rean="ERA5",start="1950-01-01",end="2017-12-31",qua=F,prob=0.95,dat=F){
+
+  dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
+  
+  # Imports
+  precip <- get.precip(nbdays = nbdays,start = start,end = end,bv = bv,spazm = T)
+  des <- matrix(NA,length(dates),length(descr))
+  for(i in 1:length(descr)){
+    des[,i] <- get.descriptor(descriptor = descr[i],k = k,dist = dist,nbdays = nbdays,start = start,end = end,
+                              standardize = F,rean = rean,threeday = F,period = "present")
+  }
+  
+  # Traitement et graphique
+  season <- c("winter","spring","summer","autumn")
+  
+  png(filename = paste0(get.dirstr(k = k,rean = rean,period = "present"),"scatterplot.descr.precip.extr/scatterplot_precip_extr_",bv,"_",ifelse(qua,paste0("q",prob*100),"max"),"_",descr[1],"_",descr[2],"_",nbdays,"day_",ifelse(dat,"dat_",""),start,"_",end,".png"),width = 8,height = 4,units = "in",res = 600)
+  par(mfrow=c(2,4),pty="s",mar=c(4,4,2,0))
+  
+  for(i in 1:length(descr)){
+    for(j in 1:length(season)){
+      print(season[j])
+      
+      if(dat){
+        ind <- get.ind.max.sais(sais = season[j],wp = "all",nbdays = nbdays,start = start,end = end,bv = bv,spazm = T)
+        precip.j <- precip[ind]
+        des.j <- des[ind,i]
+      }else{
+      tmp <- get.ind.season(sais = season[j],start = start,end = end)
+      
+      # Traitement precip
+      precip.j <- precip[tmp$pos.season]
+      precip.j[tmp$pos.NA] <- NA
+      dim(precip.j) <- c(tmp$l.season,tmp$n.season)
+      precip.j <- apply(precip.j,2,max,na.rm=T)
+      
+      # Traitement descr
+      des.j <- des[tmp$pos.season,i]
+      des.j[tmp$pos.NA] <- NA
+      dim(des.j) <- c(tmp$l.season,tmp$n.season)
+      if(!qua){
+        if(descr[i]=="dP"){
+          des.j <- apply(des.j,2,max,na.rm=T)
+        }else{des.j <- apply(des.j,2,min,na.rm=T)}
+      }else{des.j <- apply(des.j,2,function(v){quantile(v,probs=ifelse(descr[i]=="dP",prob,1-prob),na.rm=T)})}
+      }
+      # Graphique
+      corre <- round(cor(des.j,precip.j,use = "pairwise.complete.obs"),2)
+      plot(des.j,precip.j,pch=19,xlab=paste0(ifelse(!qua,ifelse(descr[i]=="dP","Max","Min"),paste0("q",ifelse(descr[i]=="dP",prob,1-prob)*100))," ",nbdays,"-day ",nam2str(descr[i],whole=T)),ylab=paste0("Max ",nbdays,"-day Precipitation (mm)"),main=paste0(nam2str(season[j])," (R=",corre,")"),ylim=range(precip))
+      grid();par(new=T)
+      plot(des.j,precip.j,pch=19,xlab=paste0(ifelse(!qua,ifelse(descr[i]=="dP","Max","Min"),paste0("q",ifelse(descr[i]=="dP",prob,1-prob)*100))," ",nbdays,"-day ",nam2str(descr[i],whole=T)),ylab=paste0("Max ",nbdays,"-day Precipitation (mm)"),main=paste0(nam2str(season[j])," (R=",corre,")"),ylim=range(precip))
+    }
+  }
+  graphics.off()
+}
+
 # Scatterplot de 2 indicateurs VS precip par saison au pas de temps interannuel
 scatterplot.descr.precip.interannual <- function(descr=c("dP","sing05"),bv="Isere",k,dist,start="1950-01-01",end="2017-12-31",rean="ERA5",spazm=T){
   

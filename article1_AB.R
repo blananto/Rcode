@@ -106,7 +106,7 @@ combine.precip.seq <- function(start="1950-01-01",end="2017-12-31"){
   nbdays <- c(2,3,4)
   
   png(filename=paste0("2_Travail/0_Present/Rresults/illustr.precip.seq/plotseq_combine_",start,"_",end,".png"),width = 8,height = 6,units = "in",res = 400)
-  par(mfrow=c(2,3),pty="s",mar=c(4,3,3,0))
+  par(mfrow=c(2,3),pty="s",mar=c(4,4,3,0))
   
   for(i in 1:length(bv)){
     for(j in 1:length(nbdays)){
@@ -1402,7 +1402,7 @@ map.review.combine <- function(){
 }
 
 # Carte composite de geopotentiel et d'anomalies pour deux WP
-map.wp.flow <- function(flow=c(1,2),agreg=T,k,rean,start="1950-01-01",end="2011-12-31",wind=F,light=F){
+map.wp.flow <- function(flow=c(1,2,5,8),agreg=T,k,rean="ERA5",start="1950-01-01",end="2019-12-31",wind=F,light=F){
   
   # Noms des circulations
   if(agreg){namflow <- c("Atlantic","Mediterranean","North-East","Anticyclonic")
@@ -1411,12 +1411,13 @@ map.wp.flow <- function(flow=c(1,2),agreg=T,k,rean,start="1950-01-01",end="2011-
   namflow <- namflow[match(flow,c(1,2,5,8))]
   
   # Graphique
-  pdf(file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.wp.flow/map_wp_flow_",namflow[1],"_",namflow[2],"_wp","_member",member,"_k",k,"_",start,"_",end,".pdf"),width = 6,height = 5)
-  #png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.wp.flow/map_wp_flow_",namflow[1],"_",namflow[2],"_wp","_member",member,"_k",k,"_",start,"_",end,".png"),width = 6,height = 5,units = "in",res=200)
-  layout(matrix(1:6,2,3,byrow=F),width=c(1.3,1.3,0.4))
-  par(pty="s",mar=c(0,3,1,1))
-  let <- list(c("a)","c)"),c("b)","d)"))
-  #let <- list(c(F,F),c(F,F))
+  #pdf(file = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.wp.flow/map_wp_flow_",paste0(namflow,collapse = "_"),"_wp","_member",member,"_k",k,"_",start,"_",end,".pdf"),width = 6,height = 5)
+  png(filename = paste0("2_Travail/0_Present/",rean,"/Rresults/overall/k",k,"/map.wp.flow/map_wp_flow_",paste0(namflow,collapse = "_"),"_wp","_member",member,"_k",k,"_",start,"_",end,".png"),width = 10,height = 4,units = "in",res=600)
+  layout(matrix(1:((length(flow)+1)*2),2,length(flow)+1,byrow=F),width=c(rep(1.3,length(flow)),0.4))
+  par(pty="s",mar=c(0,0.5,0.5,0.5))
+  #let <- list(c("a)","c)"),c("b)","d)"))
+  let <- vector(mode = "list",length=length(flow))
+  for(i in 1:length(let)){let[[i]] <- rep(F,2)}
   
   # Cartes composites
   if(!light){
@@ -1436,7 +1437,7 @@ map.wp.flow <- function(flow=c(1,2),agreg=T,k,rean,start="1950-01-01",end="2011-
   }
   
   # Legende cartes
-  par(pty="m",mar=c(1,0,2,0))
+  par(pty="m",mar=c(0.5,0,0.5,0))
   
   if(k==1){ 
     N <- 11
