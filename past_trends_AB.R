@@ -81,29 +81,6 @@ get.event <- function(){
   as.character(data$RTM.T)
 }
 
-# Import de la serie mensuelle de NAO
-get.nao <- function(start="1950",end="2019",sais="all",daily=F){
-  if(!daily){
-    if(sais=="all"){
-      nao <- read.csv("2_Travail/Data/NAO/annual_NAO_1865-2019.txt",skip =3,header = T,sep = "")
-    }
-    
-    if(sais!="all"){
-      nao <- read.csv("2_Travail/Data/NAO/seasonal_NAO_1865-2019.txt",skip =3,header = T,sep = "")
-      if(sais=="winter") nao <- nao[,c("YEAR","DJF")]
-      if(sais=="spring") nao <- nao[,c("YEAR","MAM")]
-      if(sais=="summer") nao <- nao[,c("YEAR","JJA")]
-      if(sais=="autumn") nao <- nao[,c("YEAR","SON")]
-    }
-  }else{
-    nao <- read.csv(file = "2_Travail/Data/NAO/daily_NAO_NOAA.txt",sep="",skip= 4)
-  }
-  
-  year <- seq(as.numeric(start),as.numeric(end))
-  nao <- nao[nao[,"YEAR"] %in% year,]
-  nao
-}
-
 # Carte de l'altitude des mailles ERA5
 map.topo.ERA5 <- function(reg=c("small","medium","large")){
   

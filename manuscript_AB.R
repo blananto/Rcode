@@ -17,10 +17,10 @@ combine.plot.descr.flood <- function(nbdays=1,rean="20CR-m1",start = "1851-01-01
 }
 
 # Combinaison de plusieurs plot.trend.precip.gev.wp
-combine.plot.trend.precip.gev.wp <- function(bv=c("Isere-seul","Drac-seul"),nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31"){
+combine.plot.trend.precip.gev.wp <- function(bv=c("Isere-seul","Drac-seul"),nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31",rain=F){
   
   # graphique
-  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip.gev.wp/plot_trend_precip_gev_wp_",bv[1],"_",bv[2],"_",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".png"),width = 10,height = 6,units = "in",res=600)
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.precip.gev.wp/plot_trend_precip_gev_wp_",ifelse(rain,"rain_",""),bv[1],"_",bv[2],"_",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".png"),width = 10,height = 6,units = "in",res=600)
   layout(mat = matrix(data = c(rep(1,5),2:6,rep(7,5),8:12),nrow = 4,ncol = 5,byrow = T),widths = c(0.1,1,1,1,1),heights = c(0.1,1,0.1,1))
   
   for(i in 1:length(bv)){
@@ -32,12 +32,78 @@ combine.plot.trend.precip.gev.wp <- function(bv=c("Isere-seul","Drac-seul"),nbda
     
     # Axe
     plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
-    text(1,0.5,"Precipitation (mm/day)",srt=90,cex=1.3)
+    text(1,0.5,ifelse(rain,"Rain (mm/day)","Precipitation (mm/day)"),srt=90,cex=1.3)
     
     # Plot
     par(mar=c(3,2,2,0))
-    plot.trend.precip.gev.wp(bv = bv[i],nbdays = nbdays,spazm = spazm,start = start,end = end,leg = ifelse(i==1,T,F))
+    plot.trend.precip.gev.wp(bv = bv[i],nbdays = nbdays,spazm = spazm,start = start,end = end,leg = ifelse(i==1,T,F),rain = rain)
   }
+  graphics.off()
+}
+
+# Combinaison de plusieurs plot.trend.temp
+combine.plot.trend.temp <- function(bv=c("Isere-seul","Drac-seul"),nbdays=1,start="1950-01-01",end="2017-12-31",rain=F){
+  
+  # graphique
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.temp/plot_trend_temp_",ifelse(rain,"rain_",""),bv[1],"_",bv[2],"_",nbdays,"day_",start,"_",end,".png"),width = 10,height = 6,units = "in",res=600)
+  layout(mat = matrix(data = c(rep(1,5),2:6,rep(7,5),8:12),nrow = 4,ncol = 5,byrow = T),widths = c(0.1,1,1,1,1),heights = c(0.1,1,0.1,1))
+  
+  for(i in 1:length(bv)){
+    
+    # Titre
+    par(mar=c(0,0,0,0))
+    plot(1,1,type="n",bty="n",xaxt="n",yaxt="n")
+    text(1,1,nam2str(bv[i]),font=2,cex=2.5)
+    
+    # Axe
+    plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+    text(1,0.5,"Temperature (°C)",srt=90,cex=1.3)
+    
+    # Plot
+    par(mar=c(3,2,2,0))
+    plot.trend.temp(bv = bv[i],nbdays = nbdays,start = start,end = end,leg = ifelse(i==1,T,F),rain = rain)
+  }
+  graphics.off()
+}
+
+# Comparaison de MPD a la distance des centres d'action
+compare.dP.dist <-  function(k,rean,nbdays,start="1950-01-01",end="2017-12-31"){
+  
+  # Import des indicateurs
+  dP <- get.descriptor(descriptor = "dP",k = k,dist = "TWS",nbdays = nbdays,start = start,end = end,standardize = F,rean = rean,threeday = F,desais = F,period = "past",start.ana = "1950-01-01",end.ana = "2010-12-31")
+  dP_grad <- get.dP.grad(k = k,nbdays = nbdays,start = start,end = end,rean = rean)
+  dP.grad <- dP_grad[,1]
+  di <- dP_grad[,2]
+  lon.min <- dP_grad[,3]
+  lon.max <- dP_grad[,4]
+  lat.min <- dP_grad[,5]
+  lat.max <- dP_grad[,6]
+  rm(dP_grad)
+  
+  # Traitement: position des centres d'action au bord de la fenetre
+  pos.min <- unique(sort(c(which(lon.min %in% c(-10,22)),which(lat.min %in% c(36,52)))))
+  pos.max <- unique(sort(c(which(lon.max %in% c(-10,22)),which(lat.max %in% c(36,52)))))
+  pos <- intersect(pos.min,pos.max)
+  
+  classes <- seq(0,800,100)
+  per <- rep(NA,length(classes)-1)
+  nb.class <- per
+  
+  for(i in 1:(length(classes)-1)){
+    pos.class <- which(dP>classes[i] & dP<classes[i+1])
+    per[i] <- length(intersect(pos.class,pos))/length(pos.class)*100
+    nb.class[i] <- round(length(pos.class)/length(dP)*100,1)
+    
+  }
+
+  png(filename = paste0(get.dirstr(k,rean,period="present"),"compare.dP.dist/compare_dP_dist_k",k,"_mean",nbdays,"day_",rean,"_",start,"_",end,".png"),width = 6,height = 4,units = "in",res = 600)
+  par(mar=c(4,5,1,0))
+  barplot(height = per,space=0,ylim=c(0,100),xlab="MPD (m)",ylab="Percentage of Z500 min/max \n on the contour of the domain (%)",col="cornflowerblue",font.lab=2)
+  grid();par(new=T)
+  barplot(height = per,space=0,ylim=c(0,100),col="cornflowerblue")
+  axis(side = 1,at = 0:8,labels = classes)
+  text(x = 0.5:7.5,y=5,paste0(nb.class,"%"),font=2)
+  box()
   graphics.off()
 }
 
@@ -62,7 +128,7 @@ compare.dP.grad <- function(k,rean,nbdays,start="1950-01-01",end="2017-12-31",ex
     pos.larg <- which(di==larg)
   }
   
-  png(filename = paste0(get.dirstr(k,rean,period="past"),"compare.dP.grad/compare_dP_dPgrad_k",k,"_mean",nbdays,"day_",rean,"_",start,"_",end,ifelse(explain,"_explain",""),ifelse(qua,"_qua",""),ifelse(example,"_example",""),".png"),width = 5,height = 5,units = "in",res = 600)
+  png(filename = paste0(get.dirstr(k,rean,period="present"),"compare.dP.grad/compare_dP_dPgrad_k",k,"_mean",nbdays,"day_",rean,"_",start,"_",end,ifelse(explain,"_explain",""),ifelse(qua,"_qua",""),ifelse(example,"_example",""),".png"),width = 5,height = 5,units = "in",res = 600)
   par(pty="s",mar=c(4,4,0,0))
   plot(dP,dP.grad,xlab="MPD (m)",ylab="MPD_norm (m/°)",pch=19,cex=0.7)
   grid();par(new=T)
@@ -128,6 +194,19 @@ compare.dP.grad <- function(k,rean,nbdays,start="1950-01-01",end="2017-12-31",ex
   text(22.7,quantile(dP.grad,probs=0.9),"q80",col="red",font=2,cex=0.7)
   points(lon.min[pos.extr],dP.grad[pos.extr],pch=19,col="blue")
   graphics.off()
+}
+
+# Calcul de la latitude du max de vent zonal
+compute.lat.maxwind <- function(var="uwind",rean="ERA5",start="1950-01-01",end="2019-12-31"){
+  
+  # Import
+  data <- getdata(k = 1,day0 = start,day1 = end,rean = rean,climat = NULL,return.lonlat = T,var = var)
+  lon <- data$lon;lat <- data$lat;data <- data$data
+  
+  # Traitement
+  zonal.mean <- apply(data,3,colMeans)
+  lat.max <- apply(zonal.mean,2,function(v){lat[which.max(v)]})
+  save(lat.max,file = paste0(get.dirstr(k = 1,rean = rean,period = "past"),"compute.lat.maxwind/lat_max_zonal_wind",start,"_",end,".Rdata"))
 }
 
 # Renvoie un tableau de l'occurence des WP agreges par saison et annee
@@ -274,10 +353,11 @@ map.geo.tws <- function(dat=c("1961-07-02","1986-08-10","2013-01-26"),nbdays=2,r
                 labels = paste0("        ",leg),at = ecdf(ran)(leg),
                 vertical = T,xlim = c(0.1,0.5),ylim = c(0,1),cex=1.4)
     
-    # TWS
+    # TWS et percentile de celerite
+    per <- round(ecdf(cel)(cel[which(dates==as.character(as.Date(dat[i])+nbdays-1))]),2)
     plot(1,1,xaxt="n",yaxt="n",bty="n",type="n",xlab="",ylab="",xlim=c(0,1),ylim=c(0,1))
-    text(0.5,0.5,paste0("TWS = ",round(cel[which(dates==as.character(as.Date(dat[i])+nbdays-1))],2)),font=2,cex=1.7)
-    print(ecdf(cel)(cel[which(dates==as.character(as.Date(dat[i])+nbdays-1))]))
+    text(0.5,0.5,paste0("TWS = ",round(cel[which(dates==as.character(as.Date(dat[i])+nbdays-1))],2),"\n (q=",per,")"),font=2,cex=1.7)
+    print(per)
   }
   graphics.off()
 }
@@ -422,6 +502,63 @@ plot.event.river <- function(){
   lines(ann,cum.event,col="blue")
 }
 
+# Trace differents graphiques de latitude du max du vent zonal, par wp
+plot.lat.maxwind <- function(wp=1,rean="ERA5",start="1950-01-01",end="2019-12-31"){
+  
+  dates <- getdates(start,end)
+  ann <- unique(substr(dates,1,4))
+  
+  # Imports
+  load(paste0(get.dirstr(k = 1,rean = rean,period = "past"),"compute.lat.maxwind/lat_max_zonal_wind",start,"_",end,".Rdata"))
+  tt <- get.wp(nbdays = 1,start = start,end = end,agreg = T,spazm = T)
+  pos.tt <- which(tt==wp)
+  if(wp=="all"){pos.tt <- 1:length(dates)}
+  
+  # Graphique densité
+  season <- c("winter","spring","summer","autumn")
+  png(filename = paste0(get.dirstr(k = 1,rean = rean,period = "past"),"plot.lat.maxwind/plot_density_max_zonal_wind_wp",wp,"_",start,"_",end,".png"),width = 9,height = 7,units = "in",res = 600)
+  par(mfrow=c(2,2),mar=c(4,4,2,0))
+  for(i in 1:length(season)){
+    pos.sea <- get.ind.season.past(sais = season[i],start = start,end = end,nbdays = 1)
+    pos.i <- intersect(pos.tt,pos.sea)
+    plot(density(lat.max[pos.i]),xlab="Latitude (°)",main=nam2str(season[i]),cex.main=2)
+    grid();par(new=T)
+    plot(density(lat.max[pos.i]),xlab="Latitude (°)",main=nam2str(season[i]),cex.main=2)
+  }
+  graphics.off()
+  
+  # Graphique tendance
+  if(wp!="all"){lat.max[tt!=wp] <- NA}
+  png(filename = paste0(get.dirstr(k = 1,rean = rean,period = "past"),"plot.lat.maxwind/plot_trend_max_zonal_wind_wp",wp,"_",start,"_",end,".png"),width = 9,height = 7,units = "in",res = 600)
+  par(mfrow=c(2,2),mar=c(2,4,2,4))
+  
+  for(i in 1:length(season)){
+    # Calcul
+  pos.i <- get.ind.season(sais = season[i],start = start,end = end)
+  tmp <- lat.max[pos.i$pos.season]
+  tmp[pos.i$pos.NA] <- NA
+  dim(tmp) <- c(pos.i$l.season,pos.i$n.season)
+  vec.i <- apply(tmp,2,mean,na.rm=T)
+  if(season[i]=="winter"){vec.i <- c(NA,vec.i)}
+  
+  # Plot
+  plot(ann,vec.i,type="l",xlab="",ylab="Latitude (°)",main=nam2str(season[i]),cex.main=2)
+  grid();par(new=T)
+  plot(ann,vec.i,type="l",xlab="",ylab="Latitude (°)",main=nam2str(season[i]),cex.main=2)
+  abline(lm(vec.i~as.numeric(ann),na.action = "na.exclude"))
+  
+  # NAO
+  shif <- round(mean(range(vec.i,na.rm=T),na.rm=T),0) # decalage a appliquer à NAO pour être dans le graphique
+  nao <- get.nao(start = substr(start,1,4),end = substr(end,1,4),sais = season[i],daily = F)
+  lines(nao[,1],nao[,2]+shif,col="darkblue")
+  abline(lm((nao[,2]+shif)~as.numeric(nao[,1])),col="darkblue")
+  axis(side = 4,at = pretty(range(vec.i,na.rm=T)),labels = pretty(range(vec.i,na.rm=T))-shif,col.axis="darkblue")
+  mtext(text = "NAO",side = 4,srt=90,line = 2.5,col="darkblue")
+  text(quantile(as.numeric(ann),0.1),min(vec.i,na.rm=T)+0.5,paste0("R=",round(cor(vec.i,nao[,2],use = "pairwise.complete.obs"),2)))
+  }
+  graphics.off()
+}
+  
 # Trace des percentiles de precip associes aux max annuels de debit sur l'Isere a St Gervais
 plot.quant.rain <- function(nbdays=3,spazm=F,start = "1969-01-01",end="2017-12-31"){
   
@@ -467,15 +604,43 @@ plot.quant.rain <- function(nbdays=3,spazm=F,start = "1969-01-01",end="2017-12-3
   print(paste0("Nombre superieur a q99: ",sum(dis.ind>99)))
 }
 
+# Trace la saisonalité de thetawp avec max saisonniers de precip ou pluie par dessus
+#plot.sais.thetawp <- function(bv="Isere-seul",rean="ERA5",start="1950-01-01",end="2017-12-31"){
+#  
+#  dates <- getdates(start,end)
+#  dates.pos <- unique(substr(dates,6,10))
+#  
+#  # Import thetawp à Grenoble (Ecoutoux à ces coordonnees)
+#  thetawp <- getdata(k = 1,day0 = start,day1 = end,rean = rean,pt.lon = 5.75,pt.lat = 45.25,var = "thetawp")
+#  
+#  # Traitement
+#  pos.flood <- match(c("2001-03-22","2008-05-30","2010-05-31","2015-05-02"),dates)
+#  
+#  plot.sais.quantile(dates = dates,vec = thetawp,y.label = "Thetawp (°C)",main = "",colo = "red")
+#  season <- c("winter","spring","summer","autumn")
+#  for(i in 1:length(season)){
+#    pos.i <- get.ind.max.sais(sais = season[i],wp = "all",nbdays = 1,start = start,end = end,bv = bv,spazm = T,rain = T)
+#    x.i <- match(substr(dates[pos.i],6,10),dates.pos)
+#    points(x.i,thetawp[pos.i],pch=19,col="red",cex=0.7)
+#    if((pos.flood-1) %in% pos.i){
+#      pos.ii <- which(pos.i %in% (pos.flood-1))
+#      points(x.i[pos.ii],thetawp[pos.i[pos.ii]],pch=19,col="darkgreen")
+#      }
+#  }
+#  
+#  
+#  
+#}
+
 # Graphique d'evolution des max saisonniers de precip avec droites GEV (sans enregistrement)
-plot.trend.precip.gev.wp <- function(bv="Isere-seul",nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31",leg=T){
+plot.trend.precip.gev.wp <- function(bv="Isere-seul",nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31",leg=T,rain=F){
   
   dates <- getdates(start,end)
   ann <- as.numeric(unique(substr(dates,1,4)))
   
   # Imports
-  precip <- get.precip(nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm)
-  load(paste0("2_Travail/1_Past/Rresults/fit.gev.obs/fit_gev_",bv,"_mean",nbdays,"day",ifelse(spazm,"_spazm",""),"_",start,"_",end,".Rdata"))
+  precip <- get.precip(nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm,rain = rain)
+  load(paste0("2_Travail/1_Past/Rresults/fit.gev.obs/fit_gev_",ifelse(rain,"rain_",""),bv,"_mean",nbdays,"day",ifelse(spazm,"_spazm",""),"_",start,"_",end,".Rdata"))
   wp <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = spazm)
   
   # Traitement et Graphique
@@ -485,7 +650,7 @@ plot.trend.precip.gev.wp <- function(bv="Isere-seul",nbdays=1,spazm=T,start="195
   for(i in 1:length(sais)){
     
     # Traitement max saisonnier
-    pos <- get.ind.max.sais(sais = sais[i],wp = "all",nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm)
+    pos <- get.ind.max.sais(sais = sais[i],wp = "all",nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm,rain = rain)
     max.vec <- precip[pos]
     if(sais[i]=="winter"){pos <- c(NA,pos);max.vec <- c(NA,max.vec)}
     
@@ -520,5 +685,46 @@ plot.trend.precip.gev.wp <- function(bv="Isere-seul",nbdays=1,spazm=T,start="195
     lines(ann,rl20,col="red",lty=lty.i,lwd=2)
     if(i==1 & leg){legend("topright",c("RL20","Mean"),lty=c(1,1),lwd=2,col=c("red","blue"),bty="n")}
     #if(i==1 & leg){legend("topright",c("Mean"),lty=1,lwd=2,col="blue",bty="n")}
+  }
+}
+
+# Graphique d'evolution de la temperature saisonniere et aux dates des max
+plot.trend.temp <- function(bv="Isere-seul",nbdays=1,start="1950-01-01",end="2017-12-31",leg=T,rain=F){
+  
+  dates <- getdates(start,end)
+  ann <- as.numeric(unique(substr(dates,1,4)))
+  
+  # Import
+  temp <- get.temp(nbdays = nbdays,start = start,end = end,bv = bv)
+  temp.qua <- ecdf(temp)(temp)
+  
+  # Traitement et graphique
+  season <- c("winter","spring","summer","autumn")
+  
+  for(i in 1:length(season)){
+    
+    # Moyennes saisonnieres
+    pos.i <- get.ind.season(sais = season[i],start = start,end = end)
+    tmp <- temp[pos.i$pos.season]
+    tmp[pos.i$pos.NA] <- NA
+    dim(tmp) <- c(pos.i$l.season,pos.i$n.season)
+    vec.i <- apply(tmp,2,mean,na.rm=T)
+    if(season[i]=="winter"){vec.i <- c(NA,vec.i)}
+    
+    # Dates des max de precip
+    pos.max.i <- get.ind.max.sais(sais = season[i],wp = "all",nbdays = nbdays,start = start,end = end,bv = bv,spazm = T,rain = rain)
+    if(season[i]=="winter"){pos.max.i <- c(NA,pos.max.i)}
+    #print(temp.qua[pos.max.i])
+    #print(temp[pos.max.i])
+    
+    # Plot
+    plot(ann,vec.i,type="l",xlab="",ylab="Temperature (°C)",main=nam2str(season[i]),ylim=range(c(temp[pos.max.i],vec.i),na.rm = T))
+    grid();par(new=T)
+    plot(ann,vec.i,type="l",xlab="",ylab="Temperature (°C)",main=nam2str(season[i]),ylim=range(c(temp[pos.max.i],vec.i),na.rm = T))
+    abline(lm(vec.i~as.numeric(ann)))
+    
+    lines(ann,temp[pos.max.i],col="red")
+    abline(lm(temp[pos.max.i]~as.numeric(ann)),col="red")
+    if(i==1 & leg){legend("bottomright",c("Mean",ifelse(rain,"Max Rain","Max Precip")),lty=c(1,1),lwd=2,col=c("black","red"),bty="n")}
   }
 }

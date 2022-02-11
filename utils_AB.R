@@ -1447,6 +1447,40 @@ compare.crps.wp <- function(k,dist,nbdays=1,start="1950-01-01",end="2011-12-31",
   }
 }
 
+# Calcul de l'iso 0°C
+compute.iso0 <- function(start="1859-10-01",end="1859-11-05",rean="20CR-m1"){
+  
+  dates <- getdates(start,end)
+  
+  # Import donnes T et Z au point de grille le plus proche de Grenoble: lon 6 lat 46: Sallenoves proche d'Annecy
+  t850<- getdata(k = 1,day0 = start,day1 = end,rean = rean,climat = NULL,pt.lon = 6,pt.lat = 46,var = "t850")
+  t700<- getdata(k = 1,day0 = start,day1 = end,rean = rean,climat = NULL,pt.lon = 6,pt.lat = 46,var = "t700")
+  z850<- getdata(k = 1,day0 = start,day1 = end,rean = rean,climat = NULL,pt.lon = 6,pt.lat = 46,var = "z850")
+  z700<- getdata(k = 1,day0 = start,day1 = end,rean = rean,climat = NULL,pt.lon = 6,pt.lat = 46,var = "z700")
+  
+  # Interpolation
+  iso <- rep(NA,length(dates))
+  
+  for(i in 1:length(dates)){
+    vec.t <- c(t850[i],t700[i])
+    vec.z <- c(z850[i],z700[i])
+    reg <- lm(vec.z~vec.t)
+    iso[i] <- reg$coefficients[1]
+  }
+  
+  # Illustration interpolation dernière date
+  png(filename = paste0("2_Travail/0_Present/Rresults/compute.iso0/plot_interpolation_",rean,"_",dates[i],".png"),width = 5,height = 4,units = "in",res = 600)
+  plot(vec.t,vec.z,pch=19,xlim=c(-2,8),ylim=c(0,4000),xlab="Temperature (°C)",ylab="Altitude (m)",main=dates[i])
+  grid()
+  abline(reg,col="red")
+  abline(v=0,lty=2)
+  abline(h=reg$coefficients[1],lty=2)
+  graphics.off()
+  
+  # Export iso 0°C
+  save(iso,file = paste0("2_Travail/0_Present/Rresults/compute.iso0/iso0_",rean,"_",start,"_",end,".Rdata"))
+}
+
 # Comparaison des interpolations TPS et SPAZM
 compare.tps.spazm <- function(nbdays,start,end,bv){
   
@@ -2910,7 +2944,7 @@ get.descriptor<-function(descriptor,k,dist,nbdays=3,start="1950-01-01",end="2011
 }
 
 # Modifie le repertoire d'ecriture des resultats selon k et overall/seasonal 
-get.dirstr<-function(k=NULL,rean,period="present"){
+get.dirstr<-function(k=NULL,rean,period="present",seasonal=F){
   
   if(period=="present"){
   if (seasonal) {dirstr<-paste0("2_Travail/0_Present/",rean,"/Rresults/seasonal/")
@@ -2966,7 +3000,7 @@ get.dP.grad <- function(k,nbdays,start="1950-01-01",end="2017-12-31",rean){
     pos.maxi <- which(mat == maxi, arr.ind=TRUE);if(dim(pos.maxi)[2]>1) pos.maxi <- pos.maxi[1,]
     di <- sqrt((lon[pos.mini[1]]-lon[pos.maxi[1]])^2+(lat[pos.mini[2]]-lat[pos.maxi[2]])^2)
     res <- (maxi-mini)/di
-    c(res,di,lon[pos.mini[1]],lon[pos.maxi[1]])
+    c(res,di,lon[pos.mini[1]],lon[pos.maxi[1]],lat[pos.mini[2]],lat[pos.maxi[2]])
   }
   
   des <- t(apply(geo,3,fun.mat)) # en m/degrés
@@ -3070,10 +3104,10 @@ get.ind.max.flow <- function(flow,agreg,nbdays,start,end,spazm=F,supseuil=F,nei=
 }
 
 # Renvoie les indices des max saisonniers de precip associes a un wp
-get.ind.max.sais <- function(sais="winter",wp=1,nbdays=3,start="1950-01-01", end="2011-12-31",bv="Isere",spazm=F){
+get.ind.max.sais <- function(sais="winter",wp=1,nbdays=3,start="1950-01-01", end="2011-12-31",bv="Isere",spazm=F,rain=F){
   
   # Import
-  precip <- get.precip(nbdays,start,end,bv,spazm)
+  precip <- get.precip(nbdays,start,end,bv,spazm,rain)
   dates <- as.Date(getdates(start,as.character(as.Date(end)-nbdays+1)))
   
   # WP
@@ -3204,6 +3238,33 @@ get.min.max.wind <- function(k,start="1950-01-01",end="2011-12-31",rean){
   c(mini,maxi)
 }
 
+# Import de la serie mensuelle de NAO
+get.nao <- function(start="1950",end="2019",sais="all",daily=F,normalized=F){
+  if(!daily){
+    if(sais=="all"){
+      nao <- read.csv("2_Travail/Data/NAO/annual_NAO_1865-2019.txt",skip =3,header = T,sep = "")
+    }
+    
+    if(sais!="all"){
+      nao <- read.csv("2_Travail/Data/NAO/seasonal_NAO_1865-2019.txt",skip =3,header = T,sep = "")
+      if(sais=="winter") nao <- nao[,c("YEAR","DJF")]
+      if(sais=="spring") nao <- nao[,c("YEAR","MAM")]
+      if(sais=="summer") nao <- nao[,c("YEAR","JJA")]
+      if(sais=="autumn") nao <- nao[,c("YEAR","SON")]
+    }
+  }else{
+    if(!normalized){
+      nao <- read.csv(file = "2_Travail/Data/NAO/daily_NAO_NOAA.txt",sep="",skip= 4)
+    }else{
+      nao <- read.csv(file = "2_Travail/Data/NAO/daily_normalized_NAO_NOAA.txt",sep="",skip= 2)
+    }
+  }
+  
+  year <- seq(as.numeric(start),as.numeric(end))
+  nao <- nao[nao[,"YEAR"] %in% year,]
+  nao
+}
+
 # Renvoie les parametres utiles pour le trace d'une carte
 get.param.map <- function(field,var="vv700",type=c("Mean","Trend")){
   
@@ -3284,12 +3345,14 @@ get.pluvio.sous.bv <- function(){
   save(data,file="8_Enseignement/1_Variabilite_climatique/2020/Projet/data_precip.Rdata")
 }
 
-# Importation des donnees de precipitation
-get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm=F){
+# Import des donnees de precipitation
+get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm=F,rain=F){
   
   # Chemin
   if(spazm){
     dir <- "2_Travail/Data/Precip/SPAZM/"
+    cum <- "cum"
+    if(rain){dir <- paste0(dir,"rain/");cum <- "cumrain"}
     start.date <- "1950-01-01"
     end.date <- "2017-12-31"
   }else{
@@ -3298,7 +3361,7 @@ get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm
     end.date <- "2019-12-31"}
   
   # Import
-  precip <- read.csv(file=paste0(dir,bv,"_cum1day_",start.date,"_",end.date,".csv"))
+  precip <- read.csv(file=paste0(dir,bv,"_",cum,"1day_",start.date,"_",end.date,".csv"))
   precip <- precip[,1]
   
   # Dates
@@ -3315,6 +3378,31 @@ get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm
   }
   
   precip
+}
+
+# Import des donnees de temperature
+get.temp<-function(nbdays,start="1950-01-01",end="2017-12-31",bv="Isere-seul"){
+  
+  # Import
+  load("2_Travail/Data/Temperature/SPAZM/meantemp-drac-isere_1950-2017.Rdata")
+  if(bv=="Isere-seul"){temp <- meantemp$mean.isere}
+  if(bv=="Drac-seul"){temp <- meantemp$mean.drac}
+  
+  # Dates
+  start.date <- "1950-01-01"
+  end.date <- "2017-12-31"
+  dates.ask <- getdates(start,end)
+  dates <- getdates(start.date,end.date)
+  
+  if(length(dates.ask) < length(dates)){
+    temp <- temp[match(dates.ask,dates)]
+  }
+  
+  # nbdays 
+  if(nbdays!=1){
+    temp <- rollapply(temp,nbdays,mean)
+  }
+  temp
 }
 
 # Renvoie les limites de lon et lat pour carte
@@ -3820,13 +3908,16 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
       nc <-nc_open("2_Travail/Data/Reanalysis/20CR/WIND/20Crv2c_EnsembleMean_VWIND_500_1851-2014_daily.nc")
     }
     
-    # Faire un reshape des t850 t700 z850 z700
-    if(substr(rean,1,4) == "20CR" & substr(var,1,1) == "t"){
-      nc <-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/Membre_1/20Crv2c_mbr01_T",substr(var,2,4),"_1851-2014_day_WestEur.nc"))
-      names(nc$var)[2] <- var
-      nc$var[[2]]$name <- var
-    }
-    
+    if(substr(rean,1,4) == "20CR"){
+      if(substr(var,1,1) == "t"){nam <- "T"}
+      if(substr(var,1,1) == "z"){nam <- "Z"}
+      if(substr(rean,7,7)=="0"){part1 <- "moyen";part2 <- "mean"}
+      if(substr(rean,7,7)=="1"){part1 <- "1";part2 <- "01"}
+      if(substr(rean,7,7)=="2"){part1 <- "2";part2 <- "02"}
+      nc <-nc_open(paste0("2_Travail/Data/Reanalysis/20CR/Membre_",part1,"/20Crv2c_mbr",part2,"_",nam,substr(var,2,4),"_1851-2014_day_WestEur.nc"))
+      if(substr(rean,7,7)=="0"){names(nc$dim)[1] <- "lon";names(nc$dim)[2] <- "lat";names(nc$dim)[3] <- "time"}
+      
+      }
     
     if(rean == "ERA20C"){
       nc500<-nc_open("2_Travail/Data/Reanalysis/ERA20C/ERA20C_HGT500_1900_2010_daily.nc")
@@ -3911,7 +4002,7 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
       nc$var[[1]]$name <- var
     }
     
-    if(rean == "ERA5" & substr(var,1,1) == "t" & var!="tcw" & var!="topo"){
+    if(rean == "ERA5" & substr(var,1,1) == "t" & var!="tcw" & var!="topo" & var!="thetawp"){
       nc <-nc_open(paste0("2_Travail/Data/Reanalysis/ERA5/T/ERA5_T",substr(var,2,4),"_1950_2021_daily.nc"))
       names(nc$var) <- var
       nc$var[[1]]$name <- var
@@ -3921,6 +4012,10 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
       nc <-nc_open(paste0("2_Travail/Data/Reanalysis/ERA5/RH/ERA5_RH",substr(var,3,5),"_1950_2021_daily.nc"))
       names(nc$var) <- var
       nc$var[[1]]$name <- var
+    }
+    
+    if(rean == "ERA5" & var == "thetawp"){
+      nc <-nc_open(paste0("2_Travail/Data/Reanalysis/ERA5/THETAW/ERA5_THETAWP850_1950-01-01_28-02-2021_day_smallWestEur.nc"))
     }
     
     if(rean == "ERA5" & var == "precip"){
@@ -4062,7 +4157,7 @@ make.precip1.isere<-function(start="1950-01-01",end="2011-12-31") {
 manip.spazm <- function(){
   
   # Import
-  load("2_Travail/Data/Precip/SPAZM/accum-drac-isere_SPAZM_1950-2017.Rdata")
+  load("2_Travail/Data/Precip/SPAZM/rain/accumrain-drac-isere_1950-2017.Rdata")
   
   # Surfaces
   print(paste0("Surface BV Isere: ",length(accum$idx.isere)+length(accum$idx.drac), "km2"))
@@ -4075,23 +4170,22 @@ manip.spazm <- function(){
   accum$sum.drac <- accum$sum.drac[deb:fin]
   
   # Isere
-  precip.isere <- (accum$sum.isere+accum$sum.drac)/(length(accum$idx.isere)+length(accum$idx.drac))
-  precip.isere.3j <- rollapply(precip.isere,3,mean)
-  write.table(x = precip.isere,file = "2_Travail/Data/Precip/SPAZM/Isere_cum1day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
-  write.table(x = precip.isere.3j,file = "2_Travail/Data/Precip/SPAZM/Isere_cum3day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
+  accum.isere <- (accum$sum.isere+accum$sum.drac)/(length(accum$idx.isere)+length(accum$idx.drac))
+  accum.isere.3j <- rollapply(accum.isere,3,mean)
+  write.table(x = accum.isere,file = "2_Travail/Data/Precip/SPAZM/rain/Isere_cumrain1day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
+  write.table(x = accum.isere.3j,file = "2_Travail/Data/Precip/SPAZM/rain/Isere_cumrain3day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
   
   # Isere seul
-  precip.isere.seul <- accum$sum.isere/length(accum$idx.isere)
-  precip.isere.seul.3j <- rollapply(precip.isere.seul,3,mean)
-  write.table(x = precip.isere.seul,file = "2_Travail/Data/Precip/SPAZM/Isere-seul_cum1day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
-  write.table(x = precip.isere.seul.3j,file = "2_Travail/Data/Precip/SPAZM/Isere-seul_cum3day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
+  accum.isere.seul <- accum$sum.isere/length(accum$idx.isere)
+  accum.isere.seul.3j <- rollapply(accum.isere.seul,3,mean)
+  write.table(x = accum.isere.seul,file = "2_Travail/Data/Precip/SPAZM/rain/Isere-seul_cumrain1day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
+  write.table(x = accum.isere.seul.3j,file = "2_Travail/Data/Precip/SPAZM/rain/Isere-seul_cumrain3day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
   
   # Drac seul
-  precip.drac.seul <- accum$sum.drac/length(accum$idx.drac)
-  precip.drac.seul.3j <- rollapply(precip.drac.seul,3,mean)
-  write.table(x = precip.drac.seul,file = "2_Travail/Data/Precip/SPAZM/Drac-seul_cum1day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
-  write.table(x = precip.drac.seul.3j,file = "2_Travail/Data/Precip/SPAZM/Drac-seul_cum3day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
-  
+  accum.drac.seul <- accum$sum.drac/length(accum$idx.drac)
+  accum.drac.seul.3j <- rollapply(accum.drac.seul,3,mean)
+  write.table(x = accum.drac.seul,file = "2_Travail/Data/Precip/SPAZM/rain/Drac-seul_cumrain1day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
+  write.table(x = accum.drac.seul.3j,file = "2_Travail/Data/Precip/SPAZM/rain/Drac-seul_cumrain3day_1950-01-01_2017-12-31.csv",sep = ";",row.names = F, col.names = T)
 }
 
 # Carte de geopotentiel d'un jour donne
@@ -4254,6 +4348,28 @@ map.geo <- function(date,rean="20CR",climat=NULL,run=1,k,nbdays=1,save=F,win=F,l
   }
   
   if(save) graphics.off()
+}
+
+# Carte generique, autre variable que geopotentiel
+map.var <- function(date="1859-10-23",var="t850",rean="20CR-m1"){
+  
+  # Import des donnees
+  data <- getdata(k = 1,day0 = date,day1 = date,rean = rean,climat = NULL,all = T,var = var,return.lonlat = T)
+    
+  # Carte
+  png(filename = paste0("2_Travail/0_Present/Rresults/map.var/map_",rean,"_",var,"_",date,".png"),width = 5,height = 5,units = "in",res=600)
+  par(mar=c(1,1,3,1),pty="s")
+  data(wrld_simpl)
+    
+  breaks <- seq(-30,30,length.out = 12)
+  N <- 11
+  lab <- seq(-30,30,10)
+      
+  image.plot(data$lon,data$lat,data$data,xlim=c(-15,25),ylim=c(25,65),main=date,
+            col=rev(brewer.pal(n = N, name = "RdBu")),xaxt="n",yaxt="n",xlab="",ylab="",breaks = breaks,cex.main=2)
+  plot(wrld_simpl, add = TRUE)
+  box()
+  graphics.off()
 }
 
 # Carte de geopotentiel d'un jour donne (cartes serrees pour poster)
@@ -5479,6 +5595,69 @@ plot.empir.sel<-function(rean,k,descriptors,dist,nbdays=3,start="1950-01-01",end
   
 }
 
+plot.iso0 <- function(start="1859-10-01",end="1859-11-05"){
+  
+  dates <- getdates(start,end)
+  library(plotfunctions) # add_bars() regle le problème d'alignement du barplot
+  
+  # Import iso
+  load(paste0("2_Travail/0_Present/Rresults/compute.iso0/iso0_20CR-m0_",start,"_",end,".Rdata"))
+  iso.m0 <- iso
+  load(paste0("2_Travail/0_Present/Rresults/compute.iso0/iso0_20CR-m1_",start,"_",end,".Rdata"))
+  iso.m1 <- iso
+  load(paste0("2_Travail/0_Present/Rresults/compute.iso0/iso0_20CR-m2_",start,"_",end,".Rdata"))
+  iso.m2 <- iso
+  rm(iso)
+  iso.auffray <- c(3600,3650,3700,3750,3750,3700,3300,3350,3400,3350,3300,2900,2900,3050,3050,3100,3100,3050,2800,2600,2250,2150,1100,1300,1800,1850,2000,1650,1600,1650,2350,3100,2100,2100,2200,2450)
+  precip.auffray <- c(0,0,0,0,0,3,4,0,2,11,9,9.5,9,14,13,2,0,1,6,13,16,10,18,0,0,20,5,0,25,11,55,65,0,0,0,9)
+  
+  # Graphique
+  png(filename = paste0("2_Travail/0_Present/Rresults/plot.iso0/plot_iso_",start,"_",end,".png"),width = 7,height = 5,units = "in",res = 600)
+  par(mar=c(4,4,3,3))
+  plot(as.Date(dates),iso.m1,type="l",col="grey",ylim=c(0,4000),main="Altitude Isotherme 0°C - Octobre 1859",xlab="Date",ylab="Altitude (m)")
+  grid()
+  add_bars(as.Date(dates),precip.auffray*40,col="lightblue")
+  lines(as.Date(dates),iso.m1,col="grey")
+  lines(as.Date(dates),iso.m2,col="grey")
+  lines(as.Date(dates),iso.m0)
+  lines(as.Date(dates),iso.auffray,col="red")
+  abline(v=as.Date("1859-10-20")+0.5)
+  abline(v=as.Date("1859-10-30")+0.5)
+  axis(side = 4,at = seq(0,4000,800),labels = seq(0,100,20))
+  mtext("Precipitation (mm)", side=4, line=2)
+  legend("left",bty="n",col=c("black","grey","grey","red"),lty=1,c("20CR-m0","20CR-m1","20CR-m2","Auffray-etal-2011"),cex=0.8)
+  graphics.off()
+  
+  # Cohérence avec temperature Grenoble
+  temp.max.grenoble <- c(25,23,25,25,23,23,20,21,20.5,22,22,20.5,18,18,21,20.5,20.5,20.5,20,15,12,11,10,12,15,17,13,13,13,13,15,20,16,15,21,17,17,16,13,11,10)
+  temp.min.grenoble <- c(16,16,16,14,16,14,14,14,17,15,15,10,13,14,13,13.5,13,12,13,11,10,9,4,4,14,6,3,9,6,11,15,12,5,12,15,10,9,12,7,6,4)
+  temp.mean.grenoble <- (temp.max.grenoble+temp.min.grenoble)/2
+  temp.mean.grenoble <- temp.mean.grenoble[1:36]
+  
+  grad.m0 <- temp.mean.grenoble/(iso.m0-220)*100 # 220m: altitude de Grenoble
+  grad.m1 <- temp.mean.grenoble/(iso.m1-220)*100
+  grad.m2 <- temp.mean.grenoble/(iso.m2-220)*100
+  grad.auffray <- temp.mean.grenoble/(iso.auffray-220)*100
+  
+  # Graphique
+  png(filename = paste0("2_Travail/0_Present/Rresults/plot.iso0/plot_grad_",start,"_",end,".png"),width = 7,height = 5,units = "in",res = 600)
+  par(mar=c(4,4,3,3))
+  plot(as.Date(dates),grad.m1,type="l",col="grey",ylim=c(0,1),main="Gradient Altitudinal de température - Octobre 1859",xlab="Date",ylab="Gradient (°C/100m)")
+  grid()
+  add_bars(as.Date(dates),precip.auffray/100,col="lightblue")
+  lines(as.Date(dates),grad.m1,col="grey")
+  lines(as.Date(dates),grad.m2,col="grey")
+  lines(as.Date(dates),grad.m0)
+  lines(as.Date(dates),grad.auffray,type="l",col="red")
+  abline(v=as.Date("1859-10-20")+0.5)
+  abline(v=as.Date("1859-10-30")+0.5)
+  abline(h = 0.5)
+  axis(side = 4,at = seq(0,1,0.2),labels = seq(0,100,20))
+  mtext("Precipitation (mm)", side=4, line=2)
+  legend("topleft",bty="n",col=c("black","grey","grey","red"),lty=1,c("20CR-m0","20CR-m1","20CR-m2","Auffray-etal-2011"),cex=0.8)
+  graphics.off()
+}
+
 # plot le papillon de Lorenz en 3d colorie par indicateur
 plot.lorenz <- function(){
   
@@ -6266,6 +6445,50 @@ read_bd=function(path){
   bd$fin_meteo=dmy(bd$fin_meteo)
   colnames(bd)[1]="date"
   return(bd)
+}
+
+# Mise en forme de 20CR (T et Z 850 et 700). Membre moyen à faire manuellement car noms et dimensions differents
+reshape.20CR <- function(var="T850",rean="20CR-m1"){
+  
+  # Import reanalyse
+  if(substr(rean,7,7)=="0"){part1 <- "moyen";part2 <- "mean"}
+  if(substr(rean,7,7)=="1"){part1 <- "1";part2 <- "01"}
+  if(substr(rean,7,7)=="2"){part1 <- "2";part2 <- "02"}
+  nc <- nc_open(filename = paste0("2_Travail/Data/Reanalysis/20CR/Membre_",part1,"/20Crv2c_mbr",part2,"_",var,"_1851-2014_day_WestEur.nc"))
+  
+  # Donnees
+  if(substr(var,1,1)=="T"){
+    # old
+    vari <- "t"
+    # new
+    vari.name <- paste0("t",substr(var,2,4))
+    longname <- "Temperature"
+    unit <- "degree"
+  }
+  
+  if(substr(var,1,1)=="Z"){
+    # old
+    if(substr(rean,7,7)!="0" | var!="Z850"){
+    vari <- "gh"
+    }else{vari <- "z850"}
+    # new
+    vari.name <- paste0("z",substr(var,2,4))
+    longname <- "Geopotential height"
+    unit <- "meters"
+  }
+  
+  arr <- ncvar_get(nc = nc,varid = vari,start = c(1,1,1,1),count=c(nc$dim$lon$len,nc$dim$lat$len,nc$dim$lev$len,nc$dim$time$len))
+  
+  # Traitement
+  if(substr(var,1,1)=="T"){
+    arr <- arr-273.15
+  }
+  
+  # Export
+  res.form   <- ncvar_def(name = vari.name, units = unit, dim = list(nc$dim$lon,nc$dim$lat,nc$dim$time),prec = "float",longname = longname)
+  res.create <- nc_create(filename = paste0("2_Travail/Data/Reanalysis/20CR/Membre_",part1,"/20Crv2c_mbr",part2,"_",var,"_1851-2014_day_WestEur.nc"), vars = res.form)
+  ncvar_put(nc = res.create, varid = res.form,vals = arr)
+  nc_close(nc)
 }
 
 # Mise en forme de 20CR wind

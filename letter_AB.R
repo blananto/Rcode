@@ -477,33 +477,6 @@ corrplot.descr.season <- function(k,dist,start="1950-01-01",end="2017-12-31",rea
   
 }
 
-# Import de la serie mensuelle de NAO
-get.nao <- function(start="1950",end="2019",sais="all",daily=F,normalized=F){
-  if(!daily){
-    if(sais=="all"){
-      nao <- read.csv("2_Travail/Data/NAO/annual_NAO_1865-2019.txt",skip =3,header = T,sep = "")
-    }
-    
-    if(sais!="all"){
-      nao <- read.csv("2_Travail/Data/NAO/seasonal_NAO_1865-2019.txt",skip =3,header = T,sep = "")
-      if(sais=="winter") nao <- nao[,c("YEAR","DJF")]
-      if(sais=="spring") nao <- nao[,c("YEAR","MAM")]
-      if(sais=="summer") nao <- nao[,c("YEAR","JJA")]
-      if(sais=="autumn") nao <- nao[,c("YEAR","SON")]
-    }
-  }else{
-    if(!normalized){
-    nao <- read.csv(file = "2_Travail/Data/NAO/daily_NAO_NOAA.txt",sep="",skip= 4)
-    }else{
-      nao <- read.csv(file = "2_Travail/Data/NAO/daily_normalized_NAO_NOAA.txt",sep="",skip= 2)
-    }
-  }
-  
-  year <- seq(as.numeric(start),as.numeric(end))
-  nao <- nao[nao[,"YEAR"] %in% year,]
-  nao
-}
-
 # Carte composite des anomalies par wp ou groupement de wp, pour des composites deja calcules car trop lourds (ERA5)
 map.composite.sais <- function(sais="winter",descr="sing05",years=c(NA,NA),k,start,end,rean,leg=T,win=T,iso=T){
   

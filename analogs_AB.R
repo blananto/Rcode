@@ -490,13 +490,13 @@ compute.gev.ana.all.med <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,pe
 }
 
 # Calcule les RL20 et mean max selon la GEV pour l'observe
-compute.gev.obs <- function(bv="Isere",nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31"){
+compute.gev.obs <- function(bv="Isere",nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31",rain=F){
   
   dates <- getdates(start,end)
   year <- as.numeric(unique(substr(dates,1,4)))
   
   # Import GEV
-  load(file = paste0("2_Travail/1_Past/Rresults/fit.gev.obs/fit_gev_",bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
+  load(file = paste0("2_Travail/1_Past/Rresults/fit.gev.obs/fit_gev_",ifelse(rain,"rain_",""),bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
   
   # Estimations RL20/mean et export
   meanGEV.fct<-function(mu,sig,xi){mu+sig/xi*(gamma(1-xi)-1)}
@@ -518,7 +518,7 @@ compute.gev.obs <- function(bv="Isere",nbdays=1,spazm=T,start="1950-01-01",end="
     val.gev[[i]] <- tab
   }
   
-  save(val.gev,file = paste0("2_Travail/1_Past/Rresults/compute.gev.obs/compute_gev_",bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
+  save(val.gev,file = paste0("2_Travail/1_Past/Rresults/compute.gev.obs/compute_gev_",ifelse(rain,"rain_",""),bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
 }
 
 # Calcule les RL20 et mean max selon la GEV pour l'observe, pour tous les BVs
@@ -1162,10 +1162,10 @@ fit.gev.ana.par.all.med <- function(type="empir",k,dist,nbdays,nbana=0.2,rean,pe
 }
 
 # Calage loi gev sur les precip observees
-fit.gev.obs <- function(bv="Isere",nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31"){
+fit.gev.obs <- function(bv="Isere",nbdays=1,spazm=T,start="1950-01-01",end="2017-12-31",rain=F){
   
   # Import des precipitations
-  precip <- get.precip(nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm)
+  precip <- get.precip(nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm,rain = rain)
   
   # Fit
   sais <- c("winter","spring","summer","autumn")
@@ -1176,7 +1176,7 @@ fit.gev.obs <- function(bv="Isere",nbdays=1,spazm=T,start="1950-01-01",end="2017
     print(sais[i])
     fit[[i]] <- fit.gev(precip = precip,sais = sais[i],start = start,end = end)
   }
-  save(fit,file = paste0("2_Travail/1_Past/Rresults/fit.gev.obs/fit_gev_",bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
+  save(fit,file = paste0("2_Travail/1_Past/Rresults/fit.gev.obs/fit_gev_",ifelse(rain,"rain_",""),bv,"_mean",nbdays,"day_",ifelse(spazm,"spazm_",""),start,"_",end,".Rdata"))
 }
 
 # Calage loi gev sur les precip observees, pour tous les BVs
