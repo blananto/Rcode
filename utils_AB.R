@@ -3150,6 +3150,41 @@ get.ind.min.max.descr <- function(descr,k,dist,nbdays,start="1950-01-01",end="20
   res
 }
 
+# Renvoie les indices de precip>1mm pour un wp et une saison
+get.ind.precip.sais <- function(sais="winter",wp=1,nbdays=3,start="1950-01-01", end="2011-12-31",bv="Isere",spazm=F,rain=F){
+  
+  # Import
+  precip <- get.precip(nbdays = nbdays,start = start,end = end,bv = bv,spazm = spazm,rain = rain)
+  dates <- as.Date(getdates(start,as.character(as.Date(end)-nbdays+1)))
+  
+  # WP
+  if(wp!="all"){
+    tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = spazm)
+    precip[tt!=wp] <- NA
+  }
+  
+  # Traitement saisonnier
+  tmp <- get.ind.season(sais = sais,start = start,end = end)
+  pos.season <- tmp$pos.season
+  n.season <- tmp$n.season
+  l.season <- tmp$l.season
+  pos.NA <- tmp$pos.NA
+  rm(tmp)
+  
+  precip <- precip[pos.season]
+  precip[pos.NA] <- NA
+  dim(precip) <- c(l.season,n.season)
+  dim(pos.season) <- c(l.season,n.season)
+  
+  # Traitement
+  pos.tmp <- apply(precip,2,function(v){which(v>1)})
+  pos <- pos.tmp
+  for(i in 1:length(pos)){
+    pos[[i]] <- pos.season[pos.tmp[[i]],i]
+  }
+  unlist(pos)
+}
+
 # Renvoie les indices associes a une saison, et le nombre de saison dans la periode (hiver propre, bissextiles propres)
 get.ind.season <- function(sais,start="1950-01-01",end="2017-12-31"){
   
@@ -3266,21 +3301,19 @@ get.nao <- function(start="1950",end="2019",sais="all",daily=F,normalized=F){
 }
 
 # Renvoie les parametres utiles pour le trace d'une carte
-get.param.map <- function(field,var="vv700",type=c("Mean","Trend")){
+get.param.map <- function(ran,var="vv700",type=c("Mean","Trend")){
   
   # Couleur et breaks
-  if(substr(var,1,2)=="vv" | type=="Trend"){
+  if(substr(var,1,2)=="vv" | type=="Trend" | type=="Diff"){
     N <- 10
     col <- brewer.pal(n = N, name = "RdBu")
-    if(substr(var,1,1)=="t" | var=="hgt"){col <- rev(col)}
-    ran <- range(field,na.rm=T)
+    if(substr(var,1,1)=="t" | var=="hgt" | var=="slp"){col <- rev(col)}
     ran <- c(-max(abs(ran)),max(abs(ran)))
     breaks <- seq(ran[1],ran[2],length.out = N+1)
      }else{
       N <- 9
       col <- brewer.pal(n = N, name = "PuBu")
-      if(substr(var,1,1)=="t" | var=="hgt"){col <- rev(brewer.pal(n = N, name = "RdBu"))}
-      ran <- range(field,na.rm=T)
+      if(substr(var,1,1)=="t" | var=="hgt" | var=="slp"){col <- rev(brewer.pal(n = N, name = "RdBu"))}
       if(substr(var,1,2)=="rh"){ran <- c(0,100)}
       breaks <- seq(ran[1],ran[2],length.out = N+1)
      }
@@ -3289,7 +3322,15 @@ get.param.map <- function(field,var="vv700",type=c("Mean","Trend")){
   main <- type
   
   if(var=="hgt"){
-    leg <- ifelse(type=="Mean","500hPa Geopotential height (m)","500hPa Geopotential height Trend (m/10year)")
+    if(type=="Mean"){leg <- "500hPa Geopotential height (m)"}
+    if(type=="Trend"){leg <- "500hPa Geopotential height Trend (m/10year)"}
+    if(type=="Diff"){leg <- "500hPa Geopotential height Difference (m)"}
+  }
+  
+  if(var=="slp"){
+    if(type=="Mean"){leg <- "Sea level pressure (hPa)"}
+    if(type=="Trend"){leg <- "Sea level pressure Trend (hPa/10year)"}
+    if(type=="Diff"){leg <- "Sea level pressure Difference (hPa)"}
   }
   
   if(var=="tcw"){
@@ -3300,15 +3341,21 @@ get.param.map <- function(field,var="vv700",type=c("Mean","Trend")){
   }
   
   if(substr(var,1,2)=="vv"){
-  leg <- ifelse(type=="Mean",paste0("Vertical velocity ",substr(var,3,5)," hPa (Pa/s)"),paste0("Vertical velocity ",substr(var,3,5)," hPa Trend (Pa/s/10year)"))
-  }
+    if(type=="Mean"){leg <- paste0("Vertical velocity ",substr(var,3,5)," hPa (Pa/s)")}
+    if(type=="Trend"){leg <- paste0("Vertical velocity ",substr(var,3,5)," hPa Trend (Pa/s/10year)")}
+    if(type=="Diff"){leg <- paste0("Vertical velocity ",substr(var,3,5)," hPa Difference (Pa/s)")}
+ }
   
   if(substr(var,1,3)=="sph"){
-    leg <- ifelse(type=="Mean",paste0("Specific Humidity ",substr(var,4,6)," hPa (g/kg)"),paste0("Specific Humidity ",substr(var,4,6)," hPa Trend (g/kg/10year)"))
-  }
+    if(type=="Mean"){leg <- paste0("Specific Humidity ",substr(var,4,6)," hPa (g/kg)")}
+    if(type=="Trend"){leg <- paste0("Specific Humidity ",substr(var,4,6)," hPa Trend (g/kg/10year)")}
+    if(type=="Diff"){leg <- paste0("Specific Humidity ",substr(var,4,6)," hPa Difference (g/kg)")}
+    }
   
   if(substr(var,1,1)=="t"){
-    leg <- ifelse(type=="Mean",paste0("Temperature ",substr(var,2,4)," hPa (°C)"),paste0("Temperature ",substr(var,2,4)," hPa Trend (°C/10year)"))
+    if(type=="Mean"){leg <- paste0("Temperature ",substr(var,2,4)," hPa (°C)")}
+    if(type=="Trend"){leg <- paste0("Temperature ",substr(var,2,4)," hPa Trend (°C/10year)")}
+    if(type=="Diff"){leg <- paste0("Temperature ",substr(var,2,4)," hPa Difference (°C)")}
   }
   
   if(substr(var,1,2)=="rh"){
@@ -3357,6 +3404,7 @@ get.precip<-function(nbdays,start="1950-01-01",end="2011-12-31",bv="Isere",spazm
     end.date <- "2017-12-31"
   }else{
     dir <- "2_Travail/Data/Precip/TPS/72_stations/"
+    cum <- "cum"
     start.date <- "1950-01-01"
     end.date <- "2019-12-31"}
   
@@ -3908,7 +3956,7 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
       nc <-nc_open("2_Travail/Data/Reanalysis/20CR/WIND/20Crv2c_EnsembleMean_VWIND_500_1851-2014_daily.nc")
     }
     
-    if(substr(rean,1,4) == "20CR"){
+    if(substr(rean,1,4) == "20CR" & var != "hgt"){
       if(substr(var,1,1) == "t"){nam <- "T"}
       if(substr(var,1,1) == "z"){nam <- "Z"}
       if(substr(rean,7,7)=="0"){part1 <- "moyen";part2 <- "mean"}
@@ -3976,16 +4024,30 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
       nc$var[[2]]$name <- var
     }
     
-    if(rean == "ERA5" & var == "uwind"){
-      nc <-nc_open("2_Travail/Data/Reanalysis/ERA5/WIND/ERA5_UWIND_1950_2019_daily.nc")
-      names(nc$dim) <- c("lon","lat","time","bnds")
+    if(rean == "ERA5" & substr(var,1,5) == "uwind"){
+      if(substr(var,6,8)=="500"){
+        nc <-nc_open("2_Travail/Data/Reanalysis/ERA5/WIND/ERA5_UWIND_1950_2019_daily.nc")
+        names(nc$dim) <- c("lon","lat","time","bnds")
+        }
+      if(substr(var,6,8)=="850"){
+        nc <-nc_open("2_Travail/Data/Reanalysis/ERA5/WIND/ERA5_UWIND850_1950-01-01_28-02-2021_daily.nc")
+        nc$dim <- nc$dim[c(3,4,1,2)]
+        names(nc$dim) <- c("lon","lat","time","bnds")
+        }
       names(nc$var)[2] <- var
       nc$var[[2]]$name <- var
     }
     
-    if(rean == "ERA5" & var == "vwind"){
-      nc <-nc_open("2_Travail/Data/Reanalysis/ERA5/WIND/ERA5_VWIND_1950_2019_daily.nc")
-      names(nc$dim) <- c("lon","lat","time","bnds")
+    if(rean == "ERA5" & substr(var,1,5) == "vwind"){
+      if(substr(var,6,8)=="500"){
+        nc <-nc_open("2_Travail/Data/Reanalysis/ERA5/WIND/ERA5_VWIND_1950_2019_daily.nc")
+        names(nc$dim) <- c("lon","lat","time","bnds")
+      }
+      if(substr(var,6,8)=="850"){
+        nc <-nc_open("2_Travail/Data/Reanalysis/ERA5/WIND/ERA5_VWIND850_1950-01-01_28-02-2021_daily.nc")
+        nc$dim <- nc$dim[c(3,4,1,2)]
+        names(nc$dim) <- c("lon","lat","time","bnds")
+      }
       names(nc$var)[2] <- var
       nc$var[[2]]$name <- var
     }
@@ -4012,6 +4074,14 @@ load.nc<-function(rean = NULL,var="hgt",climat=NULL,run=1,ssp=NULL){
       nc <-nc_open(paste0("2_Travail/Data/Reanalysis/ERA5/RH/ERA5_RH",substr(var,3,5),"_1950_2021_daily.nc"))
       names(nc$var) <- var
       nc$var[[1]]$name <- var
+    }
+    
+    if(rean == "ERA5" & var == "slp"){
+      nc <-nc_open(paste0("2_Travail/Data/Reanalysis/ERA5/SLP/ERA5_SLP_1950-01-01_28-02-2021_daily.nc"))
+      nc$dim <- nc$dim[c(3,4,1,2)]
+      names(nc$dim) <- c("lon","lat","time","bnds")
+      names(nc$var)[2] <- var
+      nc$var[[2]]$name <- var
     }
     
     if(rean == "ERA5" & var == "thetawp"){
@@ -4360,13 +4430,11 @@ map.var <- function(date="1859-10-23",var="t850",rean="20CR-m1"){
   png(filename = paste0("2_Travail/0_Present/Rresults/map.var/map_",rean,"_",var,"_",date,".png"),width = 5,height = 5,units = "in",res=600)
   par(mar=c(1,1,3,1),pty="s")
   data(wrld_simpl)
-    
-  breaks <- seq(-30,30,length.out = 12)
-  N <- 11
-  lab <- seq(-30,30,10)
+  
+  param <- get.param.map(field = data$data,var = var,type = "Mean")
       
-  image.plot(data$lon,data$lat,data$data,xlim=c(-15,25),ylim=c(25,65),main=date,
-            col=rev(brewer.pal(n = N, name = "RdBu")),xaxt="n",yaxt="n",xlab="",ylab="",breaks = breaks,cex.main=2)
+  image.plot(data$lon,data$lat,data$data,xlim=c(-15,25),ylim=c(25,65),main=date,breaks=param$breaks,col=param$col,
+             xlab="Longitude (°)",ylab="Latitude (°)",legend.lab = param$leg,legend.line = 3,legend.mar = 12)
   plot(wrld_simpl, add = TRUE)
   box()
   graphics.off()

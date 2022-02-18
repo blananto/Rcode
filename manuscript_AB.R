@@ -42,10 +42,10 @@ combine.plot.trend.precip.gev.wp <- function(bv=c("Isere-seul","Drac-seul"),nbda
 }
 
 # Combinaison de plusieurs plot.trend.temp
-combine.plot.trend.temp <- function(bv=c("Isere-seul","Drac-seul"),nbdays=1,start="1950-01-01",end="2017-12-31",rain=F){
+combine.plot.trend.temp <- function(bv=c("Isere-seul","Drac-seul"),nbdays=1,wp="all",start="1950-01-01",end="2017-12-31",rain=F){
   
   # graphique
-  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.temp/plot_trend_temp_",ifelse(rain,"rain_",""),bv[1],"_",bv[2],"_",nbdays,"day_",start,"_",end,".png"),width = 10,height = 6,units = "in",res=600)
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.temp/plot_trend_temp_",ifelse(rain,"rain_",""),bv[1],"_",bv[2],"_wp",wp,"_",nbdays,"day_",start,"_",end,".png"),width = 10,height = 6,units = "in",res=600)
   layout(mat = matrix(data = c(rep(1,5),2:6,rep(7,5),8:12),nrow = 4,ncol = 5,byrow = T),widths = c(0.1,1,1,1,1),heights = c(0.1,1,0.1,1))
   
   for(i in 1:length(bv)){
@@ -61,11 +61,36 @@ combine.plot.trend.temp <- function(bv=c("Isere-seul","Drac-seul"),nbdays=1,star
     
     # Plot
     par(mar=c(3,2,2,0))
-    plot.trend.temp(bv = bv[i],nbdays = nbdays,start = start,end = end,leg = ifelse(i==1,T,F),rain = rain)
+    plot.trend.temp(bv = bv[i],nbdays = nbdays,wp = wp,start = start,end = end,leg = ifelse(i==1,T,F),rain = rain)
   }
   graphics.off()
 }
 
+# Combinaison de plusieurs plot.trend.temp.wp
+combine.plot.trend.temp.wp <- function(wp=c(1,2),bv=c("Isere-seul","Drac-seul"),nbdays=1,start="1950-01-01",end="2017-12-31"){
+  
+  # graphique
+  png(filename = paste0("2_Travail/1_Past/Rresults/plot.trend.temp.wp/plot_trend_temp_wp",bv[1],"_",bv[2],"_wp",paste(wp,collapse="_wp"),"_",nbdays,"day_",start,"_",end,".png"),width = 10,height = 6,units = "in",res=600)
+  layout(mat = matrix(data = c(rep(1,5),2:6,rep(7,5),8:12),nrow = 4,ncol = 5,byrow = T),widths = c(0.1,1,1,1,1),heights = c(0.1,1,0.1,1))
+  
+  for(i in 1:length(bv)){
+    
+    # Titre
+    par(mar=c(0,0,0,0))
+    plot(1,1,type="n",bty="n",xaxt="n",yaxt="n")
+    text(1,1,nam2str(bv[i]),font=2,cex=2.5)
+    
+    # Axe
+    plot(1,1,type="n",xaxt="n",yaxt="n",xlab="",ylab="",bty="n",ylim=c(0,1))
+    text(1,0.5,"Temperature (°C)",srt=90,cex=1.3)
+    
+    # Plot
+    par(mar=c(3,2,2,0))
+    plot.trend.temp.wp(bv = bv[i],nbdays = nbdays,wp = wp,start = start,end = end,leg = ifelse(i==1,T,F))
+  }
+  graphics.off()
+}
+  
 # Comparaison de MPD a la distance des centres d'action
 compare.dP.dist <-  function(k,rean,nbdays,start="1950-01-01",end="2017-12-31"){
   
@@ -272,6 +297,87 @@ image.france <- function(){
   graphics.off()
 }
 
+# Champs composite d'une variable sur deux periodes et difference, pour un wp et une saison
+map.abs.diff.var.wp <- function(var="t850",wp=1,sais="winter",rean="ERA5",start="1950-01-01",end="2017-12-31",extr=F,bv=NULL,extr.wp=T,wet=F){
+  
+  k <- 1
+  dates <- getdates(start,end)
+  
+  # Import des donnees
+  print("Import")
+  data <- getdata(k = k,day0 = start,day1 = end,rean = rean,climat = NULL,run = 1,large_win = F,small_win = F,all = T,ssp = NULL,var = var,return.lonlat = T)
+  lon <- data$lon;lat <- data$lat;data <- data$data
+  if(substr(var,1,3)=="sph") data <- data*1000 # passage en g/kg
+  if(var=="slp") data <- data/100 # passage en hPa
+  gc()
+  
+  # Periode
+  sep <- as.Date(median(as.numeric(as.Date(dates))))
+  period1 <- paste0(substr(start,1,4),"-",substr(sep-10,1,4))
+  period2 <- paste0(substr(sep+10,1,4),"-",substr(end,1,4))
+  per <- rep(1,length(dates))
+  per[as.Date(dates)>=sep] <- 2
+  
+  # WP et saison
+  tt <- get.wp(nbdays = 1,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+  ind <- get.ind.season.past(sais = sais,start = start,end = end,nbdays = 1)
+  
+  # Traitement
+  print("Traitement")
+  if(!extr & !wet){
+    pos.per1 <- intersect(ind,which(per==1 & tt==wp))
+    pos.per2 <- intersect(ind,which(per==2 & tt==wp))
+  }
+  if(extr){
+    ind.max <- get.ind.max.sais(sais = sais,wp = ifelse(extr.wp,wp,"all"),nbdays = 1,start = start,end = end,bv = bv,spazm = T)
+    pos.per1 <- intersect(ind.max,which(per==1))
+    pos.per2 <- intersect(ind.max,which(per==2))
+  }
+  if(wet){
+    ind.wet <- get.ind.precip.sais(sais = sais,wp = wp,nbdays = 1,start = start,end = end,bv = bv,spazm = T,rain = F)
+    pos.per1 <- intersect(ind.wet,which(per==1))
+    pos.per2 <- intersect(ind.wet,which(per==2))
+  }
+  
+  data.per1 <- data[,,pos.per1]
+  data.per2 <- data[,,pos.per2]
+  mean.per1 <- apply(data.per1,1:2,mean)
+  mean.per2 <- apply(data.per2,1:2,mean)
+  diff.per <- mean.per2 - mean.per1
+  
+  # Cartes
+  print("Cartes")
+  data(wrld_simpl)
+  
+  png(filename = paste0(get.dirstr(k,rean,"past"),"map.abs.diff.var.wp/map_abs_diff_",var,ifelse(k==2,"1000",""),"_",sais,"_wp",wp,ifelse(extr,paste0("_extr_",bv,ifelse(!extr.wp,"_wpall","")),""),ifelse(wet,"_wet",""),".png"),width = 18,height = 5.5,units = "in",res=600)
+  par(mfrow=c(1,3),mar=c(0,0,3,10),pty="s")
+  
+  # Periode 1
+  param <- get.param.map(ran = range(mean.per1,mean.per2),var = var,type = "Mean")
+  image.plot(lon,lat,mean.per1,xlim=c(-15,25),ylim=c(25,65),main=period1,
+        col=param$col,xaxt="n",yaxt="n",xlab="",ylab="",breaks = param$breaks,
+        legend.lab = param$leg,legend.line =-3,legend.mar = 10,legend.cex=1.5,cex.main=3,legend.width=2,axis.args=list(cex.axis=2))
+  plot(wrld_simpl, add = TRUE)
+  box()
+  
+  # Periode 2
+  image.plot(lon,lat,mean.per2,xlim=c(-15,25),ylim=c(25,65),main=period2,
+             col=param$col,xaxt="n",yaxt="n",xlab="",ylab="",breaks = param$breaks,
+             legend.lab = param$leg,legend.line =-3,legend.mar = 10,legend.cex=1.5,cex.main=3,legend.width=2,axis.args=list(cex.axis=2))
+  plot(wrld_simpl, add = TRUE)
+  box()
+  
+  # Difference
+  param <- get.param.map(ran = range(diff.per),var = var,type = "Diff")
+  image.plot(lon,lat,diff.per,xlim=c(-15,25),ylim=c(25,65),main=paste0(period2," minus ",period1),
+             col=param$col,xaxt="n",yaxt="n",xlab="",ylab="",breaks = param$breaks,
+             legend.lab = param$leg,legend.line =-3,legend.mar = 10,legend.cex=1.5,cex.main=3,legend.width=2,axis.args=list(cex.axis=2))
+  plot(wrld_simpl, add = TRUE)
+  box()
+  
+  graphics.off()
+}
+
 # Carte de geopotentiel 500hPa pour une journée avec min et max pour explication MPD
 map.geo.dP <- function(date="1963-03-09",rean="ERA5"){
   
@@ -404,10 +510,33 @@ plot.descr.flood <- function(sais="winter",nbdays=1,rean="20CR-m1",start = "1851
   boxplot(des,ylim=c(0,100),col=colo[sais==season],main=main,ylab="Percentile of descriptor value (%)")
   grid();par(new=T)
   boxplot(des,ylim=c(0,100),col=colo[sais==season],main=main,ylab="Percentile of descriptor value (%)")
+  
+  # Ajout crues
   if(sais=="autumn"){
     pos <- which(substr(flood.sais,1,6)=="1859-1")
-    points(1:4,des[pos,],pch=19,cex=2)
+    text(1:4,des[pos,],"2",font=2,col="red")
+    pos <- which(substr(flood.sais,1,6)=="1928-1")
+    text(1:4,des[pos,],"3",font=2,col="red")
+    #pos <- which(substr(flood.sais,1,7)=="1968-09")
+    #text(1:4,des[pos,],"3",font=2,col="red")
   }
+  if(sais=="spring"){
+    pos <- which(substr(flood.sais,1,7)=="1856-05")
+    text(1:4,des[pos,],"1",font=2,col="red")
+    pos <- which(substr(flood.sais,1,7)=="2001-03")
+    text(1:4,des[pos,],"4",font=2,col="darkblue")
+    pos <- which(substr(flood.sais,1,7)=="2008-05")
+    text(1:4,des[pos,],"5",font=2,col="darkblue")
+    pos <- which(substr(flood.sais,1,7)=="2010-05")
+    text(1:4,des[pos,],"6",font=2,col="darkblue")
+    
+  }
+  #if(sais=="summer"){
+  #  pos <- which(substr(flood.sais,1,9)=="1914-07-2")
+  #  text(1:4,des[pos,],"8",font=2)
+  #  pos <- which(substr(flood.sais,1,7)=="1955-06")
+  #  text(1:4,des[pos,],"9",font=2)
+  #}
 }
 
 # Trace differentes caracteristiques des crues de riviere de la BD RTM-IGE
@@ -688,15 +817,17 @@ plot.trend.precip.gev.wp <- function(bv="Isere-seul",nbdays=1,spazm=T,start="195
   }
 }
 
-# Graphique d'evolution de la temperature saisonniere et aux dates des max
-plot.trend.temp <- function(bv="Isere-seul",nbdays=1,start="1950-01-01",end="2017-12-31",leg=T,rain=F){
+# Graphique d'evolution de la temperature saisonniere et aux dates des max, par wp
+plot.trend.temp <- function(bv="Isere-seul",nbdays=1,wp="all",start="1950-01-01",end="2017-12-31",leg=T,rain=F){
   
   dates <- getdates(start,end)
   ann <- as.numeric(unique(substr(dates,1,4)))
   
-  # Import
+  # Imports
   temp <- get.temp(nbdays = nbdays,start = start,end = end,bv = bv)
   temp.qua <- ecdf(temp)(temp)
+  tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+  if(wp!="all"){temp[tt!=wp] <- NA}
   
   # Traitement et graphique
   season <- c("winter","spring","summer","autumn")
@@ -712,7 +843,7 @@ plot.trend.temp <- function(bv="Isere-seul",nbdays=1,start="1950-01-01",end="201
     if(season[i]=="winter"){vec.i <- c(NA,vec.i)}
     
     # Dates des max de precip
-    pos.max.i <- get.ind.max.sais(sais = season[i],wp = "all",nbdays = nbdays,start = start,end = end,bv = bv,spazm = T,rain = rain)
+    pos.max.i <- get.ind.max.sais(sais = season[i],wp = wp,nbdays = nbdays,start = start,end = end,bv = bv,spazm = T,rain = rain)
     if(season[i]=="winter"){pos.max.i <- c(NA,pos.max.i)}
     #print(temp.qua[pos.max.i])
     #print(temp[pos.max.i])
@@ -726,5 +857,62 @@ plot.trend.temp <- function(bv="Isere-seul",nbdays=1,start="1950-01-01",end="201
     lines(ann,temp[pos.max.i],col="red")
     abline(lm(temp[pos.max.i]~as.numeric(ann)),col="red")
     if(i==1 & leg){legend("bottomright",c("Mean",ifelse(rain,"Max Rain","Max Precip")),lty=c(1,1),lwd=2,col=c("black","red"),bty="n")}
+  }
+}
+
+# Graphique d'evolution de la temperature saisonniere pour differents wp
+plot.trend.temp.wp <- function(wp=c(1,2),bv="Isere-seul",nbdays=1,start="1950-01-01",end="2017-12-31",leg=T){
+  
+  dates <- getdates(start,end)
+  ann <- as.numeric(unique(substr(dates,1,4)))
+  
+  # Imports
+  temp <- get.temp(nbdays = nbdays,start = start,end = end,bv = bv)
+  tt <- get.wp(nbdays = nbdays,start = start,end = end,risk = F,bv = "Isere",agreg = T,spazm = T)
+  
+  # Traitement et graphique
+  season <- c("winter","spring","summer","autumn")
+  vec.sais <- vector(mode="list",length = length(season))
+  wp.all <- c(1,2,5,8)
+  wp.name <- c("Atlantic","Mediterranean","Northeast","Anticyclonic")
+  colo <- c("blue","red","darkgreen","dimgrey")
+  
+  for(i in 1:length(season)){ # 2 boucles j (1 traitement, 1 graphique) pour avoir le range des valeurs pour ylim du plot
+    
+    # Moyennes saisonnieres
+    pos.i <- get.ind.season(sais = season[i],start = start,end = end)
+    tmp <- temp[pos.i$pos.season]
+    tmp[pos.i$pos.NA] <- NA
+    dim(tmp) <- c(pos.i$l.season,pos.i$n.season)
+    vec.i <- apply(tmp,2,mean,na.rm=T)
+    if(season[i]=="winter"){vec.i <- c(NA,vec.i)}
+    
+    vec.sais[[i]][[1]] <- vec.i
+    
+    # Moyennes saisonnieres par WP
+    for(j in 1:length(wp)){
+      temp.j <- temp
+      temp.j[tt!=wp[j]] <- NA
+      
+      tmp <- temp.j[pos.i$pos.season]
+      tmp[pos.i$pos.NA] <- NA
+      dim(tmp) <- c(pos.i$l.season,pos.i$n.season)
+      vec.i <- apply(tmp,2,mean,na.rm=T)
+      if(season[i]=="winter"){vec.i <- c(NA,vec.i)}
+      vec.sais[[i]][[j+1]] <- vec.i
+    }
+    
+    # Graphique
+    plot(ann,vec.sais[[i]][[1]],type="l",xlab="",ylab="Temperature (°C)",main=nam2str(season[i]),ylim=range(unlist(vec.sais[[i]]),na.rm = T))
+    grid();par(new=T)
+    plot(ann,vec.sais[[i]][[1]],type="l",xlab="",ylab="Temperature (°C)",main=nam2str(season[i]),ylim=range(unlist(vec.sais[[i]]),na.rm = T))
+    abline(lm(vec.sais[[i]][[1]]~as.numeric(ann)),lwd=2)
+    
+    # Boucle autres WP
+    for(j in 1:length(wp)){
+      lines(ann,vec.sais[[i]][[j+1]],col=colo[wp.all==wp[j]])
+      abline(lm(vec.sais[[i]][[j+1]]~as.numeric(ann)),col=colo[wp.all==wp[j]],lwd=2)
+    }
+    if(i==1 & leg){legend("bottom",c("All",wp.name[match(wp,wp.all)]),lty=1,lwd=2,col=c("black",colo[match(wp,wp.all)]),bty="n")}
   }
 }

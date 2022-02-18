@@ -367,6 +367,7 @@ map.trend.var.extr <- function(var="vv700",sais="winter",bv="Isere",wp=1,rean="E
   tmp <- getdata(k = 1,day0 = start,day1 = end,rean = rean,lim.lon = xlim,lim.lat = ylim,var = var,return.lonlat = T)
   data <- tmp$data;lon <- tmp$lon;lat <- tmp$lat;rm(tmp)
   if(substr(var,1,3)=="sph") data <- data*1000 # passage en g/kg
+  if(var=="slp") data <- data/100 # passage en hPa
   gc()
   
   # Dates precip extremes
@@ -379,11 +380,12 @@ map.trend.var.extr <- function(var="vv700",sais="winter",bv="Isere",wp=1,rean="E
   
   # Carte moyenne et tendance
   png(filename = paste0("2_Travail/1_Past/",rean,"/map.trend.var.extr/map_extr_",var,"_",sais,"_wp",wp,"_",bv,"_",start,"_",end,"_",reg,".png"),width = ifelse(reg!="small",14,12),height = 6,units = "in",res=600)
-  par(mfrow=c(1,2),mar=c(4,4,2,4))
+  par(mfrow=c(1,2),mar=c(0,0,3,10))
   
-  param <- get.param.map(field = data.moy,var = var,type = "Mean")
-  image.plot(lon,lat,data.moy,xlim=xlim,ylim=ylim,breaks=param$breaks,col=param$col,
-             xlab="Longitude (°)",ylab="Latitude (°)",main=param$main,legend.lab = param$leg,legend.line = 3,legend.mar = 12)
+  param <- get.param.map(ran = range(data.moy),var = var,type = "Mean")
+  image.plot(lon,lat,data.moy,xlim=xlim,ylim=ylim,breaks=param$breaks,col=param$col,xaxt="n",yaxt="n",xlab="",ylab="",
+             main=paste0(var," ",param$main),legend.lab = param$leg,legend.line =-3,legend.mar = 10,legend.cex=1.5,cex.main=3,legend.width=2,axis.args=list(cex.axis=2))
+  box()
   points(x = 5.73,y = 45.18,pch=19,cex=1.5)
   if(reg!="small"){
     data("wrld_simpl")
@@ -397,9 +399,10 @@ map.trend.var.extr <- function(var="vv700",sais="winter",bv="Isere",wp=1,rean="E
     }
   }
   
-  param <- get.param.map(field = data.trend,var = var,type = "Trend")
-  image.plot(lon,lat,data.trend,xlim=xlim,ylim=ylim,breaks=param$breaks,col=param$col,
-             xlab="Longitude (°)",ylab="Latitude (°)",main=param$main,legend.lab = param$leg,legend.line = 3,legend.mar = 12)
+  param <- get.param.map(ran = range(data.trend),var = var,type = "Trend")
+  image.plot(lon,lat,data.trend,xlim=xlim,ylim=ylim,breaks=param$breaks,col=param$col,xaxt="n",yaxt="n",xlab="",ylab="",
+             main=paste0(var," ",param$main),legend.lab = param$leg,legend.line =-3,legend.mar = 10,legend.cex=1.5,cex.main=3,legend.width=2,axis.args=list(cex.axis=2))
+  box()
   points(x = 5.73,y = 45.18,pch=19,cex=1.5)
   if(reg!="small"){
     data("wrld_simpl")

@@ -786,11 +786,11 @@ compute_criteria_past_par <-function(k,dist,rean,start="1851-01-01",end="2010-12
 }
 
 # Calcule la direction du vent sur un point de grille (ici Prapoutel)
-compute.angle.wind <- function(lon=6,lat=45.25,k=1,rean="ERA5",start="1950-01-01",end="2017-12-31"){
+compute.angle.wind <- function(lon=6,lat=45.25,lev="500",rean="ERA5",start="1950-01-01",end="2017-12-31"){
   
   # Import
-  uwind <- getdata(k = k,day0 = start,day1 = end,rean = rean,climat = NULL,run = 1,large_win = F,small_win = F,all = F,ssp = NULL,pt.lon = lon,pt.lat = lat,return.lonlat = F,var = "uwind")
-  vwind <- getdata(k = k,day0 = start,day1 = end,rean = rean,climat = NULL,run = 1,large_win = F,small_win = F,all = F,ssp = NULL,pt.lon = lon,pt.lat = lat,return.lonlat = F,var = "vwind")
+  uwind <- getdata(k = 1,day0 = start,day1 = end,rean = rean,climat = NULL,run = 1,large_win = F,small_win = F,all = F,ssp = NULL,pt.lon = lon,pt.lat = lat,return.lonlat = F,var = paste0("uwind",lev))
+  vwind <- getdata(k = 1,day0 = start,day1 = end,rean = rean,climat = NULL,run = 1,large_win = F,small_win = F,all = F,ssp = NULL,pt.lon = lon,pt.lat = lat,return.lonlat = F,var = paste0("vwind",lev))
   
   # Angle
   phi <- atan(vwind/uwind) # en radians
@@ -800,7 +800,7 @@ compute.angle.wind <- function(lon=6,lat=45.25,k=1,rean="ERA5",start="1950-01-01
   range(phi)
   
   # Export
-  save(phi,file = paste0(get.dirstr(k = k,rean = rean,period = "past"),"compute.angle.wind/angle_wind_k",k,"_lon_",lon,"_lat_",lat,"_",start,"_",end,".Rdata"))
+  save(phi,file = paste0(get.dirstr(k = k,rean = rean,period = "past"),"compute.angle.wind/angle_wind_",lev,"hPa_lon_",lon,"_lat_",lat,"_",start,"_",end,".Rdata"))
 }
 
 # Calcul densite de points dans un plan
@@ -1552,12 +1552,12 @@ map.diff.rean <- function(k,rean=c("20CR-m1","ERA20C_regrid_20CR"),start="1900-0
 }
 
 # Graphique des directions de vent pour deux sous periodes
-plot.angle.wind <- function(wp="all",nbdays=1,lon=6,lat=45.25,k=1,rean="ERA5",start="1950-01-01",end="2017-12-31",extr=F,bv="Isere-seul"){
+plot.angle.wind <- function(wp="all",nbdays=1,lon=6,lat=45.25,lev="500",rean="ERA5",start="1950-01-01",end="2017-12-31",extr=F,bv="Isere-seul"){
   
   dates <- getdates(start,as.character(as.Date(end)-nbdays+1))
   
   # Import
-  load(paste0(get.dirstr(k = k,rean = rean,period = "past"),"compute.angle.wind/angle_wind_k",k,"_lon_",lon,"_lat_",lat,"_",start,"_",end,".Rdata"))
+  load(paste0(get.dirstr(k = k,rean = rean,period = "past"),"compute.angle.wind/angle_wind_",lev,"hPa_lon_",lon,"_lat_",lat,"_",start,"_",end,".Rdata"))
   
   if(nbdays>1){ # petite manip pour avoir des moyennes coherentes (5° et 355° ne donnent pas 180° mais 0°)
   phi.tab <- matrix(data = NA,nrow = length(dates),ncol = nbdays)
@@ -1591,7 +1591,7 @@ plot.angle.wind <- function(wp="all",nbdays=1,lon=6,lat=45.25,k=1,rean="ERA5",st
   season <- c("winter","spring","summer","autumn")
   colo <- c(brewer.pal(n = 11, name = "RdBu")[9],brewer.pal(n = 11, name = "RdBu")[3])
   
-  png(filename = paste0(get.dirstr(k = k,rean = rean,period = "past"),"plot.angle.wind/angle_wind_k",k,"_lon_",lon,"_lat_",lat,"_wp",wp,"_",nbdays,"day_",ifelse(extr,paste0("max_sais_",bv,"_"),""),start,"_",end,".png"),width = 6,height = 5,units = "in",res = 600)
+  png(filename = paste0(get.dirstr(k = k,rean = rean,period = "past"),"plot.angle.wind/angle_wind_",lev,"hPa_lon_",lon,"_lat_",lat,"_wp",wp,"_",nbdays,"day_",ifelse(extr,paste0("max_sais_",bv,"_"),""),start,"_",end,".png"),width = 6,height = 5,units = "in",res = 600)
   par(mfrow=c(2,2),mar=c(0,0,2,1))
   
   for(i in 1:length(season)){
@@ -1600,7 +1600,7 @@ plot.angle.wind <- function(wp="all",nbdays=1,lon=6,lat=45.25,k=1,rean="ERA5",st
     ind.sea <- get.ind.season.past(sais = season[i],start = start,end = end,nbdays = nbdays)
     ind.sea.wp <- intersect(ind.sea,ind.wp)
     if(extr){
-      ind.extr <- get.ind.max.sais(sais = season[i],wp = wp,nbdays = nbdays,start = start,end = end,bv = bv)
+      ind.extr <- get.ind.max.sais(sais = season[i],wp = wp,nbdays = nbdays,start = start,end = end,bv = bv,spazm = T)
       ind.sea.wp <- intersect(ind.sea.wp,ind.extr)
     }
     
@@ -1609,14 +1609,14 @@ plot.angle.wind <- function(wp="all",nbdays=1,lon=6,lat=45.25,k=1,rean="ERA5",st
     count.per2 <- table(phi.cla[intersect(ind.per2,ind.sea.wp)])
     data[3,as.numeric(names(count.per1))] <- count.per1
     data[4,as.numeric(names(count.per2))] <- count.per2
-    data[1,] <- rep(max(data,ncol(data)))
+    data[1,] <- rep(max(data),ncol(data))
     data[2,] <- rep(0,ncol(data))
     rownames(data)[3:4] <- c(period1,period2)
     colnames(data) <- classes
     data <- cbind(data[,-(1:3)],data[,1:3]) # manip pour avoir rose des sables dans le bon sens
     
     radarchart(df = data,pcol = colo,pfcol=alpha(colo,0.3),plwd=3,plty=1,
-               cglty=1, cglcol="grey", cglwd=0.8,title=nam2str(season[i]))
+               cglty=1, cglcol="grey", cglwd=0.8,title=paste0(nam2str(season[i])," (max chart = ",max(data),")"))
     legend(x=0.7, y=1.4, legend = rownames(data[-c(1,2),]), bty = "n", pch=20 , col=colo, cex=0.8, pt.cex=2)
   }
   graphics.off()
@@ -3435,6 +3435,25 @@ run.article2 <- function(type=1){
           plot.descr.rain.norain(bv = bv[i],wp = wp[k],sais = sais[j],k = 1,dist = "TWS",nbdays = 1,
                                  rean = "ERA5",spazm = T,start = "1950-01-01",end = "2017-12-31",
                                  start.ana = "1950-01-01",end.ana = "2010-12-31")
+        }
+      }
+    }
+  }
+  
+  if(type==12){
+    bv <- c("Isere-seul","Drac-seul")
+    wp <- c("all",1,2)
+    lev <- c("500","850")
+    nbdays <- 3
+    
+    for(i in 1:length(bv)){
+      print(bv[i])
+      for(j in 1:length(wp)){
+        print(wp[j])
+        for(l in 1:length(lev)){
+          print(lev[l])
+          plot.angle.wind(wp = wp[j],nbdays = nbdays,lev = lev[l],extr = F)
+          plot.angle.wind(wp = wp[j],nbdays = nbdays,lev = lev[l],extr = T,bv = bv[i])
         }
       }
     }
